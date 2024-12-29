@@ -1,0 +1,5 @@
+*.out
+*.asm
+*.png
+dump
+*.txt
