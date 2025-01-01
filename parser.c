@@ -1,8 +1,8 @@
 /*
  * MAJOR        := (OP';')+
  * OPERATOR     := IF';' | A';'
- * IF           := '('E')' A';'
- * ASSIGNMENT   := ID '=' E
+ * FUNCTION     := def ID(ID+) '{' OPERATOR '}';
+ * IF           := '('E')' A';' | FUNC';'
  * ID           := [a-Z]+
  * EXPRESSION   := TERM ([+-] TERM)*
  * TERM         := FACT ([*\] FACT)*
@@ -29,7 +29,7 @@
 #include "parser.h"
 #include "nametable.h"
 
-#define DEBUG
+// #define DEBUG
 
 #define SYNTAX_ERROR(exp, real)                     \
     {                                               \
@@ -75,8 +75,19 @@ static Field NameTable[] =
     {.type = FUNC,      .value = CTH},
     {.type = FUNC,      .value = LN},
     {.type = FUNC,      .value = LOG},
+    {.type = FUNC,      .value = PRINT},
+    {.type = FUNC,      .value = SQRT},
+    {.type = FUNC,      .value = INPUT},
+
     {.type = OPER,      .value = IF},
-    {.type = OPER,      .value = WHILE}
+    {.type = OPER,      .value = WHILE},
+    {.type = OPER,      .value = MORE},
+    {.type = OPER,      .value = LESS},
+    {.type = OPER,      .value = MORE_E},
+    {.type = OPER,      .value = LESS_E},
+    {.type = OPER,      .value = EQUAL},
+    {.type = OPER,      .value = N_EQUAL},
+    {.type = OPER,      .value = DEF},
 };
 
 
@@ -86,9 +97,9 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out);
 Node * _insert_tree(Tree * t, Node ** root, const void * pair);
 void _destroy_tree(Tree * t, Node * n);
 
-const char * enum_to_name(int name);
+const char * _enum_to_name(int name);
 
-int SyntaxError(char exp, char real, const char * func, int line);
+void SyntaxError(char exp, char real, const char * func, int line);
 Node ** StringTokenize(const char * string, int * p);
 
 Node * GetMajor(Node ** nodes, int * p);
@@ -97,12 +108,14 @@ Node * GetAssignment(Node ** nodes, int * p);
 Node * GetExpression(Node ** nodes, int * p);
 Node * GetTerm(Node ** nodes, int * p);
 Node * GetPow(Node ** nodes, int * p);
+Node * GetCompare(Node ** nodes, int * p);
 Node * GetBracket(Node ** nodes, int * p);
 Node * GetFunc(Node ** nodes, int * p);
 Node * GetNumber(Node ** nodes, int * p);
 Node * GetID(Node ** nodes, int * p);
 Node * GetIf(Node ** nodes, int * p);
 Node * GetWhile(Node ** nodes, int * p);
+Node * GetGroup(Node ** nodes, int * p);
 
 Node * _copy_branch(Node * node);
 Node * _copy_node(Node * node);
@@ -115,6 +128,22 @@ field_t NodeValue(Node * node);
 enum types NodeType(Node * node);
 char * NodeName(Node * node);
 
+Name * CreateVarTable(Node * root);
+int _var_table(Node * root, Name * names);
+int GetVarAdr(Node * root, Name * names);
+const char * GetVarName(Node * root);
+
+Node * _get_token(const char * string, int * p);
+Node * _sep_token(const char * string, int * p);
+Node * _number_token(const char * string, int * p);
+Node * _name_token(const char * string, int * p);
+Node * _oper_token(const char * string, int * p);
+Node * _find_name(char * result);
+
+int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
+
+static int if_cond = 0;
+static int while_cond = 0;
 static int IF_C = 0;
 static int WHILE_C = 0;
 static int ADR_C = 0;
@@ -137,9 +166,9 @@ static int tree_create_node(Tree * t, Node ** node, const void * pair)
     }
 
     if (t->cmp(pair, (*node)->value) > 0)
-        return _create_node(t, &(*node)->right, pair);
+        return tree_create_node(t, &(*node)->right, pair);
     else
-        return _create_node(t, &(*node)->left, pair);
+        return tree_create_node(t, &(*node)->left, pair);
 
     (*node)->left = (*node)->right = NULL;
 
@@ -148,7 +177,7 @@ static int tree_create_node(Tree * t, Node ** node, const void * pair)
 
 int CreateNode(Tree * t, const void * pair)
 {
-    return _create_node(t, &t->root, pair);
+    return tree_create_node(t, &t->root, pair);
 }
 
 Node * _insert_tree(Tree * t, Node ** root, const void * pair)
@@ -187,7 +216,7 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
     switch (((Field*)(*node)->value)->type)
     {
         case OPER:  fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                    *node, enum_to_name((int) field), *node, color);
+                    *node, _enum_to_name((int) field), *node, color);
                     break;
 
         case VAR:   fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
@@ -195,11 +224,11 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
                     break;
 
         case NUM:   fprintf(Out, "node%p [shape = Mrecord; label = \"{%lg | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                    *node, *node, field, color);
+                    *node, NodeValue(*node), *node, color);
                     break;
 
         case FUNC:  fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                    *node, enum_to_name((int) field), *node, color);
+                    *node, _enum_to_name((int) field), *node, color);
                     break;
 
         case SEP_SYMB:  fprintf(Out, "node%p [shape = Mrecord; label = \"{%c}\"; style = filled; fillcolor = \"#%06X\"];\n",
@@ -419,9 +448,9 @@ Node * _copy_branch(Node * node)
 
 #define SKIPSPACE while(isspace(string[*p])) (*p)++;
 
-int SyntaxError(char exp, char real, const char * func, int line)
+void SyntaxError(char exp, char real, const char * func, int line)
 {
-    fprintf(stderr, ">>> SyntaxError %s %d: <expected %c> <got %c>", func, line, exp, real);
+    fprintf(stderr, ">>> SyntaxError %s %d: <expected %c> <got %c (%lg)>", func, line, exp, (int) real, (field_t) real);
     assert(0);
 }
 
@@ -446,30 +475,72 @@ int _name_to_enum(char * name)
     if (strcmp(name, "log") == 0)       return LOG;
     if (strcmp(name, "if") == 0)        return IF;
     if (strcmp(name, "while") == 0)     return WHILE;
+    if (strcmp(name, "print") == 0)     return PRINT;
+    if (strcmp(name, "sqrt") == 0)      return SQRT;
+    if (strcmp(name, "def") == 0)       return DEF;
+    if (strcmp(name, "input") == 0)     return INPUT;
 
+
+    if (strcmp(name, "+") == 0)         return '+';
+    if (strcmp(name, "-") == 0)         return '-';
+    if (strcmp(name, "*") == 0)         return '*';
+    if (strcmp(name, "/") == 0)         return '/';
+    if (strcmp(name, "^") == 0)         return '^';
+    if (strcmp(name, "=") == 0)         return '=';
+    if (strcmp(name, "(") == 0)         return '(';
+    if (strcmp(name, ")") == 0)         return ')';
+    if (strcmp(name, "{") == 0)         return '{';
+    if (strcmp(name, "}") == 0)         return '}';
+
+    if (strcmp(name, ">") == 0)         return MORE;
+    if (strcmp(name, "<") == 0)         return LESS;
+    if (strcmp(name, ">=") == 0)        return MORE_E;
+    if (strcmp(name, ">=") == 0)        return MORE_E;
+    if (strcmp(name, "==") == 0)        return EQUAL;
+    if (strcmp(name, "!=") == 0)        return N_EQUAL;
+
+
+    PARSER("Can't find name %s", name);
     return -1;
 }
 
-const char * enum_to_name(int name)
+const char * _enum_to_name(int name)
 {
-    if (name == SIN) return "sin";
-    if (name == COS) return "cos";
-    if (name == SH)  return "sh";
-    if (name == CH) return "ch";
-    if (name == TG)  return "tg";
-    if (name == LOG) return "log";
-    if (name == CTG) return "ctg";
-    if (name == LN)  return "ln";
-    if (name == TH)     return "th";
-    if (name == CTH)    return "cth";
-    if (name == IF)     return "if";
-    if (name == WHILE)  return "while";
-    if (name == '+')    return "+";
-    if (name == '=')    return "=";
-    if (name == '/')    return "//";
-    if (name == '*')    return "*";
-    if (name == '^')    return "^";
-    if (name == '-')    return "-";
+
+    if (name == MORE)       return "more";
+    if (name == LESS)       return "less";
+    if (name == MORE_E)     return "more_e";
+    if (name == LESS_E)     return "less_e";
+    if (name == EQUAL)      return "equal";
+    if (name == N_EQUAL)    return "n_equal";
+    if (name == DEF)        return "def";
+
+    if (name == '+')        return "+";
+    if (name == '=')        return "=";
+    if (name == '/')        return "//";
+    if (name == '*')        return "*";
+    if (name == '^')        return "^";
+    if (name == '-')        return "-";
+    if (name == '(')        return "(";
+    if (name == ')')        return ")";
+    if (name == '{')        return "{";
+    if (name == '}')        return "}";
+
+    if (name == SIN)        return "sin";
+    if (name == COS)        return "cos";
+    if (name == SQRT)       return "sqrt";
+    if (name == SH)         return "sh";
+    if (name == CH)         return "ch";
+    if (name == TG)         return "tg";
+    if (name == LOG)        return "log";
+    if (name == CTG)        return "ctg";
+    if (name == LN)         return "ln";
+    if (name == TH)         return "th";
+    if (name == CTH)        return "cth";
+    if (name == IF)         return "if";
+    if (name == WHILE)      return "while";
+    if (name == PRINT)      return "print";
+    if (name == INPUT)      return "input";
 
     return "notfound";
 }
@@ -500,11 +571,29 @@ Node * _oper_token(const char * string, int * p)
 {
     SKIPSPACE
 
-    Field * field = _create_field((field_t)string[*p], OPER);
+    int start_p = *p;
+
+    while(string[*p] == '=' || string[*p] == '>' || string[*p] == '<' || string[*p] == '!' || string[*p] == '+' \
+            || string[*p] == '/' || string[*p] == '*' || string[*p] == '+' || string[*p] == '-'
+            || string[*p] == '(' || string[*p] == ')' || string[*p] == '{' || string[*p] == '}')
+    {
+        if (string[*p] == '(' || string[*p] == ')' || string[*p] == '{' || string[*p] == '}')
+        {
+            (*p)++;
+            break;
+        }
+        (*p)++;
+    }
+
+    char * oper = (char*) calloc((*p) - start_p + 1, 1);
+    memcpy(oper, &string[start_p], (*p) - start_p);
+    PARSER("oper = %s", oper);
+
+    Field * field = _create_field((field_t) _name_to_enum(oper), OPER);
     if  (!field) return NULL;
     Node * result = _create_node(field, NULL, NULL);
+
     if (!result) return NULL;
-    (*p)++;
     return result;
 }
 
@@ -528,7 +617,7 @@ Node * _number_token(const char * string, int * p)
 {
     SKIPSPACE
     char * end = NULL;
-    field_t number = strtod(&(string[*p]), &end);
+    field_t number = strtof(&(string[*p]), &end);
     if (!end) return NULL;
     (*p) += (int)(end - &string[*p]);
     Field * field = _create_field(number, NUM);
@@ -554,12 +643,18 @@ Node * _get_token(const char * string, int * p)
     SKIPSPACE
     if (string[*p] == '(' ||
         string[*p] == ')' ||
+        string[*p] == '{' ||
+        string[*p] == '}' ||
         string[*p] == '+' ||
         string[*p] == '-' ||
         string[*p] == '/' ||
         string[*p] == '*' ||
         string[*p] == '^' ||
-        string[*p] == '=')
+        string[*p] == '>' ||
+        string[*p] == '<' ||
+        (string[*p] == '!' && string[(*p) + 1] == '=') ||
+        (string[*p] == '=' && string[(*p) + 1] != '=') ||
+        (string[*p] == '=' && string[(*p) + 1] == '='))
         {PARSER("operator %c! ", string[*p]); return _oper_token(string, p);}
 
     if (string[*p] == ';') {PARSER("separator of line!"); return _sep_token(string, p);}
@@ -568,18 +663,20 @@ Node * _get_token(const char * string, int * p)
 
     if (isdigit(string[*p])) {PARSER("number %c! ", string[*p]); return _number_token(string, p);}
 
+    return NULL;
+
 }
 
 Node ** StringTokenize(const char * string, int * p)
 {
     SKIPSPACE
     int size = 0;
-    size_t arr_size = DEF_SIZE;
+    size_t arr_size = (size_t) DEF_SIZE;
     Node ** nodes = (Node**) calloc(arr_size, sizeof(Node*));
     while (string[*p] != 0)
     {
         *(nodes + size) = _get_token(string, p);
-        PARSER("got node %u %p with value %lg!\n", size+1, *(nodes + size), NodeValue(*(nodes + size)));
+        PARSER("got node %d %p with value %lg!\n", size+1, *(nodes + size), NodeValue(*(nodes + size)));
         size++;
     }
     return nodes;
@@ -591,12 +688,10 @@ Node * GetMajor(Node ** nodes, int * p)
     Node * result = NULL;
     Node * operation = NULL;
     Field * oper = NULL;
-    operation = GetOperator(nodes, p);
-    while (operation)
+    while (operation = GetOperator(nodes, p))
     {
         oper = _create_field(';', SEP_SYMB);
         result = _create_node(oper, result, operation);
-        operation = GetOperator(nodes, p);
     }
     PARSER("Got result!");
     if (!nodes[*p]) return result;
@@ -609,56 +704,111 @@ Node * GetOperator(Node ** nodes, int * p)
 {
     int old_p = (*p);
     if (!nodes[*p]) return NULL;
-    PARSER("Getting O... Got node %p", nodes[*p]);
+    PARSER("Getting O... Got node %p, p = %d", nodes[*p], *p);
     Node * val1 = NULL;
-    if (val1 = GetAssignment(nodes, p))
+    if ((val1 = GetAssignment(nodes, p)))
     {
         PARSER("Got Assignment...");
-        if ((int) NodeValue(nodes[*p]) == ';')
+        if ((char) NodeValue(nodes[*p]) == ';')
         {
             PARSER("Got ';'");
             (*p)++;
             return val1;
         }
-        SYNTAX_ERROR(';', (int) NodeValue(nodes[*p]));
+        if ((int) NodeValue(nodes[*p]) == -1) return val1;
+        SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
     }
+
     if ((val1 = GetIf(nodes, p)))
     {
-
+        (*p)--;
         if ((int) NodeValue(nodes[*p]) == ';')
         {
             PARSER("Got ';'");
             (*p)++;
             return val1;
         }
-        SYNTAX_ERROR(';', (int) NodeValue(nodes[*p]));
+
+        if ((int) NodeValue(nodes[*p]) == '}')
+        {
+            PARSER("Got '}'");
+            (*p)++;
+            return val1;
+        }
+        if ((int) NodeValue(nodes[*p]) == -1) return val1;
+        SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
     }
-    if (val1 = GetWhile(nodes, p))
+    if ((val1 = GetWhile(nodes, p)))
+    {
+        (*p)--;
+        if ((int) NodeValue(nodes[*p]) == ';')
+        {
+            PARSER("Got ';'");
+            (*p)++;
+            return val1;
+        }
+
+        if ((int) NodeValue(nodes[*p]) == '}')
+        {
+            PARSER("Got '}'");
+            (*p)++;
+            return val1;
+        }
+
+        if ((int) NodeValue(nodes[*p]) == -1) return val1;
+        SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
+    }
+    if (val1 = GetFunc(nodes, p))
     {
         if ((int) NodeValue(nodes[*p]) == ';')
         {
-            PARSER("Got ';'");
+            PARSER("Got ;");
             (*p)++;
             return val1;
         }
-        SYNTAX_ERROR(';', (int) NodeValue(nodes[*p]));
+        if ((int) NodeValue(nodes[*p]) == -1) return val1;
+        SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
     }
     (*p) = old_p;
     return NULL;
 }
 
+Node * GetGroup(Node ** nodes, int * p)
+{
+    if ((int) NodeValue(nodes[*p]) != '{') return NULL;
+    (*p)++;
+    PARSER("Getting Group!");
+    Node * result = NULL;
+    Node * val = NULL;
+    Field * sep = NULL;
+
+    while (val = GetOperator(nodes, p))
+    {
+        sep = _create_field((field_t) ';', SEP_SYMB);
+        result = _create_node(sep, result, val);
+    }
+    if ((int) NodeValue(nodes[*p]) != '}' && (int) NodeValue(nodes[*p]) != -1) SYNTAX_ERROR('}', (int) NodeValue(nodes[*p]));
+    (*p)++;
+    return result;
+}
+
 Node * GetIf(Node ** nodes, int * p)
 {
     if ((int) NodeValue(nodes[*p]) != IF) return NULL;
-    PARSER("Getting IF");
+    PARSER("Getting IF, p = %d", *p);
     int old_p = (*p);
     Node * E = NULL;
     Node * A = NULL;
 
-    Field * oper = _create_field((field_t) IF, OPER);
+    Field * oper = _copy_field(nodes[*p]->value);
     (*p)++;
 
-    if ((E = GetBracket(nodes, p)) && (A = GetAssignment(nodes, p)))
+    if ((E = GetBracket(nodes, p)) && (A = GetOperator(nodes, p)))
+        return _create_node(oper, E, A);
+
+    (*p) = old_p;
+    (*p)++;
+    if ((E = GetBracket(nodes, p)) && (A = GetGroup(nodes, p)))
         return _create_node(oper, E, A);
 
     (*p) = old_p;
@@ -667,16 +817,23 @@ Node * GetIf(Node ** nodes, int * p)
 
 Node * GetWhile(Node ** nodes, int * p)
 {
+    if ((int) NodeValue(nodes[*p]) != WHILE) return NULL;
     PARSER("Getting WHILE");
     int old_p = (*p);
 
     Node * E = NULL;
     Node * A = NULL;
 
-    Field * oper = _create_field((field_t) WHILE, OPER);
+    Field * oper = _copy_field(nodes[*p]->value);
     (*p)++;
 
-    if (((int) NodeValue(nodes[(*p)++]) == '(') && (E = GetExpression(nodes, p)) && ((int) NodeValue(nodes[(*p)++]) == ')') && (A = GetAssignment(nodes, p)))
+    if ((E = GetBracket(nodes, p)) && (A = GetOperator(nodes, p)))
+        return _create_node(oper, E, A);
+
+    (*p) = old_p;
+    (*p)++;
+
+    if ((E = GetBracket(nodes, p)) && (A = GetGroup(nodes, p)))
         return _create_node(oper, E, A);
 
     (*p) = old_p;
@@ -685,9 +842,9 @@ Node * GetWhile(Node ** nodes, int * p)
 
 Node * GetAssignment(Node ** nodes, int * p)
 {
+    if (NodeType(nodes[*p]) != VAR) return NULL;
     int old_p = (*p);
-    if (!nodes[*p]) return NULL;
-    PARSER("Getting A... Got node %p %d", nodes[*p], NodeType(nodes[*p]));
+    PARSER("Getting A... Got node %p %d, p = %d", nodes[*p], NodeType(nodes[*p]), *p);
     if (NodeType(nodes[*p]) != VAR) return NULL;
     Node * val1 = GetID(nodes, p);
     if (!val1) return  NULL;
@@ -695,6 +852,7 @@ Node * GetAssignment(Node ** nodes, int * p)
     if ((int)NodeValue(nodes[*p]) == '=')
     {
         Field * operation = _create_field((field_t) '=', OPER);
+        PARSER("Got '=', p = %d", *p);
         (*p)++;
         Node * val2 = GetExpression(nodes, p);
         if (!val2)
@@ -713,7 +871,7 @@ Node * GetAssignment(Node ** nodes, int * p)
 Node * GetExpression(Node ** nodes, int * p)
 {
     if (!nodes[*p]) return NULL;
-    PARSER("Getting E... Got node %p", nodes[*p]);
+    PARSER("Getting E... Got node %p, p = %d", nodes[*p], *p);
     Node * val1 = GetTerm(nodes, p);
     if (!nodes[*p]) return val1;
 
@@ -771,11 +929,38 @@ Node * GetPow(Node ** nodes, int * p)
 {
     if (!nodes[*p]) return NULL;
     PARSER("Getting pow... Got node %p", nodes[*p]);
-    Node * val1 = GetBracket(nodes, p);
+    Node * val1 = GetCompare(nodes, p);
     if (!nodes[*p]) {PARSER("GetPow Finished"); return val1;}
     while ((int)NodeValue(nodes[(*p)]) == '^')
     {
         PARSER("Got '^'");
+        int op = (int) NodeValue(nodes[(*p)]);
+
+        Field * operation = NULL;
+
+        (*p)++;
+        if (!nodes[*p]) return val1;
+
+        Node * val2 = GetCompare(nodes, p);
+        if (!(operation = _create_field((field_t) op, OPER))) return NULL;
+
+        if (!(val1 = _create_node(operation, val1, val2))) return NULL;
+    }
+    PARSER("GetPow Finished");
+    return val1;
+}
+
+Node * GetCompare(Node ** nodes, int * p)
+{
+    if (!nodes[*p]) return NULL;
+    PARSER("Getting pow... Got node %p", nodes[*p]);
+    Node * val1 = GetBracket(nodes, p);
+    if (!nodes[*p]) {PARSER("GetPow Finished"); return val1;}
+    while (((int)NodeValue(nodes[(*p)]) == MORE || (int)NodeValue(nodes[*p]) == LESS
+            || (int)NodeValue(nodes[*p]) == MORE_E || (int)NodeValue(nodes[*p]) == LESS_E
+            || (int)NodeValue(nodes[*p]) == EQUAL  || (int)NodeValue(nodes[*p]) == N_EQUAL) && NodeType(nodes[*p]) == OPER)
+    {
+        PARSER("Got compare");
         int op = (int) NodeValue(nodes[(*p)]);
 
         Field * operation = NULL;
@@ -795,17 +980,24 @@ Node * GetPow(Node ** nodes, int * p)
 
 Node * GetBracket(Node ** nodes, int * p)
 {
+    int old_p = (*p);
     if (!nodes[*p]) return NULL;
+    Node * val = NULL;
     PARSER("node = %p. Getting P...", nodes[*p]);
-    if ((int) NodeValue(nodes[*p]) == '(')
+    if ((int) NodeValue(nodes[*p]) == '(' && NodeType(nodes[*p]) == OPER)
     {
+        PARSER("Got '(', p = %d", *p);
         (*p)++;
-        PARSER("Got '('");
-        Node * val = GetExpression(nodes, p);
+        if ((val = GetExpression(nodes, p)) && (NodeValue(nodes[(*p)]) == ')') && (NodeType(nodes[*p]) == OPER))
+        {
+            (*p)++;
+            return val;
+        }
+
         PARSER("Got node %p", nodes[*p]);
         if (!nodes[*p]) return val;
-        if ((int) NodeValue(nodes[(*p)]) != ')') SYNTAX_ERROR(')', (int) NodeValue(nodes[(*p)]));
-        PARSER("Got ')'");
+        if ((char) NodeValue(nodes[(*p)]) != ')' || NodeType(nodes[*p]) != OPER) SYNTAX_ERROR(')', (char) NodeValue(nodes[(*p)]));
+        PARSER("Got ')', p = %d", *p);
         (*p)++;
         return val;
     }
@@ -817,12 +1009,16 @@ Node * GetBracket(Node ** nodes, int * p)
 
 Node * GetFunc(Node ** nodes, int * p)
 {
+    if ((int) NodeType(nodes[*p]) != FUNC) return NULL;
+    PARSER("Getting FUNC");
     if (!nodes[*p]) return NULL;
-    PARSER("Got node %p", nodes[*p]);
+    PARSER("Got node %p %lg", nodes[*p], NodeValue(nodes[*p]));
     Node * result = _copy_node(nodes[*p]);
     (*p)++;
+    PARSER("Got node %p %lg ('%c')", nodes[*p], NodeValue(nodes[*p]), (int) NodeValue(nodes[*p]));
 
-    Node * val = GetBracket(nodes, p);
+
+    Node * val = GetExpression(nodes, p);
     if (!val) return NULL;
     result->left = val;
     return result;
@@ -840,7 +1036,7 @@ Node * GetNumber(Node ** nodes, int * p)
 
 Node * GetID(Node ** nodes, int * p)
 {
-    PARSER("Got node %p", nodes[*p]);
+    PARSER("Got node %p, p = %d", nodes[*p], *p);
     Node * result = _copy_node(nodes[*p]);
     (*p)++;
     if (!result) return NULL;
@@ -872,57 +1068,228 @@ int GetVarAdr(Node * root, Name * names)
     return -1;
 }
 
-int _create_asm(Name * names, Node * root, FILE * file, int if_count, int while_count)
+int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
 {
     if (NodeType(root) == NUM) fprintf(file, "push %lg\n", NodeValue(root));
     if (NodeType(root) == VAR) fprintf(file, "push [%d]\n", GetVarAdr(root, names));
 
     if (NodeType(root) == OPER)
     {
+
         switch ((int) NodeValue(root))
         {
-            case '=':   _create_asm(names, root->right, file, IF_C, WHILE_C);
+            case '=':   _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
                         fprintf(file, "pop [%d]\n", GetVarAdr(root->left, names));
                         break;
 
-            case '+':   _create_asm(names, root->left, file, IF_C, WHILE_C);
-                        _create_asm(names, root->right, file, IF_C, WHILE_C);
+            case '+':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
                         fprintf(file, "add\n");
                         break;
 
-            case '-':   _create_asm(names, root->left, file, IF_C, WHILE_C);
-                        _create_asm(names, root->right, file, IF_C, WHILE_C);
+            case '-':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
                         fprintf(file, "sub\n");
                         break;
 
-            case '*':   _create_asm(names, root->left, file, IF_C, WHILE_C);
-                        _create_asm(names, root->right, file, IF_C, WHILE_C);
+            case '*':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
                         fprintf(file, "mul\n");
                         break;
 
-            case '/':   _create_asm(names, root->left, file, IF_C, WHILE_C);
-                        _create_asm(names, root->right, file, IF_C, WHILE_C);
+            case '/':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
                         fprintf(file, "div\n");
                         break;
 
-            case IF:    _create_asm(names, root->left, file, IF_C++, WHILE_C);
+            case MORE:      _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            if (if_cond)           fprintf(file, "ja SUB_COND%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "ja SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d:\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+
+                            if (if_cond)           fprintf(file, "jmp IF%d:\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d:\n", while_count++);
+
+                            break;
+
+            case LESS:      _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            if (if_cond)           fprintf(file, "jb SUB_COND%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jb SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d:\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d:\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d:\n", while_count++);
+
+                            break;
+
+            case MORE_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            if (if_cond)           fprintf(file, "jae SUB_COND%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jae SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d:\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d:\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d:\n", while_count++);
+
+                            break;
+
+            case LESS_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            if (if_cond)           fprintf(file, "jbe SUB_COND%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jbe SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d:\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d:\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d:\n", while_count++);
+
+                            break;
+
+            case EQUAL:     _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            if (if_cond)           fprintf(file, "je SUB_COND%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "je SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d:\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d:\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d:\n", while_count++);
+
+                            break;
+
+            case N_EQUAL:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            if (if_cond)           fprintf(file, "jne SUB_COND%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jne SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d:\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d:\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d:\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d:\n", while_count++);
+
+                            break;
+
+
+            case IF:
+                        int local_if = IF_C;
+                        if_count = IF_C;
+                        IF_C++;
+
+                        _create_asm(names, root->left, file, 1, 0, if_count, while_count);
+
+                        fprintf(file, "IF%d:\n", if_count);
                         fprintf(file, "push 0\n");
-                        fprintf(file, "je COND%d:\n", IF_C);
-                        fprintf(file, "COND%d:\n", IF_C);
-                        _create_asm(names, root->right, file, IF_C+1, WHILE_C);
+                        fprintf(file, "jne COND%d:\n", if_count);
+
+                        fprintf(file, "jmp IF_END%d:\n", if_count);
+
+                        fprintf(file, "COND%d:\n", if_count);
+                        if_count++;
+                        _create_asm(names, root->right, file, 1, 0, if_count, while_count);
+
+                        fprintf(file, "IF_END%d:\n", local_if);
                         break;
 
-            case WHILE: fprintf(file, "WHILE%d:\n", WHILE_C);
-                        _create_asm(names, root->right, file, IF_C, WHILE_C);
-                        _create_asm(names, root->left, file, IF_C, WHILE_C);
+
+            case WHILE:
+                        int local_while = WHILE_C;
+                        while_count = WHILE_C;
+                        WHILE_C++;
+
+                        fprintf(file, "WHILE%d:\n", while_count);
+                        _create_asm(names, root->left, file, 0, 1, if_count, while_count);
+
+                        fprintf(file, "WHILE_FALSE%d:\n", while_count);
                         fprintf(file, "push 0\n");
-                        fprintf(file, "je WHILE%d:\n", WHILE_C++);
+                        fprintf(file, "je WHILE_END%d:\n", while_count);
+
+                        fprintf(file, "WHILE_TRUE%d:\n", while_count);
+                        _create_asm(names, root->right, file, 0, 1, if_count, while_count);
+
+                        fprintf(file, "jmp WHILE%d:\n", local_while);
+                        fprintf(file, "WHILE_END%d:\n", local_while);
                         break;
+
+                        default: return -1;
 
         }
     }
+    if (NodeType(root) == FUNC)
+    {
+        switch((int) NodeValue(root))
+        {
+            case SIN:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        fprintf(file, "sin\n");
+                        break;
 
-    if ((int) NodeValue(root) == ';')  {_create_asm(names, root->left, file, IF_C, WHILE_C); _create_asm(names, root->right, file, IF_C, WHILE_C);}
+            case COS:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        fprintf(file, "cos\n");
+                        break;
+
+            case SQRT:  _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        fprintf(file, "sqrt\n");
+                        break;
+
+            case PRINT: _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        fprintf(file, "out\n");
+                        break;
+
+            case INPUT: fprintf(file, "in\n");
+                        break;
+
+            default: return -1;
+        }
+    }
+
+    if ((int) NodeValue(root) == ';')  {_create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count); _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);}
     return 1;
 }
 
@@ -948,6 +1315,7 @@ int _var_table(Node * root, Name * names)
     }
     if (root->left) _var_table(root->left, names);
     if (root->right)_var_table(root->right, names);
+    return 0;
 }
 
 Name * CreateVarTable(Node * root)
@@ -963,13 +1331,14 @@ int CreateAsm(Tree * tree, const char * filename)
     if (ferror(fp)) return -1;
 
     Name * names = CreateVarTable(tree->root);
-    if (!names) return NULL;
+    if (!names) return -1;
 
-    _create_asm(names, tree->root, fp, IF_C, WHILE_C);
+    _create_asm(names, tree->root, fp, 0, 0, 0, 0);
     fprintf(fp, "hlt\n");
 
     free(names);
     fclose(fp);
+    return 0;
 
 }
 

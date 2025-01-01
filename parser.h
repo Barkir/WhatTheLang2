@@ -33,36 +33,47 @@ static int DEF_SIZE = 1024;
 
 enum colors
 {
-    OPER_COLOR = 0XEFF94F,
-    NUM_COLOR = 0X5656EC,
-    VAR_COLOR = 0X70Df70,
-    FUNC_COLOR = 0X86E3E3,
-    SEP_COLOR = 0X86B3B3
+    OPER_COLOR  = 0XEFF94F,
+    NUM_COLOR   = 0X5656EC,
+    VAR_COLOR   = 0X70Df70,
+    FUNC_COLOR  = 0X86E3E3,
+    SEP_COLOR   = 0X86B3B3
 };
 
 enum operations
 {
-    ADD = '+',
-    SUB = '-',
-    MUL = '*',
-    DIV = '/',
-    POW = '^',
+    ADD         = '+',
+    SUB         = '-',
+    MUL         = '*',
+    DIV         = '/',
+    POW         = '^',
+    MORE        = '>',
+    LESS        = '<',
+    ASSIGNMENT  = '=',
+    MORE_E      = 70,
+    LESS_E      = 71,
+    EQUAL       = 72,
+    N_EQUAL     = 73,
+    DEF         = 74,
 };
 
 enum functions
 {
-    SIN,
-    COS,
-    TG,
-    CTG,
-    SH,
-    CH,
-    TH,
-    CTH,
-    LN,
-    LOG,
-    IF,
-    WHILE
+    SIN     = 100,
+    COS     = 101,
+    SQRT    = 102,
+    TG      = 103,
+    CTG     = 104,
+    SH      = 105,
+    CH      = 106,
+    TH      = 107,
+    CTH     = 108,
+    LN      = 109,
+    LOG     = 110,
+    IF      = 111,
+    WHILE   = 112,
+    PRINT   = 113,
+    INPUT   = 114
 };
 
 enum errors
