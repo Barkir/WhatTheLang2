@@ -5,7 +5,7 @@ typedef struct _name
 {
     const char * name;
     int address;
-    struct _name * next;
+    int type;
 
 } Name;
 

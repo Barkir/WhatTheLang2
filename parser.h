@@ -10,7 +10,8 @@ enum types
     VAR = 1,
     NUM = 2,
     FUNC = 3,
-    SEP_SYMB = 4
+    SEP_SYMB = 4,
+    FUNC_NAME = 5
 };
 
 typedef double field_t;
@@ -37,7 +38,8 @@ enum colors
     NUM_COLOR   = 0X5656EC,
     VAR_COLOR   = 0X70Df70,
     FUNC_COLOR  = 0X86E3E3,
-    SEP_COLOR   = 0X86B3B3
+    SEP_COLOR   = 0X86B3B3,
+    FUNC_NAME_COLOR = 0XFCBA03
 };
 
 enum operations

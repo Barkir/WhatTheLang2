@@ -36,6 +36,12 @@
         SyntaxError(exp, real, __func__, __LINE__); \
     }                                               \
 
+#define NODE_VALUE(node)                            \
+{                                                   \
+    fprintf(stderr, "%s %d", __func__, __LINE__);   \
+    NodeValue(node);                                \
+}                                                   \
+
 #ifdef DEBUG
 #define PARSER(...)                                                             \
     {                                                                            \
@@ -111,11 +117,13 @@ Node * GetPow(Node ** nodes, int * p);
 Node * GetCompare(Node ** nodes, int * p);
 Node * GetBracket(Node ** nodes, int * p);
 Node * GetFunc(Node ** nodes, int * p);
+Node * GetFuncName(Node ** nodes, int * p);
 Node * GetNumber(Node ** nodes, int * p);
 Node * GetID(Node ** nodes, int * p);
 Node * GetIf(Node ** nodes, int * p);
 Node * GetWhile(Node ** nodes, int * p);
 Node * GetGroup(Node ** nodes, int * p);
+Node * GetCall(Node ** nodes, int * p);
 
 Node * _copy_branch(Node * node);
 Node * _copy_node(Node * node);
@@ -129,7 +137,9 @@ enum types NodeType(Node * node);
 char * NodeName(Node * node);
 
 Name * CreateVarTable(Node * root);
+Name  * CreateFuncTable(Node * root);
 int _var_table(Node * root, Name * names);
+int _func_table(Node * root, Name * names);
 int GetVarAdr(Node * root, Name * names);
 const char * GetVarName(Node * root);
 
@@ -235,6 +245,10 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
                         *node, (int) field, color);
                         break;
 
+        case FUNC_NAME: fprintf(Out, "node%p [shape = Mrecord; label = \"{%s}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                        *node, NodeName(*node), color);
+                        break;
+
         default:    fprintf(Out, "node%p [shape = Mrecord; label = \"{}\"; style = filled; fillcolor = \"#%06X\"];\n",
                     *node, color);
                     break;
@@ -331,7 +345,7 @@ void DestroyTree(Tree * t)
 field_t NodeValue(Node * node)
 {
     if (!node) return -1;
-    PARSER("Getting node value %p %lg", node, ((Field*)(node->value))->value);
+    PARSER("Getting node value %p %lg(%c)", node, ((Field*)(node->value))->value, (int)((Field*)(node->value))->value);
     return ((Field*)(node->value))->value;
 }
 
@@ -371,6 +385,10 @@ unsigned int NodeColor(Node * node)
 
         case SEP_SYMB:
             color = SEP_COLOR;
+            break;
+
+        case FUNC_NAME:
+            color = FUNC_NAME_COLOR;
             break;
 
         default:
@@ -758,6 +776,7 @@ Node * GetOperator(Node ** nodes, int * p)
         if ((int) NodeValue(nodes[*p]) == -1) return val1;
         SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
     }
+
     if (val1 = GetFunc(nodes, p))
     {
         if ((int) NodeValue(nodes[*p]) == ';')
@@ -769,8 +788,53 @@ Node * GetOperator(Node ** nodes, int * p)
         if ((int) NodeValue(nodes[*p]) == -1) return val1;
         SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
     }
+
+    if (val1 = GetFuncName(nodes, p))
+    {
+        if ((int) NodeValue(nodes[*p]) == ';')
+        {
+            PARSER("Got ;");
+            (*p)++;
+            return val1;
+        }
+        if ((int) NodeValue(nodes[*p]) == -1) return val1;
+        SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
+    }
+
+    if (val1 = GetCall(nodes, p))
+    {
+        (*p)--;
+        if ((int) NodeValue(nodes[*p]) == ';')
+        {
+            PARSER("Got ';'");
+            (*p)++;
+            return val1;
+        }
+
+        if ((int) NodeValue(nodes[*p]) == '}')
+        {
+            PARSER("Got '}'");
+            (*p)++;
+            return val1;
+        }
+        if ((int) NodeValue(nodes[*p]) == -1) return val1;
+        SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
+    }
     (*p) = old_p;
     return NULL;
+}
+
+Node * GetCall(Node ** nodes, int * p)
+{
+    if ((int) NodeValue(nodes[*p]) != DEF) return NULL;
+    Field * field = _copy_field(nodes[*p]->value);
+    PARSER("Getting CALL... p = %d", *p);
+    (*p)++;
+    Node * name = GetID(nodes, p);
+    ((Field*)name->value)->type = FUNC_NAME;
+
+    Node * group = GetGroup(nodes, p);
+    return _create_node(field, name, group);
 }
 
 Node * GetGroup(Node ** nodes, int * p)
@@ -1002,9 +1066,24 @@ Node * GetBracket(Node ** nodes, int * p)
         return val;
     }
 
+    if (NodeType(nodes[*p]) == FUNC_NAME) return GetFuncName(nodes, p);
     else if (NodeType(nodes[*p]) == FUNC) return GetFunc(nodes, p);
     else if (NodeType(nodes[*p]) == VAR) return GetID(nodes, p);
     else return GetNumber(nodes, p);
+}
+
+Node * GetFuncName(Node ** nodes, int * p)
+{
+    if (NodeType(nodes[*p]) != FUNC_NAME && NodeType(nodes[*p]) != VAR) return NULL;
+    Node * result = _copy_node(nodes[*p]);
+    if (!result) return NULL;
+    (*p)++;
+
+    Node * val = GetExpression(nodes, p);
+    if (!val) return NULL;
+    result->left = val;
+    return result;
+
 }
 
 Node * GetFunc(Node ** nodes, int * p)
@@ -1038,8 +1117,8 @@ Node * GetID(Node ** nodes, int * p)
 {
     PARSER("Got node %p, p = %d", nodes[*p], *p);
     Node * result = _copy_node(nodes[*p]);
-    (*p)++;
     if (!result) return NULL;
+    (*p)++;
     return result;
 }
 
@@ -1062,7 +1141,7 @@ int GetVarAdr(Node * root, Name * names)
     for(int i = 0; i < 1024; i++)
     {
         if (!(names[i].name)) return -1;
-        if (!strcmp(NodeName(root), names[i].name)) return names[i].address;
+        if (!strcmp(NodeName(root), names[i].name) && names[i].type == VAR) return names[i].address;
     }
 
     return -1;
@@ -1071,7 +1150,12 @@ int GetVarAdr(Node * root, Name * names)
 int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
 {
     if (NodeType(root) == NUM) fprintf(file, "push %lg\n", NodeValue(root));
-    if (NodeType(root) == VAR) fprintf(file, "push [%d]\n", GetVarAdr(root, names));
+    if (NodeType(root) == VAR)
+    {
+        int adr = GetVarAdr(root, names);
+        if (adr >= 0) fprintf(file, "push [%d]\n", adr);
+        else fprintf(file, "call %s:\n", NodeName(root));
+    }
 
     if (NodeType(root) == OPER)
     {
@@ -1258,7 +1342,11 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
                         fprintf(file, "WHILE_END%d:\n", local_while);
                         break;
 
-                        default: return -1;
+            case DEF:   break;
+
+
+            default: return -1;
+
 
         }
     }
@@ -1289,7 +1377,23 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
         }
     }
 
+    if (NodeType(root) == FUNC_NAME) fprintf(file, "call %s:\n", NodeName(root));
+
     if ((int) NodeValue(root) == ';')  {_create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count); _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);}
+    return 1;
+}
+
+int _def_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+{
+    PARSER("DEF_ASM...");
+    if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
+    {
+        fprintf(file, "%s:\n", NodeName(root->left));
+        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+        fprintf(file, "ret\n");
+    }
+    if (root->left)  _def_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+    if (root->right) _def_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
     return 1;
 }
 
@@ -1310,11 +1414,38 @@ int _var_table(Node * root, Name * names)
         {
             names[ADR_C].name = NodeName(root);
             names[ADR_C].address = ADR_C;
+            names[ADR_C].type = VAR;
             ADR_C++;
         }
     }
     if (root->left) _var_table(root->left, names);
     if (root->right)_var_table(root->right, names);
+    return 0;
+}
+
+int _func_table(Node * root, Name * names)
+{
+    if (NodeType(root) == OPER && NodeValue(root) == DEF)
+    {
+        int is_new = 1;
+        for (int i = 0; names[i].name; i++)
+        {
+            if (!strcmp(names[i].name, NodeName(root->left)))
+            {
+                is_new = 0;
+                break;
+            }
+        }
+        if (is_new)
+        {
+            names[ADR_C].name = NodeName(root->left);
+            names[ADR_C].address = ADR_C;
+            names[ADR_C].type = FUNC_NAME;
+            ADR_C++;
+        }
+    }
+    if (root->left) _func_table(root->left, names);
+    if (root->right)_func_table(root->right, names);
     return 0;
 }
 
@@ -1325,16 +1456,42 @@ Name * CreateVarTable(Node * root)
     return names;
 }
 
+Name * CreateFuncTable(Node * root)
+{
+    Name * funcs = calloc(1024, sizeof(Name));
+    _func_table(root, funcs);
+    return funcs;
+}
+
 int CreateAsm(Tree * tree, const char * filename)
 {
+    PARSER("Creating ASM....");
     FILE * fp = fopen(filename, "wb");
     if (ferror(fp)) return -1;
 
     Name * names = CreateVarTable(tree->root);
+    ADR_C = 0;
+
+    Name * func  = CreateFuncTable(tree->root);
+
+    for (int i = 0; names[i].name; i++)
+    {
+        for(int j = 0; func[j].name; j++)
+        {
+            if (!strcmp(names[i].name, func[j].name))
+            {
+                PARSER("FOUND FUNC %s", func[j].name);
+                names[i].type = FUNC_NAME;
+            }
+        }
+    }
     if (!names) return -1;
 
     _create_asm(names, tree->root, fp, 0, 0, 0, 0);
+
     fprintf(fp, "hlt\n");
+
+    _def_asm(names, tree->root, fp, 0, 0, 0, 0);
 
     free(names);
     fclose(fp);

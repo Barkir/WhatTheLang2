@@ -8,7 +8,7 @@
 int main(void)
 {
     Tree * tree = CreateTree(NULL, NULL, NULL);
-    TreeParse(tree, "while.txt");
+    TreeParse(tree, "factorial.txt");
     TreeDump(tree, "dump");
     CreateAsm(tree, "asm.asm");
     system("Compiler/compiler/bin/Compiler asm.asm asm.out");
