@@ -1,0 +1,11 @@
+def func
+{
+    print(10);
+}
+
+def hello
+{
+    print(20);
+}
+
+

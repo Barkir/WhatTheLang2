@@ -1,2 +1,2 @@
 all:
-	gcc main.c parser.c buff.c
+	gcc -o what.out main.c parser.c buff.c
