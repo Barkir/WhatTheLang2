@@ -25,9 +25,9 @@
 #include <assert.h>
 #include <ctype.h>
 
-#include "buff.h"
-#include "parser.h"
-#include "nametable.h"
+#include "../include/buff.h"
+#include "../include/parser.h"
+#include "../include/nametable.h"
 
 // #define DEBUG
 
@@ -123,6 +123,7 @@ Node * GetID(Node ** nodes, int * p);
 Node * GetIf(Node ** nodes, int * p);
 Node * GetWhile(Node ** nodes, int * p);
 Node * GetGroup(Node ** nodes, int * p);
+Node * GetParam(Node ** nodes, int * p);
 Node * GetCall(Node ** nodes, int * p);
 
 Node * _copy_branch(Node * node);
@@ -138,7 +139,7 @@ char * NodeName(Node * node);
 
 Name * CreateVarTable(Node * root);
 Name  * CreateFuncTable(Node * root);
-int _var_table(Node * root, Name * names);
+int _var_table(Node * root, Name * names, const char * func_name);
 int _func_table(Node * root, Name * names);
 int GetVarAdr(Node * root, Name * names);
 const char * GetVarName(Node * root);
@@ -255,11 +256,8 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
 
     }
 
-    if ((*node)->left)
-        fprintf(Out, "node%p -> node%p\n", *node, (*node)->left);
-
-    if ((*node)->right)
-        fprintf(Out, "node%p -> node%p\n", *node, (*node)->right);
+    if ((*node)->left)  fprintf(Out, "node%p -> node%p\n", *node, (*node)->left);
+    if ((*node)->right) fprintf(Out, "node%p -> node%p\n", *node, (*node)->right);
 
     _tree_dump_func(tree, &(*node)->left, Out);
     _tree_dump_func(tree, &(*node)->right, Out);
@@ -464,7 +462,7 @@ Node * _copy_branch(Node * node)
     return result;
 }
 
-#define SKIPSPACE while(isspace(string[*p])) (*p)++;
+#define SKIPSPACE while(isspace(string[*p]) || (string[*p]) == ',') (*p)++;
 
 void SyntaxError(char exp, char real, const char * func, int line)
 {
@@ -739,6 +737,7 @@ Node * GetOperator(Node ** nodes, int * p)
 
     if ((val1 = GetIf(nodes, p)))
     {
+        PARSER("Got If...");
         (*p)--;
         if ((int) NodeValue(nodes[*p]) == ';')
         {
@@ -758,6 +757,7 @@ Node * GetOperator(Node ** nodes, int * p)
     }
     if ((val1 = GetWhile(nodes, p)))
     {
+        PARSER("Got While...");
         (*p)--;
         if ((int) NodeValue(nodes[*p]) == ';')
         {
@@ -779,6 +779,7 @@ Node * GetOperator(Node ** nodes, int * p)
 
     if (val1 = GetFunc(nodes, p))
     {
+        PARSER("Got func...");
         if ((int) NodeValue(nodes[*p]) == ';')
         {
             PARSER("Got ;");
@@ -791,6 +792,7 @@ Node * GetOperator(Node ** nodes, int * p)
 
     if (val1 = GetFuncName(nodes, p))
     {
+        PARSER("Got FuncName...");
         if ((int) NodeValue(nodes[*p]) == ';')
         {
             PARSER("Got ;");
@@ -803,6 +805,7 @@ Node * GetOperator(Node ** nodes, int * p)
 
     if (val1 = GetCall(nodes, p))
     {
+        PARSER("Got Call...");
         (*p)--;
         if ((int) NodeValue(nodes[*p]) == ';')
         {
@@ -906,7 +909,7 @@ Node * GetWhile(Node ** nodes, int * p)
 
 Node * GetAssignment(Node ** nodes, int * p)
 {
-    if (NodeType(nodes[*p]) != VAR) return NULL;
+    if (NodeType(nodes[*p]) != VAR || NodeType(nodes[(*p) + 1]) != OPER || (int) NodeValue(nodes[(*p) + 1]) != '=') return NULL;
     int old_p = (*p);
     PARSER("Getting A... Got node %p %d, p = %d", nodes[*p], NodeType(nodes[*p]), *p);
     if (NodeType(nodes[*p]) != VAR) return NULL;
@@ -1068,20 +1071,22 @@ Node * GetBracket(Node ** nodes, int * p)
 
     if (NodeType(nodes[*p]) == FUNC_NAME) return GetFuncName(nodes, p);
     else if (NodeType(nodes[*p]) == FUNC) return GetFunc(nodes, p);
-    else if (NodeType(nodes[*p]) == VAR) return GetID(nodes, p);
+    else if (NodeType(nodes[*p]) == VAR)  return GetID(nodes, p);
     else return GetNumber(nodes, p);
 }
 
 Node * GetFuncName(Node ** nodes, int * p)
 {
     if (NodeType(nodes[*p]) != FUNC_NAME && NodeType(nodes[*p]) != VAR) return NULL;
+    PARSER("Getting FUNC_NAME");
     Node * result = _copy_node(nodes[*p]);
     if (!result) return NULL;
     (*p)++;
 
-    Node * val = GetExpression(nodes, p);
+    Node * val = GetParam(nodes, p);
     if (!val) return NULL;
     result->left = val;
+    (*p)++;
     return result;
 
 }
@@ -1113,12 +1118,41 @@ Node * GetNumber(Node ** nodes, int * p)
     return result;
 }
 
+Node * GetParam(Node ** nodes, int * p)
+{
+    PARSER("GETTING PARAM");
+    Node * result = nodes[(*p) - 1];
+    Node *  dummy = nodes[(*p) - 1];
+    PARSER("FUNCTION = %s", NodeName(result));
+    (*p)++;
+    while (NodeType(nodes[*p]) == VAR || NodeType(nodes[*p]) == NUM)
+    {
+        dummy->left = _copy_node(nodes[*p]);
+        dummy = dummy->left;
+        (*p)++;
+        PARSER("p = %d", *p);
+    }
+    PARSER("FINISHED GETTING PARAM");
+
+    return result->left;
+}
+
 Node * GetID(Node ** nodes, int * p)
 {
+    if (NodeType(nodes[*p]) != VAR) return NULL;
     PARSER("Got node %p, p = %d", nodes[*p], *p);
     Node * result = _copy_node(nodes[*p]);
     if (!result) return NULL;
     (*p)++;
+    if (NodeType(nodes[*p]) == OPER && (int) NodeValue(nodes[*p]) == '(')
+    {
+        PARSER("Got FUNCTION WITH PARAM");
+        result->left = GetParam(nodes, p);
+        PARSER("result.left = %s", NodeName(result->left));
+        PARSER("GOT PARAM");
+        if (NodeType(nodes[*p]) != OPER || (int) NodeValue(nodes[*p]) != ')') SYNTAX_ERROR(')', NodeValue(nodes[*p]));
+        (*p)++;
+    }
     return result;
 }
 
@@ -1147,18 +1181,45 @@ int GetVarAdr(Node * root, Name * names)
     return -1;
 }
 
+Name * GetFuncAdr(Node * root, Name * names)
+{
+    for(int i = 0; i < 1024; i++)
+    {
+        if (!(names[i].name)) return NULL;
+        if (!strcmp(NodeName(root), names[i].name) && names[i].type == FUNC_NAME) return &(names[i]);
+    }
+
+    return NULL;
+}
+
 int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
 {
-    if (NodeType(root) == NUM) fprintf(file, "push %lg\n", NodeValue(root));
+    if (NodeType(root) == NUM)
+    {
+        fprintf(file, "push %lg\n", NodeValue(root));
+    }
     if (NodeType(root) == VAR)
     {
         int adr = GetVarAdr(root, names);
         if (adr >= 0) fprintf(file, "push [%d]\n", adr);
-        else fprintf(file, "call %s:\n", NodeName(root));
+        else
+        {
+            Name * func = GetFuncAdr(root, names);
+            Node * dummy = root->left;
+            for (int i = func->address; dummy; i++)
+            {
+                fprintf(file, "push %lg\n", NodeValue(dummy));
+                fprintf(file, "pop [%d]\n", names[i].address);
+                dummy = dummy->left;
+            }
+            fprintf(file, "call %s:\n", NodeName(root));
+        }
     }
 
     if (NodeType(root) == OPER)
     {
+        int local_if = 0;
+        int local_while = 0;
 
         switch ((int) NodeValue(root))
         {
@@ -1303,7 +1364,7 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
 
             case IF:
-                        int local_if = IF_C;
+                        local_if = IF_C;
                         if_count = IF_C;
                         IF_C++;
 
@@ -1324,7 +1385,7 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
 
             case WHILE:
-                        int local_while = WHILE_C;
+                        local_while = WHILE_C;
                         while_count = WHILE_C;
                         WHILE_C++;
 
@@ -1388,6 +1449,9 @@ int _def_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond
     PARSER("DEF_ASM...");
     if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
     {
+        Node * param = root;
+        int i = 0;
+
         fprintf(file, "%s:\n", NodeName(root->left));
         _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
         fprintf(file, "ret\n");
@@ -1397,7 +1461,20 @@ int _def_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond
     return 1;
 }
 
-int _var_table(Node * root, Name * names)
+int _count_param(Node * root)
+{
+    if (NodeType(root) == VAR) return 0;
+    int i = 0;
+    Node * dummy = root;
+    while (dummy->left)
+    {
+        i++;
+        dummy = dummy->left;
+    }
+    return i;
+}
+
+int _var_table(Node * root, Name * names, const char * func_name)
 {
     if (NodeType(root) == VAR)
     {
@@ -1413,13 +1490,24 @@ int _var_table(Node * root, Name * names)
         if (is_new)
         {
             names[ADR_C].name = NodeName(root);
-            names[ADR_C].address = ADR_C;
+            names[ADR_C].address = ADR_C?(names[ADR_C - 1].address_end + 1) : ADR_C;
+            names[ADR_C].param = _count_param(root);
+            names[ADR_C].address_end = names[ADR_C].address + names[ADR_C].param;
             names[ADR_C].type = VAR;
+            names[ADR_C].func_name = func_name;
             ADR_C++;
         }
     }
-    if (root->left) _var_table(root->left, names);
-    if (root->right)_var_table(root->right, names);
+    if (root->left)
+        {
+            if (NodeType(root) == FUNC_NAME) func_name = NodeName(root);
+            _var_table(root->left, names, func_name);
+        }
+    if (root->right)
+            {
+            if (NodeType(root) == OPER && (int) NodeValue(root) == DEF) func_name = NodeName(root);
+            _var_table(root->right, names, func_name);
+        }
     return 0;
 }
 
@@ -1441,6 +1529,8 @@ int _func_table(Node * root, Name * names)
             names[ADR_C].name = NodeName(root->left);
             names[ADR_C].address = ADR_C;
             names[ADR_C].type = FUNC_NAME;
+            names[ADR_C].param = _count_param(root->left);
+            names[ADR_C].address_end = names[ADR_C].address + names[ADR_C].param;
             ADR_C++;
         }
     }
@@ -1452,7 +1542,7 @@ int _func_table(Node * root, Name * names)
 Name * CreateVarTable(Node * root)
 {
     Name * names = calloc(1024, sizeof(Name));
-    _var_table(root, names);
+    _var_table(root, names, "");
     return names;
 }
 
@@ -1461,6 +1551,28 @@ Name * CreateFuncTable(Node * root)
     Name * funcs = calloc(1024, sizeof(Name));
     _func_table(root, funcs);
     return funcs;
+}
+
+int _find_func_start(Name * names, const char * func_name)
+{
+    for (int i = 0; names[i].name; i++)
+    {
+        if (!strcmp(names[i].func_name, func_name)) return names[i].address;
+    }
+    return -1;
+
+}
+
+int _find_func_end(Name * names, const char * func_name)
+{
+    int end = -1;
+        for (int i = 0; names[i].name; i++)
+    {
+        if (!strcmp(names[i].func_name, func_name)) end = end > names[i].address ? end : names[i].address;
+    }
+
+    return end;
+
 }
 
 int CreateAsm(Tree * tree, const char * filename)
@@ -1481,11 +1593,21 @@ int CreateAsm(Tree * tree, const char * filename)
             if (!strcmp(names[i].name, func[j].name))
             {
                 PARSER("FOUND FUNC %s", func[j].name);
-                names[i].type = FUNC_NAME;
+                names[i].name = func[j].name;
+                names[i].param = func[j].param;
+                names[i].type = func[j].type;
+                names[i].address = _find_func_start(names, names[i].name);
+                names[i].address_end = _find_func_end(names, names[i].name);
+                break;
             }
         }
     }
     if (!names) return -1;
+
+    for (int i = 0; names[i].name; i++)
+    {
+        // printf("%s(param: %d, type: %d, func_name = %s): starts at %d, ends at %d\n", names[i].name, names[i].param, names[i].type, names[i].func_name, names[i].address, names[i].address_end);
+    }
 
     _create_asm(names, tree->root, fp, 0, 0, 0, 0);
 

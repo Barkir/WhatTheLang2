@@ -1,2 +1,3 @@
 all:
-	gcc -o what.out main.c parser.c buff.c
+	make -f ./MakefileLang
+	make -C ./Compiler Makefile

@@ -1,0 +1,28 @@
+BIN=./bin
+SRC=./src
+INCLUDE=./include
+
+SOURCES=$(notdir $(foreach dir,$(SRC),$(wildcard $(dir)/*.c)))
+TARGET=$(addprefix $(BIN)/,$(shell basename `pwd`))
+EXECUTABLE = What
+OBJECTS=$(addprefix $(BIN)/,$(SOURCES:.c=.o))
+CFLAGS= -I -Wall \
+    -lm $(addprefix -I,$(INCLUDE))
+LDFLAGS= -lm
+
+vpath %.c $(SRC)
+
+all: $(BIN)/$(EXECUTABLE)
+
+$(BIN)/$(EXECUTABLE): $(OBJECTS)
+	$(LINK.o) $^ $(OUTPUT_OPTION) $(LDFLAGS)
+
+$(BIN)/%.o: %.c
+	$(COMPILE.c) $< $(OUTPUT_OPTION)
+
+clean:
+	$(RM) $(OBJECTS) $(TARGET)
+
+
+
+.PHONY: all clean

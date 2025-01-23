@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "parser.h"
-#include "buff.h"
+#include "../include/parser.h"
+#include "../include/buff.h"
 
 
 int main(int argc, char * argv[])
@@ -18,6 +18,7 @@ int main(int argc, char * argv[])
 
             Tree * tree = CreateTree(NULL, NULL, NULL);
             TreeParse(tree, argv[1]);
+            TreeDump(tree, "dump");
 
             CreateAsm(tree, ASM);
 

@@ -4,8 +4,12 @@
 typedef struct _name
 {
     const char * name;
+    const char * func_name;
+
     int address;
+    int address_end;
     int type;
+    int param;
 
 } Name;
 
