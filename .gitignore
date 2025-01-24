@@ -6,3 +6,4 @@ dump
 bin
 *.0
 What
+*.d

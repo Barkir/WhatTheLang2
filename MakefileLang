@@ -1,28 +1,28 @@
-BIN=./bin
-SRC=./src
-INCLUDE=./include
+CC = gcc
+CFLAGS = -Wall -I $(INCLUDE) -MMD
 
-SOURCES=$(notdir $(foreach dir,$(SRC),$(wildcard $(dir)/*.c)))
-TARGET=$(addprefix $(BIN)/,$(shell basename `pwd`))
-EXECUTABLE = What
-OBJECTS=$(addprefix $(BIN)/,$(SOURCES:.c=.o))
-CFLAGS= -I -Wall \
-    -lm $(addprefix -I,$(INCLUDE))
-LDFLAGS= -lm
+BIN = bin
+SRC = src
+INCLUDE = include
 
-vpath %.c $(SRC)
+SOURCES = $(notdir $(wildcard $(SRC)/*.c))
+OBJECTS = $(patsubst %.c,$(BIN)/%.o,$(SOURCES))
 
-all: $(BIN)/$(EXECUTABLE)
+# Подключаем .d файлы для зависимостей
+DEPS = $(OBJECTS:.o=.d)
 
-$(BIN)/$(EXECUTABLE): $(OBJECTS)
-	$(LINK.o) $^ $(OUTPUT_OPTION) $(LDFLAGS)
+TARGET = $(basename $(notdir $(CURDIR)))
 
-$(BIN)/%.o: %.c
-	$(COMPILE.c) $< $(OUTPUT_OPTION)
+all: $(BIN)/$(TARGET)
+
+$(BIN)/$(TARGET): $(OBJECTS)
+	$(CC) $^ -o $@
+
+$(BIN)/%.o: $(SRC)/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Включаем файлы зависимостей
+-include $(DEPS)
 
 clean:
-	$(RM) $(OBJECTS) $(TARGET)
-
-
-
-.PHONY: all clean
+	rm -f $(BIN)/*.o $(BIN)/$(TARGET) $(DEPS)

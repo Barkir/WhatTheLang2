@@ -31,5 +31,5 @@ int main(int argc, char * argv[])
 
             return 0;
     }
-    else return -fprintf(stderr, "Type: ./what.out <filename>\n");
+    else return -fprintf(stderr, "Type: ./bin/WhatTheLang <filename>\n");
 }

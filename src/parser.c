@@ -1206,11 +1206,15 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
         {
             Name * func = GetFuncAdr(root, names);
             Node * dummy = root->left;
-            for (int i = func->address; dummy; i++)
+
+            if (func->param != 0)
             {
-                fprintf(file, "push %lg\n", NodeValue(dummy));
-                fprintf(file, "pop [%d]\n", names[i].address);
-                dummy = dummy->left;
+                for (int i = func->address; dummy; i++)
+                {
+                    fprintf(file, "push %lg\n", NodeValue(dummy));
+                    fprintf(file, "pop [%d]\n", names[i].address);
+                    dummy = dummy->left;
+                }
             }
             fprintf(file, "call %s:\n", NodeName(root));
         }
