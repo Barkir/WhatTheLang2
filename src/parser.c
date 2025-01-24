@@ -25,9 +25,9 @@
 #include <assert.h>
 #include <ctype.h>
 
-#include "../include/buff.h"
-#include "../include/parser.h"
-#include "../include/nametable.h"
+#include "what_lang/buff.h"
+#include "what_lang/parser.h"
+#include "what_lang/nametable.h"
 
 // #define DEBUG
 

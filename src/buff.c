@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../include/buff.h"
+#include "what_lang/buff.h"
 
 size_t GetFileSize(FILE * fp)
 {

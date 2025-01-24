@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../include/parser.h"
-#include "../include/buff.h"
+#include "what_lang/parser.h"
+#include "what_lang/buff.h"
 
 
 int main(int argc, char * argv[])
