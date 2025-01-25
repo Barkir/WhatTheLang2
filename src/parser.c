@@ -286,6 +286,7 @@ Tree * TreeDump(Tree * tree, const char * FileName)
 int TreeParse(Tree * tree, const char * filename)
 {
     FILE * file = fopen(filename, "rb");
+    if (!file) return FOPEN_ERROR;
     if (ferror(file)) return FOPEN_ERROR;
 
     char * expression = CreateBuf(file);
