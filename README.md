@@ -6,7 +6,6 @@
 
 ## Used
 - [My Assembler](https://github.com/Barkir/Compiler)
-- ...
 
 ## Syntax and how to use
 ```
@@ -45,7 +44,7 @@ def function(a, b, c)
 ```
 
 ## To do
-- [x] Add error processing
+- [] Add error processing
 
 
 ## Source
