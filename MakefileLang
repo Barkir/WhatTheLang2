@@ -1,6 +1,5 @@
 CC = gcc
 CFLAGS = -Wall -I $(INCLUDE) -MMD
-
 BIN = bin
 SRC = src
 INCLUDE = include

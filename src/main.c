@@ -18,6 +18,7 @@ int main(int argc, char * argv[])
         {
             Tree * tree = CreateTree(NULL, NULL, NULL);
             if (TreeParse(tree, argv[2]) == FOPEN_ERROR) return -fprintf(stderr, "Can't open file... plz try again.\n");
+            TreeDump(tree, "dump");
             sprintf(ASM, "%s.asm", argv[2]);
             CreateAsm(tree, ASM);
             DestroyTree(tree);

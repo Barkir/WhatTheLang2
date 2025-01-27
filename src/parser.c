@@ -29,7 +29,7 @@
 #include "what_lang/parser.h"
 #include "what_lang/nametable.h"
 
-// #define DEBUG
+#define DEBUG
 
 #define SYNTAX_ERROR(exp, real)                     \
     {                                               \
@@ -223,13 +223,19 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
     unsigned int color = NodeColor(*node);
     field_t field = NodeValue(*node);
 
-    switch (((Field*)(*node)->value)->type)
+    switch ((int) NodeType(*node))
     {
-        case OPER:  fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
+        case OPER:
+                    // PARSER_LOG("OPER");
+                    // PARSER_LOG("node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                    // *node, _enum_to_name((int) field), *node, color);
+
+                    fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
                     *node, _enum_to_name((int) field), *node, color);
                     break;
 
-        case VAR:   fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
+        case VAR:   PARSER_LOG("VAR name = %s", NodeName(*node));
+                    fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
                     *node, NodeName(*node), *node, color);
                     break;
 
@@ -254,6 +260,7 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
                     break;
 
     }
+
 
     if ((*node)->left)  fprintf(Out, "node%p -> node%p\n", *node, (*node)->left);
     if ((*node)->right) fprintf(Out, "node%p -> node%p\n", *node, (*node)->right);
@@ -305,7 +312,7 @@ int TreeParse(Tree * tree, const char * filename)
     pointer = 0;
     while (array[pointer])
     {
-        free(array[pointer]->value);
+        // free(array[pointer]->value);
         free(array[pointer]);
         pointer++;
     }
@@ -334,7 +341,7 @@ void _destroy_tree(Tree * t, Node * n)
 
 void DestroyTree(Tree * t)
 {
-    PARSER_LOG("STARTED TREE PARSER");
+    PARSER_LOG("STARTED TREE DESTROY");
     _destroy_tree(t, t->root);
     free(t);
 
@@ -343,27 +350,30 @@ void DestroyTree(Tree * t)
 field_t NodeValue(Node * node)
 {
     if (!node) return -1;
-    PARSER_LOG("Getting node value %p %lg(%c)", node, ((Field*)(node->value))->value, (int)((Field*)(node->value))->value);
-    return ((Field*)(node->value))->value;
+    // PARSER_LOG("Getting node value %p %lg(%c)", node, ((Field*)(node->value))->value, (int)((Field*)(node->value))->value);
+    // return ((Field*)(node->value))->value;
+    return ((Field*)((char*)node + sizeof(Node)))->value;
 }
 
 char * NodeName(Node * node)
 {
     if (!node) return NULL;
-    PARSER_LOG("Getting node name %p %s", node, ((Field*)(node->value))->name);
-    return ((Field*)(node->value))->name;
+    // PARSER_LOG("Getting node name %p %s", node, ((Field*)(node->value))->name);
+    // return ((Field*)(node->value))->name;
+    return ((Field*)((char*)node + sizeof(Node)))->name;
 }
 
 enum types NodeType(Node * node)
 {
     if (!node) return ERROR;
-    return ((Field*)(node->value))->type;
+    // return ((Field*)(node->value))->type;
+    return ((Field*)((char*)node + sizeof(Node)))->type;
 }
 
 unsigned int NodeColor(Node * node)
 {
     unsigned int color = 0;
-    switch (((Field*) (node->value))->type)
+    switch (NodeType(node))
         {
         case OPER:
             color = OPER_COLOR;
@@ -410,12 +420,16 @@ Field * _create_field(field_t val, enum types type)
 
 Node * _create_node(Field * val, Node * left, Node * right)
 {
-    Node * node = (Node*) calloc(1, sizeof(Node));
+    PARSER_LOG("Creating node with field %lg, left %p right %p", val->value, left, right);
+    Node * node = (Node*) calloc(1, sizeof(Node) + sizeof(Field));
     if (!node) return NULL;
-    node->value = val;
+    memcpy((char*)node + sizeof(Node), val, sizeof(Field));
 
     if (left) node->left = left;
     if (right) node->right = right;
+
+    PARSER_LOG("Created node with field %lg, left %p, right %p", NodeValue(node));
+
     return node;
 }
 
@@ -434,17 +448,25 @@ Field * _copy_field(Field * field)
 Node * _copy_node(Node * node)
 {
     if (!node) return NULL;
-    PARSER_LOG("Copying node %p with value %lg(%c)...", node, ((Field*)node->value)->value, (int)((Field*)node->value)->value);
-    Field * copy_field = _copy_field((Field*)node->value);
-    if (!copy_field) return NULL;
-    Node * copy_node = (Node*) calloc(1, sizeof(Node));
+    PARSER_LOG("Copying node %p(left = %p, right = %p) with value %lg(%c) and name %s...", node, NodeValue(node), node->left, node->right, (int)(NodeValue(node)), NodeName(node));
+    // Field * copy_field = _copy_field((Field*)node->value);
+
+    // if (!copy_field) return NULL;
+    Node * copy_node = (Node*) calloc(1, sizeof(Node) + sizeof(Field));
     if (!copy_node) return NULL;
 
-    copy_node->value = copy_field;
-    memcpy(((Field*)copy_node->value)->name, ((Field*)node->value)->name, strlen(((Field*)node->value)->name));
-    PARSER_LOG("Created node with value %lg", copy_field->value);
-    if (node->left)  copy_node->left = node->left;
-    if (node->right) copy_node->right = node->right;
+    // copy_node->value = copy_field;
+
+    memcpy(copy_node, node, sizeof(Node) + sizeof(Field));
+
+    // memcpy(((Field*)copy_node->value)->name, ((Field*)node->value)->name, strlen(((Field*)node->value)->name));
+    // PARSER_LOG("Created node with value %lg", copy_field->value);
+    // if (node->left)  copy_node->left = node->left;
+    // if (node->right) copy_node->right = node->right;
+
+    PARSER_LOG("Copied node, value = %lg, name = %s, adr %p (left = %p, right = %p)", NodeValue(copy_node), NodeName(copy_node), copy_node, copy_node->left, copy_node->right);
+
+
 
     return copy_node;
 }
@@ -452,7 +474,7 @@ Node * _copy_node(Node * node)
 Node * _copy_branch(Node * node)
 {
     if (!node) return NULL;
-    PARSER_LOG("Copying branch %p with value %lg...", node, ((Field*)node->value)->value);
+    PARSER_LOG("Copying branch %p with value %lg...", node, NodeValue(node));
     Node * result = _copy_node(node);
     if (!result) return NULL;
 
@@ -611,6 +633,8 @@ Node * _oper_token(const char * string, int * p)
     if  (!field) return NULL;
     Node * result = _create_node(field, NULL, NULL);
 
+    PARSER_LOG("result = %p -> [%d, %c]", result, (int) NodeValue(result), (int) NodeValue(result));
+
     if (!result) return NULL;
     return result;
 }
@@ -628,6 +652,9 @@ Node * _name_token(const char * string, int * p)
     Node * name = _find_name(result);
     free(result);
     if (!name) return NULL;
+
+    PARSER_LOG("name = %p -> [%s]", name, NodeName(name));
+
     return name;
 }
 
@@ -642,6 +669,9 @@ Node * _number_token(const char * string, int * p)
     if (!field) return NULL;
     Node * num = _create_node(field, NULL, NULL);
     if (!num) return NULL;
+
+    PARSER_LOG("number = %p -> [%lg]", num, NodeValue(num));
+
     return num;
 }
 
@@ -708,7 +738,7 @@ Node * GetOperator(Node ** nodes, int * p)
 {
     int old_p = (*p);
     if (!nodes[*p]) return NULL;
-    PARSER_LOG("Getting O... Got node %p, p = %d", nodes[*p], *p);
+    PARSER_LOG("Getting O... Got node %p with val %lg, name %s, p = %d", nodes[*p], NodeValue(nodes[*p]), NodeName(nodes[*p]), *p);
     Node * val1 = NULL;
     if ((val1 = GetAssignment(nodes, p)))
     {
@@ -818,11 +848,11 @@ Node * GetOperator(Node ** nodes, int * p)
 Node * GetCall(Node ** nodes, int * p)
 {
     if ((int) NodeValue(nodes[*p]) != DEF) return NULL;
-    Field * field = _copy_field(nodes[*p]->value);
+    Field * field = _copy_field(((Field*)((char*)(nodes[*p]) + sizeof(Node))));
     PARSER_LOG("Getting CALL... p = %d", *p);
     (*p)++;
     Node * name = GetID(nodes, p);
-    ((Field*)name->value)->type = FUNC_NAME;
+    ((Field*)((char*)name + sizeof(Node)))->type = FUNC_NAME;
 
     Node * group = GetGroup(nodes, p);
     return _create_node(field, name, group);
@@ -855,7 +885,7 @@ Node * GetIf(Node ** nodes, int * p)
     Node * E = NULL;
     Node * A = NULL;
 
-    Field * oper = _copy_field(nodes[*p]->value);
+    Field * oper = _copy_field((Field*)((char*)nodes[*p] + sizeof(Node)));
     (*p)++;
 
     if ((E = GetBracket(nodes, p)) && (A = GetOperator(nodes, p)))
@@ -879,7 +909,7 @@ Node * GetWhile(Node ** nodes, int * p)
     Node * E = NULL;
     Node * A = NULL;
 
-    Field * oper = _copy_field(nodes[*p]->value);
+    Field * oper = _copy_field((Field*)((char*)nodes[*p] + sizeof(Node)));
     (*p)++;
 
     if ((E = GetBracket(nodes, p)) && (A = GetOperator(nodes, p)))
@@ -903,7 +933,7 @@ Node * GetAssignment(Node ** nodes, int * p)
     if (NodeType(nodes[*p]) != VAR) return NULL;
     Node * val1 = GetID(nodes, p);
     if (!val1) return  NULL;
-    PARSER_LOG("Got ID node %p", val1);
+    PARSER_LOG("Got ID node %p with name %s", val1, NodeName(val1));
     if ((int)NodeValue(nodes[*p]) == '=')
     {
         Field * operation = _create_field((field_t) '=', OPER);
@@ -916,6 +946,7 @@ Node * GetAssignment(Node ** nodes, int * p)
             return NULL;
         }
         val1 = _create_node(operation, val1, val2);
+        PARSER_LOG("val1 = %p, value = %lg, left = %p(%lg), right=%p(%lg)", val1, NodeValue(val1), val1->left, NodeValue(val1->left), val1->right, NodeValue(val1->right));
         return val1;
     }
     (*p) = old_p;
@@ -1115,8 +1146,10 @@ Node * GetParam(Node ** nodes, int * p)
     (*p)++;
     while (NodeType(nodes[*p]) == VAR || NodeType(nodes[*p]) == NUM)
     {
+        Node * left = (Node*)((char*)dummy + sizeof(Field));
         dummy->left = _copy_node(nodes[*p]);
         dummy = dummy->left;
+
         (*p)++;
         PARSER_LOG("p = %d", *p);
     }
@@ -1128,7 +1161,7 @@ Node * GetParam(Node ** nodes, int * p)
 Node * GetID(Node ** nodes, int * p)
 {
     if (NodeType(nodes[*p]) != VAR) return NULL;
-    PARSER_LOG("Got node %p, p = %d", nodes[*p], *p);
+    PARSER_LOG("Got node %p with name %s, p = %d", nodes[*p], NodeName(nodes[*p]), *p);
     Node * result = _copy_node(nodes[*p]);
     if (!result) return NULL;
     (*p)++;
@@ -1136,11 +1169,12 @@ Node * GetID(Node ** nodes, int * p)
     {
         PARSER_LOG("Got FUNCTION WITH PARAM");
         result->left = GetParam(nodes, p);
-        PARSER_LOG("result.left = %s", NodeName(result->left));
-        PARSER_LOG("GOT PARAM");
         if (NodeType(nodes[*p]) != OPER || (int) NodeValue(nodes[*p]) != ')') SYNTAX_ERROR(')', NodeValue(nodes[*p]));
         (*p)++;
     }
+
+    PARSER_LOG("result = %p [%s]", result, NodeName(result));
+
     return result;
 }
 
@@ -1475,6 +1509,7 @@ int _var_table(Node * root, Name * names, const char * func_name)
         {
             if (!strcmp(names[i].name, NodeName(root)))
             {
+
                 is_new = 0;
                 break;
             }
