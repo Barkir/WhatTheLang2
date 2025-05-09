@@ -1626,7 +1626,18 @@ int _def_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond
         int i = 0;
 
         fprintf(file, "%s:\n", NodeName(root->left));
+        fprintf(file, "; pushing return address to stack\n");
+        fprintf(file, "pop r14\n");
+        fprintf(file, "mov [r13], r14\n");
+        fprintf(file, "add r13, 8\n");
+
         _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+        fprintf(file, "; popping return address to stack\n");
+        fprintf(file, "sub r13, 8\n");
+        fprintf(file, "mov r14, [r13]\n");
+        fprintf(file, "push r14\n");
+
         fprintf(file, "ret\n");
     }
     if (root->left)  _def_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
@@ -1786,12 +1797,16 @@ int CreateAsm(Tree * tree, const char * filename)
     fprintf(fp, "section .text\n");
     fprintf(fp, "global _start\n");
     fprintf(fp, "_start:\n");
+    fprintf(fp, "mov r13, stack4calls\n");
     _create_asm(names, tree->root, fp, 0, 0, 0, 0);
 
     fprintf(fp, "mov rax, 60\n");
     fprintf(fp, "syscall\n");
 
     _def_asm(names, tree->root, fp, 0, 0, 0, 0);
+
+    fprintf(fp, "section .data\n");
+    fprintf(fp, "stack4calls times 128 * 8 db 0  ; stack for calls");
 
     free(names);
     fclose(fp);
