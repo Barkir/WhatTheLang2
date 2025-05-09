@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "what_lang/parser.h"
-#include "what_lang/buff.h"
 
+#include "what_lang/buff.h"
+#include "what_lang/parser.h"
 
 int main(int argc, char * argv[])
 {
@@ -23,7 +23,7 @@ int main(int argc, char * argv[])
             CreateAsm(tree, ASM);
             DestroyTree(tree);
 
-            sprintf(out, "Compiler/compiler/bin/Compiler %s %s.out\n", ASM, argv[2]);
+            sprintf(out, "SPU-Processor/compiler/bin/Compiler %s %s.out\n", ASM, argv[2]);
             system(out);
 
             return fprintf(stdout, "Created %s.out!\n", argv[2]);
@@ -31,7 +31,7 @@ int main(int argc, char * argv[])
 
         if (!strcmp(argv[1], "run"))
         {
-            sprintf(run, "Compiler/processor/bin/Processor %s.out\n", argv[2]);
+            sprintf(run, "SPU-Processor/processor/bin/Processor %s.out\n", argv[2]);
             system(run);
         }
 
