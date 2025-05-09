@@ -1,0 +1,11 @@
+#ifndef ERRORS_H
+#define ERRORS_H
+
+enum WhatTheErrors
+{
+    WHAT_SUCCESS,
+    WHAT_MEMALLOC_ERROR,
+    WHAT_FILEOPEN_ERROR
+};
+
+#endif

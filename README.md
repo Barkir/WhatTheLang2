@@ -80,3 +80,38 @@ We need to write to calls - **input** and **output**
 They're similar to the ones we use in [purintf](https://github.com/Barkir/Purintf). Although WhatTheLang uses float numbers, let's write all the calls for *integers* at first. It is just easier and faster at this stage.
 
 
+## Second chapter (rewriting our previous code)
+
+...
+
+## Third chapter (ELF-file structure)
+elf-file consists of:
+1. Header
+2. Data
+
+To read elf-file we can use ```readelf```
+
+First for bytes are defining our file as elf-file
+
+```7f 45 4c 46```
+
+Next byte is defining class field:
+|Value |Architecture |
+|-------|------------|
+01 | 32-bit architecture |
+02 | 64-bit architecture |
+
+Next byte is defining data field:
+
+|Value |Data setting |
+|-------|------------|
+01 | LSB (Little Endian) |
+02 | MSB (Big Endian) |
+
+Next byte is for version number and it is always ```01```
+
+
+
+
+
+
