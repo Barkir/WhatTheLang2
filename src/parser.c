@@ -1286,11 +1286,12 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                         fprintf(file, ";---------------------------\n");
                         fprintf(file, ";'-' operation\n\n");
+
                         fprintf(file, "pop r14\n");
                         fprintf(file, "pop r15\n");
 
-                        fprintf(file, "sub r14, r15\n");
-                        fprintf(file, "push r14\n");
+                        fprintf(file, "sub r15, r14\n");
+                        fprintf(file, "push r15\n");
                         fprintf(file, ";---------------------------\n\n");
                         break;
 
@@ -1312,6 +1313,7 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                         fprintf(file, ";---------------------------\n");
                         fprintf(file, ";'/' operation\n\n");
+
                         fprintf(file, "pop r14\n");
                         fprintf(file, "pop rax\n");
 
@@ -1329,6 +1331,9 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                             fprintf(file, "pop r15\n");
                             fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
                             fprintf(file, "cmp r14, r15\n");
 
                             if (if_cond)           fprintf(file, "ja SUB_COND%d\n", if_count);
@@ -1357,6 +1362,9 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                             fprintf(file, "pop r15\n");
                             fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
                             fprintf(file, "cmp r14, r15\n");
 
                             if (if_cond)           fprintf(file, "jb SUB_COND%d\n", if_count);
@@ -1385,6 +1393,9 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                             fprintf(file, "pop r15\n");
                             fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
                             fprintf(file, "cmp r14, r15\n");
 
                             if (if_cond)           fprintf(file, "jae SUB_COND%d\n", if_count);
@@ -1413,6 +1424,9 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                             fprintf(file, "pop r15\n");
                             fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
                             fprintf(file, "cmp r14, r15\n");
 
                             if (if_cond)           fprintf(file, "jbe SUB_COND%d\n", if_count);
@@ -1441,6 +1455,9 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                             fprintf(file, "pop r15\n");
                             fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
                             fprintf(file, "cmp r14, r15\n");
 
                             if (if_cond)           fprintf(file, "je SUB_COND%d\n", if_count);
@@ -1469,6 +1486,9 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                             fprintf(file, "pop r15\n");
                             fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
                             fprintf(file, "cmp r14, r15\n");
 
                             if (if_cond)           fprintf(file, "jne SUB_COND%d\n", if_count);
@@ -1506,6 +1526,9 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                         fprintf(file, "pop r15\n");
                         fprintf(file, "pop r14\n");
+                        fprintf(file, "push r14\n");
+                        fprintf(file, "push r15\n");
+
                         fprintf(file, "cmp r14, r15\n");
 
                         fprintf(file, "jne COND%d\n", if_count);
@@ -1537,6 +1560,9 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
                         fprintf(file, "pop r15\n");
                         fprintf(file, "pop r14\n");
+                        fprintf(file, "push r14\n");
+                        fprintf(file, "push r15\n");
+
                         fprintf(file, "cmp r14, r15\n");
 
                         fprintf(file, "je WHILE_END%d\n", while_count);
@@ -1757,12 +1783,13 @@ int CreateAsm(Tree * tree, const char * filename)
         // printf("%s(param: %d, type: %d, func_name = %s): starts at %d, ends at %d\n", names[i].name, names[i].param, names[i].type, names[i].func_name, names[i].address, names[i].address_end);
     }
 
-    fprintf(fp, "section .code\n");
-    fprintf(fp, "global start\n");
-    fprintf(fp, "start:\n");
+    fprintf(fp, "section .text\n");
+    fprintf(fp, "global _start\n");
+    fprintf(fp, "_start:\n");
     _create_asm(names, tree->root, fp, 0, 0, 0, 0);
 
-    fprintf(fp, "hlt\n");
+    fprintf(fp, "mov rax, 60\n");
+    fprintf(fp, "syscall\n");
 
     _def_asm(names, tree->root, fp, 0, 0, 0, 0);
 
