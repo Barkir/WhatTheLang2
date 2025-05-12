@@ -10,6 +10,7 @@ typedef struct _name
     int address_end;
     int type;
     int param;
+    int rip_offset;
 
 } Name;
 

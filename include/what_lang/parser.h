@@ -1,6 +1,43 @@
 #ifndef DIFF_H
 #define DIFF_H
 
+const int VAL2REG_START = 0xb8;
+
+const char PUSHREG_BYTE = 0x50;
+const char PUSHIMM32_BYTE = 0x68;
+const char POP_BYTE  = 0x59;
+const char CALL_DIRECT_BYTE = 0xe8;
+const char ADDITIONAL_REG_BYTE = 0x41;
+
+
+const char OPER_BYTE = 0x48;
+const char XTEND_OPER_BYTE = 0x49;
+
+
+enum Registers
+{
+    REG_EAX = 0x00,
+    REG_ECX = 0x01,
+    REG_EDX = 0x02,
+    REG_EBX = 0x03,
+    REG_ESP = 0x04,
+    REG_EBP = 0x05,
+    REG_ESI = 0x06,
+    REG_EDI = 0x07,
+};
+
+enum AdditionalRegisters
+{
+    REG_R8  = 0x00,
+    REG_R9  = 0x01,
+    REG_R10 = 0x02,
+    REG_R11 = 0x03,
+    REG_R12 = 0x04,
+    REG_R13 = 0x05,
+    REG_R14 = 0x06,
+    REG_R15 = 0x07,
+};
+
 typedef struct _tree Tree;
 
 enum types
@@ -22,6 +59,7 @@ typedef struct _field
     enum types type;
     field_t value;
     char name[1024];
+    int ip;
 
 } Field;
 

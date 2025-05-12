@@ -110,6 +110,81 @@ Next byte is defining data field:
 
 Next byte is for version number and it is always ```01```
 
+## OPCODES
+
+#### MOV
+
+In my translation I use 3 types of mov's
+1. mov reg, number
+2. mov reg, reg
+3. mov [reg], reg
+4. mov reg, [reg]
+
+| Operation | Opcode |
+|-----------|--------|
+| ```mov reg, val``` | ```{B8+reg_code}{val}```
+
+
+##### REGISTER SEQUENCE CODE TABLE
+| Register | Byte-code | Instruction |
+|----------|-----------|-------------|
+| eax | 000 | ```b8```
+| ecx | 001 |```b9```
+| edx | 010 |```ba```
+| ebx | 011 |```bb```
+| esp | 100 |```bc```
+| ebp | 101 |```bd```
+| esi | 110 |```be```
+| edi | 111 |```bf```
+
+When we use mov in value-mode with r11, r12, r13, r14, r15 we add 41 as prefix
+
+| Register | Byte-code | Instruction |
+|----------|-----------|-------------|
+| r8 | 000 | ```41b8```
+| r9 | 001 |```41b9```
+| r10 | 010 |```41ba```
+| r11 | 011 |```41bb```
+| r12 | 100 |```41bc```
+| r13 | 101 |```41bd```
+| r14 | 110 |```41be```
+| r15 | 111 |```41bf```
+
+
+#### PUSH
+
+| Type | Opcode |
+|------|--------|
+| register | 0x50 |
+| imm32 | 0x68 |
+| imm8  | 0x6a |
+
+Imm32 push will be used for values. It is a 5-byte operation (1 byte for opcode and 4 bytes for imm32 value)
+
+
+```
+68 00 00 00 00
+   ^         ^
+   |_________|
+    int value
+```
+
+Register Push requires to use this formula
+```
+0x50 + reg_sequence number
+```
+You can find appropriate reg_seqeunce number [here](#register-sequence-code-table)
+
+If you use extended registers (r8, r9, ..., r15) add special byte **0x41** to the start
+
+
+
+#### POP
+
+Pop is available for registers only
+
+
+#### ADD
 
 
 

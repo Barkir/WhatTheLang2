@@ -363,6 +363,12 @@ char * NodeName(Node * node)
     return ((Field*)((char*)node + sizeof(Node)))->name;
 }
 
+int NodeIP(Node * node)
+{
+    if (!node) return NULL;
+    return ((Field*)((char*)node + sizeof(Node)))->ip;
+}
+
 enum types NodeType(Node * node)
 {
     if (!node) return ERROR;
@@ -1221,23 +1227,71 @@ const char * Adr2Reg(int adr)
         case 0:     return "rbx";
         case 1:     return "rcx";
         case 2:     return "rdx";
-        case 3:     return "rsx";
+        case 3:     return "rsi";
         case 4:     return "rdi";
-        case 5:     return "r11";
-        default:    return "r12";
     }
 }
 
-int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+const enum Adr2EnumReg(int adr)
+{
+    switch(adr)
+    {
+        case 0:     return REG_EBX;
+        case 1:     return REG_ECX;
+        case 2:     return REG_EDX;
+        case 3:     return REG_ESI;
+        case 4:     return REG_EDI;
+        default     return REG_EBX;
+    }
+
+}
+
+#define PUSHIMM32(buf, value)       \
+    int val = (int) value;          \
+    *buf = PUSHIMM32_BYTE;          \
+    buf++;                          \
+    memcpy(buf, &val, sizeof(int)); \
+    buf += sizeof(int)              \
+
+
+#define PUSHREG(buf, adr)                   \
+    *buf = PUSHREG_BYTE + Adr2EnumReg(adr); \
+    buf++                                   \
+
+#define POPREG(buf, adr)                    \
+    *buf = POP_BYTE + Adr2EnumReg(adr);     \
+    buf++                                   \
+
+#define POP_XTEND_REG(buf, reg)             \
+    *buf = ADDITIONAL_REG_BYTE;             \
+    buf++;                                  \
+    *buf = POP_BYTE + reg                   \
+    buf++                                   \
+
+#define ADD_
+
+
+// ACHTUNG!!! WARNING!!! ACHTUNG!!!
+// В CALL_DIRECT кладем абсолютный адрес
+#define CALL_DIRECT(buf, adr)                   \
+    *buf = CALL_DIRECT_BYTE;                    \
+    buf++;                                      \
+    memcpy(buf, (int)(buf-adr), sizeof(int))    \
+    buf += sizeof(int)                          \
+
+int _create_bin(char * buf, Name * names, Node * root, int if_cond, int while_cond, int if_count, int while_count)
 {
     if (NodeType(root) == NUM)
     {
-        fprintf(file, "push %lg\n", NodeValue(root));
+        PUSHIMM32(buf, NodeValue(root));
     }
     if (NodeType(root) == VAR)
     {
         int adr = GetVarAdr(root, names);
-        if (adr >= 0) fprintf(file, "push %s\n", Adr2Reg(adr));
+        if (adr >= 0)
+        {
+            PUSHREG(buf, adr);
+        }
         else
         {
             Name * func = GetFuncAdr(root, names);
@@ -1247,12 +1301,14 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
             {
                 for (int i = func->address; dummy; i++)
                 {
-                    fprintf(file, "push %lg\n", NodeValue(dummy));
-                    fprintf(file, "pop %s\n", Adr2Reg(names[i].address));
+                    PUSHIMM32(buf, NodeValue(dummy));
+                    POP_REG(buf, adr);
+
                     dummy = dummy->left;
                 }
             }
-            fprintf(file, "call %s\n", NodeName(root));
+            CALL_DIRECT(buf, NodeIP(root));
+            // fprintf(file, "call %s\n", NodeName(root));
         }
     }
 
@@ -1263,49 +1319,36 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
 
         switch ((int) NodeValue(root))
         {
-            case '=':   _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "pop %s             ; '=' operation\n", Adr2Reg(GetVarAdr(root->left, names)));
+            case '=':   _create_bin(names, root->right, file, if_cond, while_cond, if_count, while_count);
+                        POP_REG(buf, Adr2Reg(GetVarAdr(root->left, names)));
+                        // fprintf(file, "pop %s             ; '=' operation\n", Adr2Reg(GetVarAdr(root->left, names)));
                         break;
 
-            case '+':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case '+':   _create_bin(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_bin(names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";'+' operation\n\n");
 
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "pop r15\n");
+                        POP_XTEND_REG(buf, REG_R14);
+                        POP_XTEND_REG(buf, REG_R15);
 
-                        fprintf(file, "add r14, r15\n");
-                        fprintf(file, "push r14\n");
-                        fprintf(file, ";---------------------------\n\n");
                         break;
 
-            case '-':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case '-':   _create_bin(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_bin(names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";'-' operation\n\n");
+                        POP_XTEND_REG(buf, REG_R14);
+                        POP_XTEND_REG(buf, REG_R15);
 
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "pop r15\n");
-
-                        fprintf(file, "sub r15, r14\n");
-                        fprintf(file, "push r15\n");
-                        fprintf(file, ";---------------------------\n\n");
                         break;
 
             case '*':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
                         _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";'*' operation\n\n");
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "pop rax\n");
+                        POP_XTEND_REG(buf, REG_R14);
+                        POPREG(buf, REG_EAX);
 
                         fprintf(file, "mul r14\n");
                         fprintf(file, "push rax\n");
-                        fprintf(file, ";---------------------------\n\n");
                         break;
 
             case '/':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
@@ -1814,6 +1857,57 @@ int CreateAsm(Tree * tree, const char * filename)
 
 }
 
+int CreateBin(Tree * tree, const char * filename)
+{
+    PARSER_LOG("Creating BIN....");
+    FILE * fp = fopen(filename, "wb");
+    if (ferror(fp)) return -1;
+
+    Name * names = CreateVarTable(tree->root);
+    ADR_COUNT = 0;
+
+    Name * func  = CreateFuncTable(tree->root);
+
+    for (int i = 0; names[i].name; i++)
+    {
+        for(int j = 0; func[j].name; j++)
+        {
+            if (!strcmp(names[i].name, func[j].name))
+            {
+                PARSER_LOG("FOUND FUNC %s", func[j].name);
+                names[i].name = func[j].name;
+                names[i].param = func[j].param;
+                names[i].type = func[j].type;
+                names[i].address = _find_func_start(names, names[i].name);
+                names[i].address_end = _find_func_end(names, names[i].name);
+                break;
+            }
+        }
+    }
+    if (!names) return -1;
+
+    for (int i = 0; names[i].name; i++)
+    {
+        // printf("%s(param: %d, type: %d, func_name = %s): starts at %d, ends at %d\n", names[i].name, names[i].param, names[i].type, names[i].func_name, names[i].address, names[i].address_end);
+    }
+
+    char* buffer = (char*) calloc(2048, 1);
+    _create_bin(buffer, names, tree->root, fp, 0, 0, 0, 0);
+
+    fprintf(fp, "mov rax, 60\n");
+    fprintf(fp, "syscall\n");
+
+    _def_asm(names, tree->root, fp, 0, 0, 0, 0);
+
+    fprintf(fp, "section .data\n");
+    fprintf(fp, "stack4calls times 128 * 8 db 0  ; stack for calls");
+
+    free(names);
+    fclose(fp);
+    return 0;
+
+}
+
 int _is_oper(const char * string, int * p)
 {
         return string[*p] == '(' ||
@@ -1831,4 +1925,395 @@ int _is_oper(const char * string, int * p)
         (string[*p] == '=' && string[(*p) + 1] != '=') ||
         (string[*p] == '=' && string[(*p) + 1] == '=');
 }
+
+
+int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+{
+    if (NodeType(root) == NUM)
+    {
+        fprintf(file, "push %lg\n", NodeValue(root));
+    }
+    if (NodeType(root) == VAR)
+    {
+        int adr = GetVarAdr(root, names);
+        if (adr >= 0) fprintf(file, "push %s\n", Adr2Reg(adr));
+        else
+        {
+            Name * func = GetFuncAdr(root, names);
+            Node * dummy = root->left;
+
+            if (func->param != 0)
+            {
+                for (int i = func->address; dummy; i++)
+                {
+                    fprintf(file, "push %lg\n", NodeValue(dummy));
+                    fprintf(file, "pop %s\n", Adr2Reg(names[i].address));
+                    dummy = dummy->left;
+                }
+            }
+            fprintf(file, "call %s\n", NodeName(root));
+        }
+    }
+
+    if (NodeType(root) == OPER)
+    {
+        int local_if = 0;
+        int local_while = 0;
+
+        switch ((int) NodeValue(root))
+        {
+            case '=':   _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+                        fprintf(file, "pop %s             ; '=' operation\n", Adr2Reg(GetVarAdr(root->left, names)));
+                        break;
+
+            case '+':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                        fprintf(file, ";---------------------------\n");
+                        fprintf(file, ";'+' operation\n\n");
+
+                        fprintf(file, "pop r14\n");
+                        fprintf(file, "pop r15\n");
+
+                        fprintf(file, "add r14, r15\n");
+                        fprintf(file, "push r14\n");
+                        fprintf(file, ";---------------------------\n\n");
+                        break;
+
+            case '-':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                        fprintf(file, ";---------------------------\n");
+                        fprintf(file, ";'-' operation\n\n");
+
+                        fprintf(file, "pop r14\n");
+                        fprintf(file, "pop r15\n");
+
+                        fprintf(file, "sub r15, r14\n");
+                        fprintf(file, "push r15\n");
+                        fprintf(file, ";---------------------------\n\n");
+                        break;
+
+            case '*':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                        fprintf(file, ";---------------------------\n");
+                        fprintf(file, ";'*' operation\n\n");
+                        fprintf(file, "pop r14\n");
+                        fprintf(file, "pop rax\n");
+
+                        fprintf(file, "mul r14\n");
+                        fprintf(file, "push rax\n");
+                        fprintf(file, ";---------------------------\n\n");
+                        break;
+
+            case '/':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                        fprintf(file, ";---------------------------\n");
+                        fprintf(file, ";'/' operation\n\n");
+
+                        fprintf(file, "pop r14\n");
+                        fprintf(file, "pop rax\n");
+
+
+                        fprintf(file, "div r14\n");
+                        fprintf(file, "push rax\n");
+                        fprintf(file, ";---------------------------\n\n");
+                        break;
+
+            case MORE:      _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            fprintf(file, ";---------------------------\n");
+                            fprintf(file, ";'>' comparsion\n\n");
+
+                            fprintf(file, "pop r15\n");
+                            fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
+                            fprintf(file, "cmp r14, r15\n");
+
+                            if (if_cond)           fprintf(file, "ja SUB_COND%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "ja SUB_COND%d\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+
+                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
+
+                            fprintf(file, ";---------------------------\n\n");
+                            break;
+
+            case LESS:      _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            fprintf(file, ";---------------------------\n");
+                            fprintf(file, "'<' comparsion\n\n");
+
+                            fprintf(file, "pop r15\n");
+                            fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
+                            fprintf(file, "cmp r14, r15\n");
+
+                            if (if_cond)           fprintf(file, "jb SUB_COND%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jb SUB_COND%d\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
+
+                            fprintf(file, ";---------------------------\n\n");
+
+                            break;
+
+            case MORE_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            fprintf(file, ";---------------------------\n");
+                            fprintf(file, ";'>=' comparsion\n\n");
+
+                            fprintf(file, "pop r15\n");
+                            fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
+                            fprintf(file, "cmp r14, r15\n");
+
+                            if (if_cond)           fprintf(file, "jae SUB_COND%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jae SUB_COND%d\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
+
+                            fprintf(file, ";---------------------------\n\n");
+
+                            break;
+
+            case LESS_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            fprintf(file, ";---------------------------\n");
+                            fprintf(file, ";'<=' comparsion\n\n");
+
+                            fprintf(file, "pop r15\n");
+                            fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
+                            fprintf(file, "cmp r14, r15\n");
+
+                            if (if_cond)           fprintf(file, "jbe SUB_COND%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jbe SUB_COND%d\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
+
+                            fprintf(file, ";---------------------------\n\n");
+
+                            break;
+
+            case EQUAL:     _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            fprintf(file, ";---------------------------\n");
+                            fprintf(file, ";'==' comparsion\n\n");
+
+                            fprintf(file, "pop r15\n");
+                            fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
+                            fprintf(file, "cmp r14, r15\n");
+
+                            if (if_cond)           fprintf(file, "je SUB_COND%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "je SUB_COND%d\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
+
+                            fprintf(file, ";---------------------------\n\n");
+
+                            break;
+
+            case N_EQUAL:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            fprintf(file, ";---------------------------\n");
+                            fprintf(file, ";'!=' comparsion\n\n");
+
+                            fprintf(file, "pop r15\n");
+                            fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
+
+                            fprintf(file, "cmp r14, r15\n");
+
+                            if (if_cond)           fprintf(file, "jne SUB_COND%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jne SUB_COND%d\n", while_count);
+
+                            fprintf(file, "push 0\n");
+                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
+
+                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+                            fprintf(file, "push 1\n");
+                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
+                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
+
+                            fprintf(file, ";---------------------------\n\n");
+
+                            break;
+
+
+            case IF:
+                        local_if = IF_COUNT;
+                        if_count = IF_COUNT;
+                        IF_COUNT++;
+
+                        _create_asm(names, root->left, file, 1, 0, if_count, while_count);
+
+                        fprintf(file, ";---------------------------\n");
+                        fprintf(file, ";if condition\n\n");
+
+                        fprintf(file, "IF%d:\n", if_count);
+                        fprintf(file, "push 0\n");
+
+
+                        fprintf(file, "pop r15\n");
+                        fprintf(file, "pop r14\n");
+                        fprintf(file, "push r14\n");
+                        fprintf(file, "push r15\n");
+
+                        fprintf(file, "cmp r14, r15\n");
+
+                        fprintf(file, "jne COND%d\n", if_count);
+
+                        fprintf(file, "jmp IF_END%d\n", if_count);
+
+                        fprintf(file, "COND%d:\n", if_count);
+                        if_count++;
+                        _create_asm(names, root->right, file, 1, 0, if_count, while_count);
+
+                        fprintf(file, "IF_END%d:\n", local_if);
+
+                        fprintf(file, ";---------------------------\n\n");
+                        break;
+
+
+            case WHILE:
+                        local_while = WHILE_COUNT;
+                        while_count = WHILE_COUNT;
+                        WHILE_COUNT++;
+
+                        fprintf(file, ";---------------------------\n");
+                        fprintf(file, ";while condition\n\n");
+                        fprintf(file, "WHILE%d:\n", while_count);
+                        _create_asm(names, root->left, file, 0, 1, if_count, while_count);
+
+                        fprintf(file, "WHILE_FALSE%d:\n", while_count);
+                        fprintf(file, "push 0\n");
+
+                        fprintf(file, "pop r15\n");
+                        fprintf(file, "pop r14\n");
+                        fprintf(file, "push r14\n");
+                        fprintf(file, "push r15\n");
+
+                        fprintf(file, "cmp r14, r15\n");
+
+                        fprintf(file, "je WHILE_END%d\n", while_count);
+
+                        fprintf(file, "WHILE_TRUE%d:\n", while_count);
+                        _create_asm(names, root->right, file, 0, 1, if_count, while_count);
+
+                        fprintf(file, "jmp WHILE%d\n", local_while);
+                        fprintf(file, "WHILE_END%d:\n", local_while);
+
+                        fprintf(file, ";---------------------------\n\n");
+                        break;
+
+            case DEF:   break;
+
+
+            default: return -1;
+
+
+        }
+    }
+    if (NodeType(root) == FUNC)
+    {
+        switch((int) NodeValue(root))
+        {
+            case SIN:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        fprintf(file, "sin\n");
+                        break;
+
+            case COS:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        fprintf(file, "cos\n");
+                        break;
+
+            case SQRT:  _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        fprintf(file, "sqrt\n");
+                        break;
+
+            case PRINT: _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        fprintf(file, "out\n");
+                        break;
+
+            case INPUT: fprintf(file, "in\n");
+                        break;
+
+            default: return -1;
+        }
+    }
+
+    if (NodeType(root) == FUNC_NAME) fprintf(file, "call %s\n", NodeName(root));
+
+    if ((int) NodeValue(root) == ';')  {_create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count); _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);}
+    return 1;
+}
+
 
