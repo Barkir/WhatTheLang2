@@ -4,6 +4,7 @@
 dump
 *.txt
 bin
-*.0
+*.o
 What
 *.d
+run

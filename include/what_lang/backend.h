@@ -20,17 +20,6 @@ static int IF_COUNT = 0;
 static int WHILE_COUNT = 0;
 static int ADR_COUNT = 0;
 
-const char VAL2REG_START = 0xb8;
-const char PUSHREG_BYTE = 0x50;
-const char PUSHIMM32_BYTE = 0x68;
-const char POP_BYTE  = 0x59;
-const char CALL_DIRECT_BYTE = 0xe8;
-const char ADDITIONAL_REG_BYTE = 0x41;
-const char MULREG_BYTE = 0xe0;
-const char DIVREG_BYTE = 0xf0;
-const char OPER_BYTE = 0x48;
-const char XTEND_OPER_BYTE = 0x49;
-
 
 enum Registers
 {
@@ -55,26 +44,5 @@ enum AdditionalRegisters
     WHAT_REG_R14 = 0x06,
     WHAT_REG_R15 = 0x07,
 };
-
-
-void PUSHIMM32      (char ** buf,  field_t value);
-void PUSHREG        (char ** buf, int reg);
-void PUSH_XTEND_REG (char ** buf, int reg);
-void POPREG         (char ** buf, int reg);
-void POP_XTEND_REG  (char ** buf, int reg);
-
-void MULREG         (char ** buf, int reg);
-
-void MUL_XTEND_REG  (char ** buf, int reg);
-
-
-void DIVREG         (char ** buf, int reg);
-
-void DIV_XTEND_REG  (char ** buf, int reg);
-
-// ACHTUNG!!! WARNING!!! ACHTUNG!!!
-// В CALL_DIRECT кладем абсолютный адрес
-
-void CALL_DIRECT    (char ** buf, int adr);
 
 #endif
