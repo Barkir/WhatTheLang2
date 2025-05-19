@@ -1,6 +1,10 @@
 #ifndef NASM2ELF_H
 #define NASM2ELF_H
 
+int NASM2ELF(const char * filename);
+enum Instruction GetInstr(char * instr);
+size_t FileSize(FILE * fp);
+
 enum Instruction
 {
     WHAT_DEFAULT = 0,
@@ -34,24 +38,6 @@ enum Instruction
     WHAT_NUM =  28
 };
 
-struct InstructionMov
-{
-    char special_byte;
-    char start_byte;
-    char register_offset;
-};
-
-struct InstuctionAdd
-{
-
-};
-
-struct InstructionPush
-{
-
-};
-
-
 struct elf_hdr
 {
     char e_ident[16];
@@ -68,18 +54,9 @@ struct elf_hdr
     char e_shentsize[2];
     char e_shnum[2];
     char e_shstrndx[2];
-}
-
-struct Token
-{
-    enum Instruction instr;
-    char * instr_txt;
-    void * instruction_struct;
-
-    size_t offset;
-
 };
 
+// TODO: elf.h constants
 
 static struct elf_hdr Header =
 {
@@ -98,7 +75,7 @@ static struct elf_hdr Header =
     .e_phnum        =   {   0x02, 0x00                  },
     .e_shentsize    =   {   0x00, 0x00                  },
     .e_shnum        =   {   0x00, 0x00                  },
-    .e_shstrndx     =   {   0x00, 0x00                  },
+    .e_shstrndx     =   {   0x00, 0x00                  }
 
 };
 

@@ -3,11 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "what_lang/tree.h"
 #include "what_lang/buff.h"
 #include "what_lang/parser.h"
+#include "what_lang/errors.h"
 
 int main(int argc, char * argv[])
 {
+    fprintf(stderr, "gggg");
     char ASM[DEF_SIZE];
     char out[DEF_SIZE];
     char run[DEF_SIZE];

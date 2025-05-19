@@ -4,6 +4,13 @@
         "stddef.h": "c",
         "nametable.h": "c",
         "typeinfo": "c",
-        "parser.h": "c"
+        "parser.h": "c",
+        "backend.h": "c",
+        "tree.h": "c",
+        "emitters.h": "c",
+        "string.h": "c",
+        "errors.h": "c",
+        "cctype": "c",
+        "tokenizer.h": "c"
     }
 }

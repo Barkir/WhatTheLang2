@@ -3,4 +3,4 @@ all:
 	make -C ./SPU-Processor Makefile
 
 clean:
-	rm -f bin/*.o bin/*.d
+	rm -rf bin/backend/*.o bin/backend/*.d bin/frontend/*.o bin/frontend/*.d bin/src/*.o bin/src/*.d

@@ -1,72 +1,7 @@
-#ifndef DIFF_H
-#define DIFF_H
+#ifndef PARSER_H
+#define PARSER_H
 
-const int VAL2REG_START = 0xb8;
-
-const char PUSHREG_BYTE = 0x50;
-const char PUSHIMM32_BYTE = 0x68;
-const char POP_BYTE  = 0x59;
-const char CALL_DIRECT_BYTE = 0xe8;
-const char ADDITIONAL_REG_BYTE = 0x41;
-
-
-const char OPER_BYTE = 0x48;
-const char XTEND_OPER_BYTE = 0x49;
-
-
-enum Registers
-{
-    REG_EAX = 0x00,
-    REG_ECX = 0x01,
-    REG_EDX = 0x02,
-    REG_EBX = 0x03,
-    REG_ESP = 0x04,
-    REG_EBP = 0x05,
-    REG_ESI = 0x06,
-    REG_EDI = 0x07,
-};
-
-enum AdditionalRegisters
-{
-    REG_R8  = 0x00,
-    REG_R9  = 0x01,
-    REG_R10 = 0x02,
-    REG_R11 = 0x03,
-    REG_R12 = 0x04,
-    REG_R13 = 0x05,
-    REG_R14 = 0x06,
-    REG_R15 = 0x07,
-};
-
-typedef struct _tree Tree;
-
-enum types
-{
-    ERROR = -1,
-    OPER = 0,
-    VAR = 1,
-    NUM = 2,
-    FUNC = 3,
-    SEP_SYMB = 4,
-    FUNC_NAME = 5
-};
-
-typedef double field_t;
-
-
-typedef struct _field
-{
-    enum types type;
-    field_t value;
-    char name[1024];
-    int ip;
-
-} Field;
-
-typedef void *  (*TreeInit)    (const void*);
-typedef int     (*TreeCmp)      (const void*, const void*);
-typedef void    (*TreeFree)     (void*);
-typedef int     (*TreeCb)       (Tree * t, int level, const void*);
+#include "what_lang/tree.h"
 
 static int DEF_SIZE = 1024;
 
@@ -116,28 +51,24 @@ enum functions
     INPUT   = 114
 };
 
-enum errors
-{
-    SUCCESS,
-    ALLOCATE_MEMORY_ERROR,
-    MEMCPY_ERROR,
-    FOPEN_ERROR,
-    FCLOSE_ERROR
-};
+Node * GetMajor(Node ** nodes, int * p);
+Node * GetOperator(Node ** nodes, int * p);
+Node * GetAssignment(Node ** nodes, int * p);
+Node * GetExpression(Node ** nodes, int * p);
+Node * GetTerm(Node ** nodes, int * p);
+Node * GetPow(Node ** nodes, int * p);
+Node * GetCompare(Node ** nodes, int * p);
+Node * GetBracket(Node ** nodes, int * p);
+Node * GetFunc(Node ** nodes, int * p);
+Node * GetFuncName(Node ** nodes, int * p);
+Node * GetNumber(Node ** nodes, int * p);
+Node * GetID(Node ** nodes, int * p);
+Node * GetIf(Node ** nodes, int * p);
+Node * GetWhile(Node ** nodes, int * p);
+Node * GetGroup(Node ** nodes, int * p);
+Node * GetParam(Node ** nodes, int * p);
+Node * GetCall(Node ** nodes, int * p);
 
-Tree * CreateTree(TreeInit init, TreeCmp cmp, TreeFree free);
-
-int CreateNode(Tree * t, const void * pair);
-
-int InsertTree(Tree * t, const void * pair);
-
-int TreeParse(Tree * tree, const char * filename);
-
-Tree * TreeDump(Tree * tree, const char * FileName);
-
-int CreateAsm(Tree * tree, const char * filename);
-
-void DestroyTree(Tree * t);
 
 
 #endif

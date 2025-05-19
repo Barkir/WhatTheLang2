@@ -1,27 +1,34 @@
 CC = gcc
-CFLAGS = -Wall -I $(INCLUDE) -MMD
+CFLAGS = -Wall -I$(INCLUDE) -MMD
 BIN = bin
-SRC = src
+SRC_DIRS = src backend frontend  # Все директории с исходниками
 INCLUDE = include
 
-SOURCES = $(notdir $(wildcard $(SRC)/*.c))
+# Ищем все .c файлы в SRC_DIRS (исключая сами директории)
+SOURCES = $(shell find $(SRC_DIRS) -type f -name '*.c')
+
+# Преобразуем src/file.c → bin/src/file.o
 OBJECTS = $(patsubst %.c,$(BIN)/%.o,$(SOURCES))
 
-# Подключаем .d файлы для зависимостей
+# Файлы зависимостей (.d)
 DEPS = $(OBJECTS:.o=.d)
 
-TARGET = $(basename $(notdir $(CURDIR)))
+TARGET = $(notdir $(CURDIR))
+
+.PHONY: all clean
 
 all: $(BIN)/$(TARGET)
 
 $(BIN)/$(TARGET): $(OBJECTS)
 	$(CC) $^ -o $@
 
-$(BIN)/%.o: $(SRC)/%.c
+# Правило для компиляции .c → .o (создаём поддиректории в bin/)
+$(BIN)/%.o: %.c
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Включаем файлы зависимостей
+# Подключаем зависимости
 -include $(DEPS)
 
 clean:
-	rm -f $(BIN)/*.o $(BIN)/$(TARGET) $(DEPS)
+	rm -rf bin/backend bin/frontend bin/src

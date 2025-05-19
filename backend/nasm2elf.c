@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "what_lang/errors.h"
 #include "what_lang/nasm2elf.h"
+
 
 
 int NASM2ELF(const char * filename)
@@ -25,34 +27,6 @@ int NASM2ELF(const char * filename)
         perror("file reading error");
         return WHAT_FILEWRITE_ERROR;                                                        // writing file to buf
     }
-
-
-}
-
-int LexicalSeparation(Token ** lexems, char * buf, size_t buf_size)
-{
-    if (!lexems)    return WHAT_NULLPOINTER_ERROR;
-    if (!buf)       return WHAT_NULLPOINTER_ERROR;
-
-    char * instr_pointer = buf;
-    Token * lexems_pointer = *lexems;
-
-    for (size_t i = 0; i < buf_size; i++)
-    {
-        if (buf[i] == ' ' || buf[i] == '\n')
-        {
-            (*lexems)->instr_txt = strndup(instr_pointer, (buf + i) - instr_pointer);       // duplication of lexem into lexem struct array
-            (*lexems)->instr = GetInstr((*lexems)->instr_txt);
-            (*lexems)++;                                                                    // incrementing pointer
-            instr_pointer = buf + i;                                                        // moving instruction pointer
-            while (*(instr_pointer) == ' ' || *(instr_pointer) == '\n') instr_pointer++;    // moving to nearest letter
-        }
-    }
-
-
-    // Setting other values for our lexems
-
-
 
 
 }

@@ -182,6 +182,9 @@ If you use extended registers (r8, r9, ..., r15) add special byte **0x41** to th
 #### POP
 
 Pop is available for registers only
+```
+0x59 + reg_sequence number
+```
 
 
 #### ADD
