@@ -45,6 +45,33 @@ Name * GetFuncAdr(Node * root, Name * names)
     return NULL;
 }
 
+void EmitComparsion(int oper, const char * cond_jmp, int * if_count, int * while_count)
+{
+
+    POP_XTEND_REG(buf, file, WHAT_REG_R15);
+    POP_XTEND_REG(buf, file, WHAT_REG_R14);
+    PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
+    PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
+    CMP_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+
+    if (if_cond)           fprintf(file, "ja SUB_COND%d\n", if_count);
+    else if (while_cond)   fprintf(file, "ja SUB_COND%d\n", while_count);
+
+    PUSHIMM32(buf, file, 0);
+
+    if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
+    else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
+
+    if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
+    else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+    PUSHIMM32(buf, file, 1);
+
+    if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
+    else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
+    break;
+}
+
 int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
 {
     if (NodeType(root) == NUM)
@@ -85,93 +112,84 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
         switch ((int) NodeValue(root))
         {
             case '=':   _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
-                        POPREG(buf, Adr2EnumReg(GetVarAdr(root->left, names)));
+                        POPREG(buf, file, Adr2EnumReg(GetVarAdr(root->left, names)));
                         break;
 
             case '+':   _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
                         _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
 
-                        POP_XTEND_REG(buf, WHAT_REG_R14);
-                        POP_XTEND_REG(buf, WHAT_REG_R15);
+                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
+                        POP_XTEND_REG(buf, file, WHAT_REG_R15);
 
                         break;
 
             case '-':   _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
                         _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                        POP_XTEND_REG(buf, WHAT_REG_R14);
-                        POP_XTEND_REG(buf, WHAT_REG_R15);
+                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
+                        POP_XTEND_REG(buf, file, WHAT_REG_R15);
 
                         break;
 
             case '*':   _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
                         _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                        POP_XTEND_REG(buf, WHAT_REG_R14);
-                        POPREG(buf, WHAT_REG_EAX);
+                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
+                        POPREG(buf, file, WHAT_REG_EAX);
 
-                        MUL_XTEND_REG(buf, WHAT_REG_R14);
-                        PUSHREG(buf, WHAT_REG_EAX);
+                        MUL_XTEND_REG(buf, file, WHAT_REG_R14);
+                        PUSHREG(buf, file, WHAT_REG_EAX);
                         break;
 
             case '/':   _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
                         _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                        POP_XTEND_REG(buf, WHAT_REG_R14);
-                        POPREG(buf, WHAT_REG_EAX);
+                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
+                        POPREG(buf, file, WHAT_REG_EAX);
 
 
-                        DIV_XTEND_REG(buf, WHAT_REG_R14);
-                        PUSHREG(buf, WHAT_REG_EAX);
+                        DIV_XTEND_REG(buf, file, WHAT_REG_R14);
+                        PUSHREG(buf, file, WHAT_REG_EAX);
                         break;
 
             // TODO: функции под сравнения
 
-            case MORE:      _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case MORE:      EmitComparsion(MORE, "ja", &if_count, &while_count);
+
+                            _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'>' comparsion\n\n");
-
-                            POP_XTEND_REG(buf, WHAT_REG_R15);
-
-                            POP_XTEND_REG(buf, WHAT_REG_R14);
-
-                            PUSH_XTEND_REG(buf, WHAT_REG_R14);
-                            PUSH_XTEND_REG(buf, WHAT_REG_R14);
-
-                            fprintf(file, "cmp r14, r15\n");
+                            POP_XTEND_REG(buf, file, WHAT_REG_R15);
+                            POP_XTEND_REG(buf, file, WHAT_REG_R14);
+                            PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
+                            PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
+                            CMP_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
                             if (if_cond)           fprintf(file, "ja SUB_COND%d\n", if_count);
                             else if (while_cond)   fprintf(file, "ja SUB_COND%d\n", while_count);
 
-                            fprintf(file, "push 0\n");
+                            PUSHIMM32(buf, file, 0);
+
                             if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
                             else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
 
                             if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
                             else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
 
-                            fprintf(file, "push 1\n");
+                            PUSHIMM32(buf, file, 1);
 
                             if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
                             else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
                             break;
 
             case LESS:      _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, "'<' comparsion\n\n");
-
                             fprintf(file, "pop r15\n");
                             fprintf(file, "pop r14\n");
                             fprintf(file, "push r14\n");
                             fprintf(file, "push r15\n");
-
                             fprintf(file, "cmp r14, r15\n");
 
                             if (if_cond)           fprintf(file, "jb SUB_COND%d\n", if_count);
@@ -1061,15 +1079,29 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
     return 1;
 }
 
-const char * Adr2Reg(int adr)
+const char * Adr2Reg(int adr, int xtnd)
 {
+    if (xtnd)
+    {
+        switch(adr)
+        {
+            case WHAT_REG_R8:   return "r8";
+            case WHAT_REG_R9:   return "r9";
+            case WHAT_REG_R10:  return "r10";
+            case WHAT_REG_R11:  return "r11";
+            case WHAT_REG_R12:  return "r12";
+            case WHAT_REG_R13:  return "r13";
+            case WHAT_REG_R14;  return "r14";
+            case WHAT_REG_R15:  return "r15";
+        }
+    }
     switch(adr)
     {
-        case 0:     return "rbx";
-        case 1:     return "rcx";
-        case 2:     return "rdx";
-        case 3:     return "rsi";
-        case 4:     return "rdi";
+        case 0:     return "ebx";
+        case 1:     return "ecx";
+        case 2:     return "edx";
+        case 3:     return "esi";
+        case 4:     return "edi";
     }
 }
 

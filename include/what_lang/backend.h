@@ -1,6 +1,12 @@
 #ifndef BACKEND_H
 #define BACKEND_H
 
+typedef struct _context
+{
+    Name ** local_jmp;
+    int if_count;
+    int while_count;
+};
 
 Name * CreateVarTable(Node * root);
 Name  * CreateFuncTable(Node * root);
