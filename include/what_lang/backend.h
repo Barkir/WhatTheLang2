@@ -1,12 +1,7 @@
 #ifndef BACKEND_H
 #define BACKEND_H
 
-typedef struct _context
-{
-    Name ** local_jmp;
-    int if_count;
-    int while_count;
-};
+
 
 Name * CreateVarTable(Node * root);
 Name  * CreateFuncTable(Node * root);
@@ -50,5 +45,35 @@ enum AdditionalRegisters
     WHAT_REG_R14 = 0x06,
     WHAT_REG_R15 = 0x07,
 };
+
+typedef struct _locals
+{
+    char * if_label:
+    char * if_end_label;
+    char * while_false_label;
+    char * while_true_label;
+    char * while_end_label;
+
+} Locals;
+
+typedef struct _ctx
+{
+    static int ctx_if_count;
+    static int ctx_while_count;
+    static int ctx_adr_count;
+
+    static int if_cond;
+    static int while_cond;
+
+} Ctx;
+
+
+static struct _ctx GlobalContext =
+{
+    .ctx_adr_count      = 0,
+    .ctx_if_count       = 0,
+    .ctx_while_count    = 0
+};
+
 
 #endif

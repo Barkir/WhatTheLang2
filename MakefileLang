@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -I$(INCLUDE) -MMD
 BIN = bin
-SRC_DIRS = src backend frontend  # Все директории с исходниками
+SRC_DIRS = src backend frontend HashTable  # Все директории с исходниками
 INCLUDE = include
 
 # Ищем все .c файлы в SRC_DIRS (исключая сами директории)

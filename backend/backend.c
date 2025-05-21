@@ -9,6 +9,8 @@
 #include "what_lang/emitters.h"
 #include "what_lang/errors.h"
 
+#include "HashTable/include/htable.h"
+
 const char * GetVarName(Node * root)
 {
     switch((int) NodeValue(root))
@@ -45,30 +47,46 @@ Name * GetFuncAdr(Node * root, Name * names)
     return NULL;
 }
 
-void EmitComparsion(int oper, const char * cond_jmp, int * if_count, int * while_count)
+void EmitComparsion(char ** buf, FILE * file, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
 {
+    size_t offset = 0;
 
-    POP_XTEND_REG(buf, file, WHAT_REG_R15);
-    POP_XTEND_REG(buf, file, WHAT_REG_R14);
-    PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
-    PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
-    CMP_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+    POP_XTEND_REG   (buf,   file, WHAT_REG_R15);
+    POP_XTEND_REG   (buf,   file, WHAT_REG_R14);
+    PUSH_XTEND_REG  (buf,   file, WHAT_REG_R14);
+    PUSH_XTEND_REG  (buf,   file, WHAT_REG_R14);
+    CMP_REG_REG     (buf,   file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
-    if (if_cond)           fprintf(file, "ja SUB_COND%d\n", if_count);
-    else if (while_cond)   fprintf(file, "ja SUB_COND%d\n", while_count);
+    if (if_cond)
+    {
+        fprintf(file, "%s SUB_COND%d\n", cond_jmp, *if_count);
+        EMIT_JMP(oper, 0);
+        offset = ((size_t)(*buf)) - 1;
+    }
+    else if (while_cond)
+    {
+        fprintf(file, "%s SUB_COND%d\n", cond_jmp, *while_count);
+        EMIT_JMP(oper, 0);
+        offset = ((size_t)(*buf)) - 1;
+    }
 
     PUSHIMM32(buf, file, 0);
 
-    if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-    else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
+    if      (if_cond)
+    {
+        fprintf(file, "jmp IF_END%d\n",      *if_count);
+        EMIT_JMP(JMP_BYTE, )
+    }
+    else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", *while_count);
 
-    if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-    else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
+
+    if          (if_cond) fprintf(file, "SUB_COND%d:\n",    *if_count);
+    else if     (while_cond) fprintf(file, "SUB_COND%d:\n", *while_count);
 
     PUSHIMM32(buf, file, 1);
 
-    if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-    else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
+    if      (if_cond)           fprintf(file, "jmp IF%d\n", (*if_count)++);
+    else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", (*while_count)++);
     break;
 }
 
@@ -122,6 +140,8 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
                         POP_XTEND_REG(buf, file, WHAT_REG_R14);
                         POP_XTEND_REG(buf, file, WHAT_REG_R15);
 
+                        ADD_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+                        PUSH_XTEND_REG(WHAT_REG_R14);
                         break;
 
             case '-':   _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
@@ -129,6 +149,8 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
 
                         POP_XTEND_REG(buf, file, WHAT_REG_R14);
                         POP_XTEND_REG(buf, file, WHAT_REG_R15);
+
+                        SUB_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
                         break;
 
@@ -155,19 +177,23 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
 
             // TODO: функции под сравнения
 
-            case MORE:      EmitComparsion(MORE, "ja", &if_count, &while_count);
-
-                            _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case MORE:      _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            POP_XTEND_REG(buf, file, WHAT_REG_R15);
-                            POP_XTEND_REG(buf, file, WHAT_REG_R14);
-                            PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
-                            PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
-                            CMP_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+                            POP_XTEND_REG   (buf, file, WHAT_REG_R15);
+                            POP_XTEND_REG   (buf, file, WHAT_REG_R14);
+                            PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
+                            PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
+                            CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
-                            if (if_cond)           fprintf(file, "ja SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "ja SUB_COND%d\n", while_count);
+                            if (if_cond)
+                            {
+                                fprintf(file, "ja SUB_COND%d\n", if_count);
+                            }
+                            else if (while_cond)
+                            {
+                                fprintf(file, "ja SUB_COND%d\n", while_count);
+                            }
 
                             PUSHIMM32(buf, file, 0);
 
@@ -346,6 +372,9 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
                         fprintf(file, ";if condition\n\n");
 
                         fprintf(file, "IF%d:\n", if_count);
+
+                        // *(locals->if) = (*buf) - local
+
                         fprintf(file, "push 0\n");
 
 

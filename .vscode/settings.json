@@ -11,6 +11,7 @@
         "string.h": "c",
         "errors.h": "c",
         "cctype": "c",
-        "tokenizer.h": "c"
+        "tokenizer.h": "c",
+        "cstdint": "c"
     }
 }
