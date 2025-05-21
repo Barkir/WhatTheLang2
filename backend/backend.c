@@ -47,9 +47,9 @@ Name * GetFuncAdr(Node * root, Name * names)
     return NULL;
 }
 
-void EmitComparsion(char ** buf, FILE * file, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
+void EmitComparsion(char ** buf, FILE * file, Local * locals, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
 {
-    size_t offset = 0;
+    char * offset = 0;
 
     POP_XTEND_REG   (buf,   file, WHAT_REG_R15);
     POP_XTEND_REG   (buf,   file, WHAT_REG_R14);
@@ -61,33 +61,51 @@ void EmitComparsion(char ** buf, FILE * file, char oper, const char * cond_jmp, 
     {
         fprintf(file, "%s SUB_COND%d\n", cond_jmp, *if_count);
         EMIT_JMP(oper, 0);
-        offset = ((size_t)(*buf)) - 1;
     }
+
     else if (while_cond)
     {
         fprintf(file, "%s SUB_COND%d\n", cond_jmp, *while_count);
         EMIT_JMP(oper, 0);
-        offset = ((size_t)(*buf)) - 1;
     }
+
+    offset = *buf - 1;
 
     PUSHIMM32(buf, file, 0);
 
-    if      (if_cond)
+    if (if_cond)
     {
-        fprintf(file, "jmp IF_END%d\n",      *if_count);
-        EMIT_JMP(JMP_BYTE, )
+        fprintf(file, "jmp IF_END%d\n", *if_count);
+        EMIT_JMP(JMP_BYTE, 0);
+        locals->if_end_label = *buf - 1;
+
     }
-    else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", *while_count);
+    else if (while_cond)
+    {
+        fprintf(file, "jmp WHILE_FALSE%d\n", *while_count);
+        EMIT_JMP(JMP_BYTE, 0);
+        locals->while_false_label = *buf - 1;
+    }
 
-
-    if          (if_cond) fprintf(file, "SUB_COND%d:\n",    *if_count);
+    if          (if_cond)    fprintf(file, "SUB_COND%d:\n",    *if_count);
     else if     (while_cond) fprintf(file, "SUB_COND%d:\n", *while_count);
+    *offset = (int8_t)(*buf - offset);
 
     PUSHIMM32(buf, file, 1);
 
-    if      (if_cond)           fprintf(file, "jmp IF%d\n", (*if_count)++);
-    else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", (*while_count)++);
-    break;
+    if      (if_cond)
+    {
+        fprintf(file, "jmp IF%d\n", (*if_count)++);
+        EMIT_JMP(JMP_BYTE, 0);
+        locals->if_label = *buf - 1;
+    }
+
+    else if (while_cond)
+    {
+        fprintf(file, "jmp WHILE_TRUE%d\n", (*while_count)++);
+        EMIT_JMP(JMP_BYTE, 0);
+        locals->while_true_label = *buf - 1;
+    }
 }
 
 int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
@@ -180,189 +198,46 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
             case MORE:      _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            POP_XTEND_REG   (buf, file, WHAT_REG_R15);
-                            POP_XTEND_REG   (buf, file, WHAT_REG_R14);
-                            PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
-                            PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
-                            CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+                            EmitComparsion(buf, file, locals, JA_BYTE, "ja", &if_count, &while_count, if_cond, while_cond);
 
-                            if (if_cond)
-                            {
-                                fprintf(file, "ja SUB_COND%d\n", if_count);
-                            }
-                            else if (while_cond)
-                            {
-                                fprintf(file, "ja SUB_COND%d\n", while_count);
-                            }
-
-                            PUSHIMM32(buf, file, 0);
-
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            PUSHIMM32(buf, file, 1);
-
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
                             break;
 
             case LESS:      _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "jb SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jb SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
+                            EmitComparsion(buf, file, locals, JB_BYTE, "jb", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
             case MORE_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'>=' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "jae SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jae SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
+                            EmitComparsion(buf, file, locals, JAE_BYTE, "jae", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
             case LESS_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'<=' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "jbe SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jbe SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
+                            EmitComparsion(buf, file, locals, JBE_BYTE, "jbe", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
             case EQUAL:     _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'==' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "je SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "je SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
+                            EmitComparsion(buf, file, locals, JE_BYTE, "je", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
             case N_EQUAL:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'!=' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "jne SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jne SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
+                            EmitComparsion(buf, file, locals, JNE_BYTE, "jne", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
-
-            case IF:
-                        local_if = IF_COUNT;
+            case IF:    local_if = IF_COUNT;
                         if_count = IF_COUNT;
                         IF_COUNT++;
 
@@ -372,8 +247,6 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
                         fprintf(file, ";if condition\n\n");
 
                         fprintf(file, "IF%d:\n", if_count);
-
-                        // *(locals->if) = (*buf) - local
 
                         fprintf(file, "push 0\n");
 
@@ -399,36 +272,35 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
                         break;
 
 
-            case WHILE:
-                        local_while = WHILE_COUNT;
-                        while_count = WHILE_COUNT;
-                        WHILE_COUNT++;
+            case WHILE:     local_while = WHILE_COUNT;
+                            while_count = WHILE_COUNT;
+                            WHILE_COUNT++;
 
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";while condition\n\n");
-                        fprintf(file, "WHILE%d:\n", while_count);
-                        _create_asm(names, root->left, file, 0, 1, if_count, while_count);
+                            fprintf(file, ";---------------------------\n");
+                            fprintf(file, ";while condition\n\n");
+                            fprintf(file, "WHILE%d:\n", while_count);
+                            _create_asm(names, root->left, file, 0, 1, if_count, while_count);
 
-                        fprintf(file, "WHILE_FALSE%d:\n", while_count);
-                        fprintf(file, "push 0\n");
+                            fprintf(file, "WHILE_FALSE%d:\n", while_count);
+                            fprintf(file, "push 0\n");
 
-                        fprintf(file, "pop r15\n");
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "push r14\n");
-                        fprintf(file, "push r15\n");
+                            fprintf(file, "pop r15\n");
+                            fprintf(file, "pop r14\n");
+                            fprintf(file, "push r14\n");
+                            fprintf(file, "push r15\n");
 
-                        fprintf(file, "cmp r14, r15\n");
+                            fprintf(file, "cmp r14, r15\n");
 
-                        fprintf(file, "je WHILE_END%d\n", while_count);
+                            fprintf(file, "je WHILE_END%d\n", while_count);
 
-                        fprintf(file, "WHILE_TRUE%d:\n", while_count);
-                        _create_asm(names, root->right, file, 0, 1, if_count, while_count);
+                            fprintf(file, "WHILE_TRUE%d:\n", while_count);
+                            _create_asm(names, root->right, file, 0, 1, if_count, while_count);
 
-                        fprintf(file, "jmp WHILE%d\n", local_while);
-                        fprintf(file, "WHILE_END%d:\n", local_while);
+                            fprintf(file, "jmp WHILE%d\n", local_while);
+                            fprintf(file, "WHILE_END%d:\n", local_while);
 
-                        fprintf(file, ";---------------------------\n\n");
-                        break;
+                            fprintf(file, ";---------------------------\n\n");
+                            break;
 
             case DEF:   break;
 
