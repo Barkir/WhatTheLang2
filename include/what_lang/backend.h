@@ -1,6 +1,7 @@
 #ifndef BACKEND_H
 #define BACKEND_H
 
+const static size_t LABEL_SIZE = 32;
 
 
 Name * CreateVarTable(Node * root);
@@ -11,15 +12,15 @@ int GetVarAdr(Node * root, Name * names);
 const char * GetVarName(Node * root);
 
 
+int CreateBin(Tree * tree, const char * filename);
+int CreateAsm(Tree * tree, const char * filename);
+
+
 const enum Registers Adr2EnumReg(int adr);
-const char * Adr2Reg(int adr);
+const char * Adr2Reg(int adr, int xtnd);
 
 int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-
-static int IF_COUNT = 0;
-static int WHILE_COUNT = 0;
-static int ADR_COUNT = 0;
+int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
 
 
 enum Registers
@@ -46,34 +47,35 @@ enum AdditionalRegisters
     WHAT_REG_R15 = 0x07,
 };
 
-typedef struct _locals
-{
-    char * if_label:
-    char * if_end_label;
-    char * while_false_label;
-    char * while_true_label;
-    char * while_end_label;
+//
+// typedef struct _locals
+// {
+//     char * if_label;
+//     char * if_end_label;
+//     char * while_false_label;
+//     char * while_true_label;
+//     char * while_end_label;
+//
+// } Locals;
+//
+// typedef struct _ctx
+// {
+//     static int ctx_if_count;
+//     static int ctx_while_count;
+//     static int ctx_adr_count;
+//
+//     static int if_cond;
+//     static int while_cond;
+//
+// } Ctx;
 
-} Locals;
 
-typedef struct _ctx
-{
-    static int ctx_if_count;
-    static int ctx_while_count;
-    static int ctx_adr_count;
-
-    static int if_cond;
-    static int while_cond;
-
-} Ctx;
-
-
-static struct _ctx GlobalContext =
-{
-    .ctx_adr_count      = 0,
-    .ctx_if_count       = 0,
-    .ctx_while_count    = 0
-};
+// static struct _ctx GlobalContext =
+// {
+//     .ctx_adr_count      = 0,
+//     .ctx_if_count       = 0,
+//     .ctx_while_count    = 0
+// };
 
 
 #endif

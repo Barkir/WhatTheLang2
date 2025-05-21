@@ -1,0 +1,15 @@
+push 10
+pop esi
+push 20
+pop ecx
+push esi
+push ecx
+pop r14
+pop r15
+add r14, r15
+push r14
+pop edx
+mov rax, 60
+syscall
+section .data
+stack4calls times 128 * 8 db 0  ; stack for calls

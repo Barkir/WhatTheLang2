@@ -12,6 +12,10 @@
         "errors.h": "c",
         "cctype": "c",
         "tokenizer.h": "c",
-        "cstdint": "c"
+        "cstdint": "c",
+        "htable.h": "c",
+        "list.h": "c",
+        "stdlib.h": "c",
+        "emit_constants.h": "c"
     }
 }

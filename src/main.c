@@ -8,9 +8,13 @@
 #include "what_lang/parser.h"
 #include "what_lang/errors.h"
 
+#include "what_lang/nametable.h"
+#include "what_lang/list.h"
+#include "what_lang/htable.h"
+#include "what_lang/backend.h"
+
 int main(int argc, char * argv[])
 {
-    fprintf(stderr, "gggg");
     char ASM[DEF_SIZE];
     char out[DEF_SIZE];
     char run[DEF_SIZE];
@@ -23,8 +27,9 @@ int main(int argc, char * argv[])
             if (TreeParse(tree, argv[2]) == FOPEN_ERROR) return -fprintf(stderr, "Can't open file... plz try again.\n");
             TreeDump(tree, "dump");
             sprintf(ASM, "%s.asm", argv[2]);
-            CreateAsm(tree, ASM);
-            DestroyTree(tree);
+            // CreateAsm(tree, ASM);
+            CreateBin(tree, "hello");
+            // DestroyTree(tree);
 
             sprintf(out, "SPU-Processor/compiler/bin/Compiler %s %s.out\n", ASM, argv[2]);
             system(out);

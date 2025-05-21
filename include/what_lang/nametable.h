@@ -6,6 +6,7 @@ typedef struct _name
     const char * name;
     const char * func_name;
 
+    char * local_func_name;
     char * offset;
 
     int address;

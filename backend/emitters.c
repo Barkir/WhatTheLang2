@@ -3,15 +3,24 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "what_lang/tree.h"
-#include "what_lang/emitters.h"
 #include "what_lang/nametable.h"
+
+#include "what_lang/list.h"
+#include "what_lang/htable.h"
+
+#include "what_lang/tree.h"
 #include "what_lang/backend.h"
+#include "what_lang/emitters.h"
+#include "what_lang/emit_constants.h"
+#include "what_lang/errors.h"
 
 void PUSHIMM32(char ** buf,  FILE * file, field_t value)
 {
     int val = (int) value;
+    fprintf(file, "push %d\n", val);
+    PARSER_LOG("PUSHING VALUE %d", val);
     **buf = PUSHIMM32_BYTE;
+    PARSER_LOG("OPCODE %x", **buf);
     (*buf)++;
     memcpy(*buf, &val, sizeof(int));
     (*buf) += sizeof(int);
@@ -20,8 +29,10 @@ void PUSHIMM32(char ** buf,  FILE * file, field_t value)
 
 void PUSHREG(char ** buf, FILE * file, uint8_t reg)
 {
+    PARSER_LOG("PUSHING 2 REG %d", reg);
     fprintf(file, "push %s\n", Adr2Reg(reg, 0));
     **buf = PUSHREG_BYTE + reg;
+    PARSER_LOG("VALUE IN BUF %d", **buf);
     (*buf)++;
 }
 
@@ -71,7 +82,7 @@ void MUL_XTEND_REG(char ** buf, FILE * file, uint8_t reg)
 }
 
 
-void DIVREG(char ** buf, uint8_t reg)
+void DIVREG(char ** buf, FILE * file, uint8_t reg)
 {
     fprintf(file, "div %s\n", Adr2Reg(reg, 0));
     **buf = 0xf7;
@@ -156,7 +167,7 @@ void ADD_REG_VAL(char ** buf, FILE * file, uint8_t reg, field_t val, enum RegMod
     }
 
     memcpy(*buf, &add_value, sizeof(int));
-    (*buf) += sizeof(int)
+    (*buf) += sizeof(int);
 }
 
 void ADD_REG_REG(char ** buf, FILE * file, uint8_t reg1, uint8_t reg2, enum RegModes mode)
@@ -252,3 +263,4 @@ void CALL_DIRECT(char ** buf, FILE * file, int adr, const char * name)
     memcpy(*buf, ((*buf)-adr), sizeof(int));
     (*buf) += sizeof(int);
 }
+

@@ -1,15 +1,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+
+#include "what_lang/nametable.h"
+
+#include "what_lang/list.h"
+#include "what_lang/htable.h"
+
 
 #include "what_lang/tree.h"
 #include "what_lang/parser.h"
-#include "what_lang/nametable.h"
 #include "what_lang/backend.h"
 #include "what_lang/emitters.h"
+#include "what_lang/emit_constants.h"
 #include "what_lang/errors.h"
 
-#include "HashTable/include/htable.h"
+
+static int IF_COUNT = 0;
+static int WHILE_COUNT = 0;
+static int ADR_COUNT = 0;
+
 
 const char * GetVarName(Node * root)
 {
@@ -47,9 +58,12 @@ Name * GetFuncAdr(Node * root, Name * names)
     return NULL;
 }
 
-void EmitComparsion(char ** buf, FILE * file, Local * locals, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
+void EmitComparsion(char ** buf, FILE * file, Htable * tab, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
 {
     char * offset = 0;
+
+    Name locals = {};
+    locals.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
 
     POP_XTEND_REG   (buf,   file, WHAT_REG_R15);
     POP_XTEND_REG   (buf,   file, WHAT_REG_R14);
@@ -60,13 +74,13 @@ void EmitComparsion(char ** buf, FILE * file, Local * locals, char oper, const c
     if (if_cond)
     {
         fprintf(file, "%s SUB_COND%d\n", cond_jmp, *if_count);
-        EMIT_JMP(oper, 0);
+        EMIT_JMP(buf, oper, 0);
     }
 
     else if (while_cond)
     {
         fprintf(file, "%s SUB_COND%d\n", cond_jmp, *while_count);
-        EMIT_JMP(oper, 0);
+        EMIT_JMP(buf, oper, 0);
     }
 
     offset = *buf - 1;
@@ -76,15 +90,22 @@ void EmitComparsion(char ** buf, FILE * file, Local * locals, char oper, const c
     if (if_cond)
     {
         fprintf(file, "jmp IF_END%d\n", *if_count);
-        EMIT_JMP(JMP_BYTE, 0);
-        locals->if_end_label = *buf - 1;
+        EMIT_JMP(buf, JMP_BYTE, 0);
+
+        sprintf(locals.local_func_name, "IF_END%d", *if_count);
+        locals.offset = *buf - 1;
+        HtableNameInsert(tab, &locals);
 
     }
+
     else if (while_cond)
     {
         fprintf(file, "jmp WHILE_FALSE%d\n", *while_count);
-        EMIT_JMP(JMP_BYTE, 0);
-        locals->while_false_label = *buf - 1;
+        EMIT_JMP(buf, JMP_BYTE, 0);
+
+        sprintf(locals.local_func_name, "WHILE_FALSE%d", *while_count);
+        locals.offset = *buf - 1;
+        HtableNameInsert(tab, &locals);
     }
 
     if          (if_cond)    fprintf(file, "SUB_COND%d:\n",    *if_count);
@@ -96,30 +117,38 @@ void EmitComparsion(char ** buf, FILE * file, Local * locals, char oper, const c
     if      (if_cond)
     {
         fprintf(file, "jmp IF%d\n", (*if_count)++);
-        EMIT_JMP(JMP_BYTE, 0);
-        locals->if_label = *buf - 1;
+        EMIT_JMP(buf, JMP_BYTE, 0);
+
+        sprintf(locals.local_func_name, "IF%d", *if_count);
+        locals.offset = *buf - 1;
+        HtableNameInsert(tab, &locals);
     }
 
     else if (while_cond)
     {
         fprintf(file, "jmp WHILE_TRUE%d\n", (*while_count)++);
-        EMIT_JMP(JMP_BYTE, 0);
-        locals->while_true_label = *buf - 1;
+        EMIT_JMP(buf, JMP_BYTE, 0);
+
+        sprintf(locals.local_func_name, "WHILE_TRUE%d", *if_count);
+        locals.offset = *buf - 1;
+        HtableNameInsert(tab, &locals);
     }
 }
 
-int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
 {
+    PARSER_LOG("NodeType(root) = %d, NodeName(root) = %s", NodeType(root), NodeName(root));
     if (NodeType(root) == NUM)
     {
-        PUSHIMM32(buf, NodeValue(root));
+        PARSER_LOG("PUSHING IMM32");
+        PUSHIMM32(buf, file, (int) NodeValue(root));
     }
     if (NodeType(root) == VAR)
     {
         int adr = GetVarAdr(root, names);
         if (adr >= 0)
         {
-            PUSHREG(buf, Adr2EnumReg(adr));
+            PUSHREG(buf, file, (uint8_t) Adr2EnumReg(adr));
         }
         else
         {
@@ -130,40 +159,42 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
             {
                 for (int i = func->address; dummy; i++)
                 {
-                    PUSHIMM32(buf, NodeValue(dummy));
-                    POPREG(buf, Adr2EnumReg(adr));
+                    PARSER_LOG("PUSHING IMM32");
+                    PUSHIMM32   (buf, file, (int) NodeValue(dummy));
+                    POPREG      (buf, file, (uint8_t) Adr2EnumReg(adr));
 
                     dummy = dummy->left;
                 }
             }
-            CALL_DIRECT(buf, NodeIP(root));
+            CALL_DIRECT(buf, file, NodeIP(root), NodeName(root));
         }
     }
 
     if (NodeType(root) == OPER)
     {
+        PARSER_LOG("FOUND_OPER");
         int local_if = 0;
         int local_while = 0;
 
         switch ((int) NodeValue(root))
         {
-            case '=':   _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case '=':   _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
                         POPREG(buf, file, Adr2EnumReg(GetVarAdr(root->left, names)));
                         break;
 
-            case '+':   _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case '+':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
 
                         POP_XTEND_REG(buf, file, WHAT_REG_R14);
                         POP_XTEND_REG(buf, file, WHAT_REG_R15);
 
                         ADD_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
-                        PUSH_XTEND_REG(WHAT_REG_R14);
+                        PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
                         break;
 
-            case '-':   _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case '-':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
                         POP_XTEND_REG(buf, file, WHAT_REG_R14);
                         POP_XTEND_REG(buf, file, WHAT_REG_R15);
@@ -172,8 +203,8 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
 
                         break;
 
-            case '*':   _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case '*':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
                         POP_XTEND_REG(buf, file, WHAT_REG_R14);
                         POPREG(buf, file, WHAT_REG_EAX);
@@ -182,8 +213,8 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
                         PUSHREG(buf, file, WHAT_REG_EAX);
                         break;
 
-            case '/':   _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case '/':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
                         POP_XTEND_REG(buf, file, WHAT_REG_R14);
                         POPREG(buf, file, WHAT_REG_EAX);
@@ -195,45 +226,45 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
 
             // TODO: функции под сравнения
 
-            case MORE:      _create_bin(buf, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_bin(buf, names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case MORE:      _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, locals, JA_BYTE, "ja", &if_count, &while_count, if_cond, while_cond);
-
-                            break;
-
-            case LESS:      _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                            EmitComparsion(buf, file, locals, JB_BYTE, "jb", &if_count, &while_count, if_cond, while_cond);
+                            EmitComparsion(buf, file, tab, JA_BYTE, "ja", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
-            case MORE_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case LESS:      _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, locals, JAE_BYTE, "jae", &if_count, &while_count, if_cond, while_cond);
-
-                            break;
-
-            case LESS_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                            EmitComparsion(buf, file, locals, JBE_BYTE, "jbe", &if_count, &while_count, if_cond, while_cond);
+                            EmitComparsion(buf, file, tab, JB_BYTE, "jb", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
-            case EQUAL:     _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case MORE_E:    _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, locals, JE_BYTE, "je", &if_count, &while_count, if_cond, while_cond);
+                            EmitComparsion(buf, file, tab, JAE_BYTE, "jae", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
-            case N_EQUAL:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case LESS_E:    _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, locals, JNE_BYTE, "jne", &if_count, &while_count, if_cond, while_cond);
+                            EmitComparsion(buf, file, tab, JBE_BYTE, "jbe", &if_count, &while_count, if_cond, while_cond);
+
+                            break;
+
+            case EQUAL:     _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            EmitComparsion(buf, file, tab, JE_BYTE, "je", &if_count, &while_count, if_cond, while_cond);
+
+                            break;
+
+            case N_EQUAL:   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            EmitComparsion(buf, file, tab, JNE_BYTE, "jne", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
@@ -241,34 +272,51 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
                         if_count = IF_COUNT;
                         IF_COUNT++;
 
-                        _create_asm(names, root->left, file, 1, 0, if_count, while_count);
+                        Name locals = {};
+                        locals.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
+                        if (!locals.local_func_name) return WHAT_MEMALLOC_ERROR;
 
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";if condition\n\n");
+                        _create_bin(buf, tab, names, root->left, file, 1, 0, if_count, while_count);
+
+
+                        sprintf(locals.local_func_name, "IF%d", if_count);
+                        Name * label = HtableNameFind(tab, &locals);
+                        if (label) *label->offset = (int8_t) (*buf - label->offset);
+                        else return WHAT_NOLABEL_ERROR;
 
                         fprintf(file, "IF%d:\n", if_count);
 
-                        fprintf(file, "push 0\n");
+                        PUSHIMM32(buf, file, 0);
 
+                        POP_XTEND_REG   (buf, file, WHAT_REG_R15);
+                        POP_XTEND_REG   (buf, file, WHAT_REG_R14);
+                        PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
+                        PUSH_XTEND_REG  (buf, file, WHAT_REG_R15);
 
-                        fprintf(file, "pop r15\n");
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "push r14\n");
-                        fprintf(file, "push r15\n");
-
-                        fprintf(file, "cmp r14, r15\n");
+                        CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
                         fprintf(file, "jne COND%d\n", if_count);
+                        EMIT_JMP(buf, JNE_BYTE, 0);
+                        char * cond = *buf - 1;
 
                         fprintf(file, "jmp IF_END%d\n", if_count);
+                        EMIT_JMP(buf, JMP_BYTE, 0);
+                        char * if_end = *buf - 1;
 
                         fprintf(file, "COND%d:\n", if_count);
+                        *cond = *buf - cond;
+
                         if_count++;
-                        _create_asm(names, root->right, file, 1, 0, if_count, while_count);
+                        _create_bin(buf, tab, names, root->right, file, 1, 0, if_count, while_count);
 
                         fprintf(file, "IF_END%d:\n", local_if);
+                        *if_end = *buf - if_end;
 
-                        fprintf(file, ";---------------------------\n\n");
+                        sprintf(locals.local_func_name, "IF_END%d", if_count);
+                        label = HtableNameFind(tab, &locals);
+                        if (label) *label->offset = (int8_t)(*buf - label->offset);
+                        else return WHAT_NOLABEL_ERROR;
+
                         break;
 
 
@@ -276,25 +324,25 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
                             while_count = WHILE_COUNT;
                             WHILE_COUNT++;
 
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";while condition\n\n");
                             fprintf(file, "WHILE%d:\n", while_count);
-                            _create_asm(names, root->left, file, 0, 1, if_count, while_count);
+                            _create_bin(buf, tab, names, root->left, file, 0, 1, if_count, while_count);
 
                             fprintf(file, "WHILE_FALSE%d:\n", while_count);
-                            fprintf(file, "push 0\n");
 
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
 
-                            fprintf(file, "cmp r14, r15\n");
+                            PUSHIMM32(buf, file, 0);
+
+                            POP_XTEND_REG   (buf, file, WHAT_REG_R15);
+                            POP_XTEND_REG   (buf, file, WHAT_REG_R14);
+                            PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
+                            PUSH_XTEND_REG  (buf, file, WHAT_REG_R15);
+
+                            CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
                             fprintf(file, "je WHILE_END%d\n", while_count);
 
                             fprintf(file, "WHILE_TRUE%d:\n", while_count);
-                            _create_asm(names, root->right, file, 0, 1, if_count, while_count);
+                            _create_bin(buf, tab, names, root->right, file, 0, 1, if_count, while_count);
 
                             fprintf(file, "jmp WHILE%d\n", local_while);
                             fprintf(file, "WHILE_END%d:\n", local_while);
@@ -314,19 +362,19 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
     {
         switch((int) NodeValue(root))
         {
-            case SIN:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case SIN:   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                         fprintf(file, "sin\n");
                         break;
 
-            case COS:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case COS:   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                         fprintf(file, "cos\n");
                         break;
 
-            case SQRT:  _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case SQRT:  _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                         fprintf(file, "sqrt\n");
                         break;
 
-            case PRINT: _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case PRINT: _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                         fprintf(file, "out\n");
                         break;
 
@@ -339,7 +387,7 @@ int _create_bin(char ** buf, Name * names, Node * root, FILE * file, int if_cond
 
     if (NodeType(root) == FUNC_NAME) fprintf(file, "call %s\n", NodeName(root));
 
-    if ((int) NodeValue(root) == ';')  {_create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count); _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);}
+    if ((int) NodeValue(root) == ';')  {_create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count); _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);}
     return 1;
 }
 
@@ -544,7 +592,19 @@ int CreateBin(Tree * tree, const char * filename)
 {
     PARSER_LOG("Creating BIN....");
     FILE * fp = fopen(filename, "wb");
-    if (ferror(fp)) return -1;
+    if (ferror(fp))
+    {
+        perror("Error opening file fp");
+        return WHAT_FILEOPEN_ERROR;
+    }
+
+    FILE * bin = fopen("what.out", "wb");
+    if (ferror(bin))
+    {
+        perror("Error opening file what.out");
+        return WHAT_FILEOPEN_ERROR;
+    }
+
 
     Name * names = CreateVarTable(tree->root);
     ADR_COUNT = 0;
@@ -569,18 +629,26 @@ int CreateBin(Tree * tree, const char * filename)
     }
     if (!names) return -1;
 
-    for (int i = 0; names[i].name; i++)
-    {
-        // printf("%s(param: %d, type: %d, func_name = %s): starts at %d, ends at %d\n", names[i].name, names[i].param, names[i].type, names[i].func_name, names[i].address, names[i].address_end);
-    }
+    // for (int i = 0; names[i].name; i++)
+    // {
+    //     // printf("%s(param: %d, type: %d, func_name = %s): starts at %d, ends at %d\n", names[i].name, names[i].param, names[i].type, names[i].func_name, names[i].address, names[i].address_end);
+    // }
 
     char* buf = (char*) calloc(DEF_SIZE * 4, 1);
-    _create_bin(&buf, names, tree->root, fp, 0, 0, 0, 0);
+    char* buf_ptr = buf;
+    Htable * tab = NULL;
+    HtableInit(&tab, DEF_SIZE);
+
+    _create_bin(&buf, tab, names, tree->root, fp, 0, 0, 0, 0);
+    PARSER_LOG("Bin created, in buf %10s", buf_ptr);
+
+    PARSER_LOG("Writing buf 2 file");
+    fwrite(buf_ptr, DEF_SIZE * 4, sizeof(char), bin);
 
     fprintf(fp, "mov rax, 60\n");
     fprintf(fp, "syscall\n");
 
-    _def_asm(names, tree->root, fp, 0, 0, 0, 0);
+    // _def_asm(names, tree->root, fp, 0, 0, 0, 0);
 
     fprintf(fp, "section .data\n");
     fprintf(fp, "stack4calls times 128 * 8 db 0  ; stack for calls");
@@ -600,7 +668,7 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
     if (NodeType(root) == VAR)
     {
         int adr = GetVarAdr(root, names);
-        if (adr >= 0) fprintf(file, "push %s\n", Adr2Reg(adr));
+        if (adr >= 0) fprintf(file, "push %s\n", Adr2Reg(adr, 0));
         else
         {
             Name * func = GetFuncAdr(root, names);
@@ -611,7 +679,7 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
                 for (int i = func->address; dummy; i++)
                 {
                     fprintf(file, "push %lg\n", NodeValue(dummy));
-                    fprintf(file, "pop %s\n", Adr2Reg(names[i].address));
+                    fprintf(file, "pop %s\n", Adr2Reg(names[i].address, 0));
                     dummy = dummy->left;
                 }
             }
@@ -627,7 +695,7 @@ int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_c
         switch ((int) NodeValue(root))
         {
             case '=':   _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "pop %s             ; '=' operation\n", Adr2Reg(GetVarAdr(root->left, names)));
+                        fprintf(file, "pop %s             ; '=' operation\n", Adr2Reg(GetVarAdr(root->left, names), 0));
                         break;
 
             case '+':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
@@ -992,7 +1060,7 @@ const char * Adr2Reg(int adr, int xtnd)
             case WHAT_REG_R11:  return "r11";
             case WHAT_REG_R12:  return "r12";
             case WHAT_REG_R13:  return "r13";
-            case WHAT_REG_R14;  return "r14";
+            case WHAT_REG_R14:  return "r14";
             case WHAT_REG_R15:  return "r15";
         }
     }

@@ -57,7 +57,6 @@ int CreateNode              (Tree * t, const void * pair);
 int InsertTree              (Tree * t, const void * pair);
 int TreeParse               (Tree * tree, const char * filename);
 Tree * TreeDump             (Tree * tree, const char * FileName);
-int CreateAsm               (Tree * tree, const char * filename);
 void DestroyTree            (Tree * t);
 
 field_t NodeValue(Node * node);
