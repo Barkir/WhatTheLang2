@@ -1,7 +1,7 @@
 *.out
 *.asm
-*.png
 dump
+dump.png
 *.txt
 bin
 *.o
