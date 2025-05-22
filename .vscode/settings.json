@@ -16,6 +16,7 @@
         "htable.h": "c",
         "list.h": "c",
         "stdlib.h": "c",
-        "emit_constants.h": "c"
+        "emit_constants.h": "c",
+        "nasm2elf.h": "c"
     }
 }

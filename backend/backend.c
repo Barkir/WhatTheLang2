@@ -13,130 +13,89 @@
 #include "what_lang/tree.h"
 #include "what_lang/parser.h"
 #include "what_lang/backend.h"
+#include "what_lang/backend_utils.h"
 #include "what_lang/emitters.h"
 #include "what_lang/emit_constants.h"
 #include "what_lang/errors.h"
+#include "what_lang/nasm2elf.h"
 
+// static int IF_COUNT = 0;
+// static int WHILE_COUNT = 0;
+// static int ADR_COUNT = 0;
 
-static int IF_COUNT = 0;
-static int WHILE_COUNT = 0;
-static int ADR_COUNT = 0;
-
-
-const char * GetVarName(Node * root)
+int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin)
 {
-    switch((int) NodeValue(root))
+    PARSER_LOG("Creating BIN....");
+    FILE * fp = fopen(filename_asm, "wb");
+    if (ferror(fp))
     {
-        case 'a': return "AX";
-        case 'b': return "BX";
-        case 'c': return "CX";
-        case 'x': return "DX";
-        case 'y': return "FX";
-        default : return "RX";
-    }
-    return "RX";
-}
-
-int GetVarAdr(Node * root, Name * names)
-{
-    for(int i = 0; i < 1024; i++)
-    {
-        if (!(names[i].name)) return -1;
-        if (!strcmp(NodeName(root), names[i].name) && names[i].type == VAR) return names[i].address;
+        perror("Error opening file fp");
+        return WHAT_FILEOPEN_ERROR;
     }
 
-    return -1;
-}
 
-Name * GetFuncAdr(Node * root, Name * names)
-{
-    for(int i = 0; i < 1024; i++)
+    FILE * bin = fopen(filename_bin, "wb");
+    if (ferror(bin))
     {
-        if (!(names[i].name)) return NULL;
-        if (!strcmp(NodeName(root), names[i].name) && names[i].type == FUNC_NAME) return &(names[i]);
+        perror("Error opening file what.out");
+        return WHAT_FILEOPEN_ERROR;
     }
 
-    return NULL;
-}
+    Name * names = CreateVarTable(tree->root);
+    ADR_COUNT = 0;
 
-void EmitComparsion(char ** buf, FILE * file, Htable ** tab, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
-{
-    char * offset = 0;
+    Name * func  = CreateFuncTable(tree->root);
 
-    Name locals = {};
-    locals.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
-
-    POP_XTEND_REG   (buf,   file, WHAT_REG_R15);
-    POP_XTEND_REG   (buf,   file, WHAT_REG_R14);
-    PUSH_XTEND_REG  (buf,   file, WHAT_REG_R14);
-    PUSH_XTEND_REG  (buf,   file, WHAT_REG_R14);
-    CMP_REG_REG     (buf,   file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
-
-    if (if_cond)
+    for (int i = 0; names[i].name; i++)
     {
-        fprintf(file, "%s SUB_COND%d\n", cond_jmp, *if_count);
-        EMIT_JMP(buf, oper, 0);
+        for(int j = 0; func[j].name; j++)
+        {
+            if (!strcmp(names[i].name, func[j].name))
+            {
+                PARSER_LOG("FOUND FUNC %s", func[j].name);
+                names[i].name = func[j].name;
+                names[i].param = func[j].param;
+                names[i].type = func[j].type;
+                names[i].address = _find_func_start(names, names[i].name);
+                names[i].address_end = _find_func_end(names, names[i].name);
+                break;
+            }
+        }
     }
+    if (!names) return -1;
 
-    else if (while_cond)
-    {
-        fprintf(file, "%s SUB_COND%d\n", cond_jmp, *while_count);
-        EMIT_JMP(buf, oper, 0);
-    }
+    char* buf = (char*) calloc(DEF_SIZE * 8, 1);
+    char* buf_ptr = buf;
+    GenerateElfHeader(buf);
 
-    offset = *buf - 1;
+    // PARSER_LOG("%c %c %c %c %c %c ", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+    buf += BUF_OFFSET;
+    Htable * tab = NULL;
+    HtableInit(&tab, 32);
 
-    PUSHIMM32(buf, file, 0);
+    _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
+    EMIT_EXIT(&buf);
 
-    if (if_cond)
-    {
-        fprintf(file, "jmp IF_END%d\n", *if_count);
-        EMIT_JMP(buf, JMP_BYTE, 0);
+    PARSER_LOG("Bin created, in buf %10s", buf_ptr);
+    HtableDump(tab);
 
-        sprintf(locals.local_func_name, "IF_END%d", *if_count);
-        locals.offset = *buf - 1;
+    PARSER_LOG("Writing buf to file");
+    fwrite(buf_ptr, DEF_SIZE * 8, sizeof(char), bin);
 
-        PARSER_LOG("Inserting local label %s with offset %p", locals.local_func_name, locals.offset);
-        HtableNameInsert(tab, &locals);
+    fprintf(fp, "mov rax, 60\n");
+    fprintf(fp, "syscall\n");
 
-    }
+    // _def_asm(names, tree->root, fp, 0, 0, 0, 0);
 
-    else if (while_cond)
-    {
-        fprintf(file, "jmp WHILE_FALSE%d\n", *while_count);
-        EMIT_JMP(buf, JMP_BYTE, 0);
+    fprintf(fp, "section .data\n");
+    fprintf(fp, "stack4calls times 128 * 8 db 0  ; stack for calls");
 
-        sprintf(locals.local_func_name, "WHILE_FALSE%d", *while_count);
-        locals.offset = *buf - 1;
-        HtableNameInsert(tab, &locals);
-    }
+    free(names);
+    fclose(fp);
+    fclose(bin);
 
-    if          (if_cond)    fprintf(file, "SUB_COND%d:\n",    *if_count);
-    else if     (while_cond) fprintf(file, "SUB_COND%d:\n", *while_count);
-    *offset = (int8_t)(*buf - (offset - 1));
+    return 0;
 
-    PUSHIMM32(buf, file, 1);
-
-    if (if_cond)
-    {
-        PARSER_LOG("Inserting IF%d", *if_count);
-        fprintf(file, "jmp IF%d\n", (*if_count));
-        EMIT_JMP(buf, JMP_BYTE, 0);
-
-        sprintf(locals.local_func_name, "IF%d", (*if_count)++);
-        locals.offset = *buf - 1;
-        HtableNameInsert(tab, &locals);
-    }
-
-    else if (while_cond)
-    {
-        fprintf(file, "jmp WHILE_TRUE%d\n", (*while_count)++);
-        EMIT_JMP(buf, JMP_BYTE, 0);
-
-        sprintf(locals.local_func_name, "WHILE_TRUE%d", *if_count);
-        locals.offset = *buf - 1;
-        HtableNameInsert(tab, &locals);
-    }
 }
 
 int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
@@ -200,10 +159,11 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
             case '-':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '-'");
                         _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
                         POP_XTEND_REG(buf, file, WHAT_REG_R15);
+                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
 
                         SUB_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+                        PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
 
                         break;
 
@@ -233,61 +193,62 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
             case MORE:      _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, tab, JA_BYTE, "ja", &if_count, &while_count, if_cond, while_cond);
+                            EMIT_COMPARSION(buf, file, tab, JA_BYTE, "ja", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
             case LESS:      _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, tab, JB_BYTE, "jb", &if_count, &while_count, if_cond, while_cond);
+                            EMIT_COMPARSION(buf, file, tab, JB_BYTE, "jb", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
             case MORE_E:    _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, tab, JAE_BYTE, "jae", &if_count, &while_count, if_cond, while_cond);
+                            EMIT_COMPARSION(buf, file, tab, JAE_BYTE, "jae", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
             case LESS_E:    _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, tab, JBE_BYTE, "jbe", &if_count, &while_count, if_cond, while_cond);
+                            EMIT_COMPARSION(buf, file, tab, JBE_BYTE, "jbe", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
             case EQUAL:     _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, tab, JE_BYTE, "je", &if_count, &while_count, if_cond, while_cond);
+                            EMIT_COMPARSION(buf, file, tab, JE_BYTE, "je", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
             case N_EQUAL:   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
-                            EmitComparsion(buf, file, tab, JNE_BYTE, "jne", &if_count, &while_count, if_cond, while_cond);
+                            EMIT_COMPARSION(buf, file, tab, JNE_BYTE, "jne", &if_count, &while_count, if_cond, while_cond);
 
                             break;
 
-            case IF:    PARSER_LOG("PROCESSING IF");
+            case IF:   // _bin_if(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
+                        // break;
+                        PARSER_LOG("PROCESSING IF");
                         local_if = IF_COUNT;
                         if_count = IF_COUNT;
                         IF_COUNT++;
 
-                        Name locals = {};
-                        locals.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
-                        if (!locals.local_func_name) return WHAT_MEMALLOC_ERROR;
+                        Name locals_if = {};
+                        locals_if.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
+                        if (!locals_if.local_func_name) return WHAT_MEMALLOC_ERROR;
 
                         _create_bin(buf, tab, names, root->left, file, 1, 0, if_count, while_count);
                         PARSER_LOG("PROCESSED IF BLOCK...");
 
-
-                        sprintf(locals.local_func_name, "IF%d", local_if);
-                        Name * label = HtableNameFind(*tab, &locals);
-                        if (label) *label->offset = (int8_t) (*buf - label->offset);
+                        sprintf(locals_if.local_func_name, "IF%d", local_if);
+                        Name * label = HtableNameFind(*tab, &locals_if);
+                        if (label) *label->offset = (int8_t) (*buf - (label->offset + 1));
                         else return WHAT_NOLABEL_ERROR;
 
                         fprintf(file, "IF%d:\n", if_count);
@@ -310,31 +271,44 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
                         char * if_end = *buf - 1;
 
                         fprintf(file, "COND%d:\n", if_count);
-                        *cond = *buf - (cond - 1);
+                        *cond = *buf - (cond + 1);
 
                         if_count++;
                         _create_bin(buf, tab, names, root->right, file, 1, 0, if_count, while_count);
 
                         fprintf(file, "IF_END%d:\n", local_if);
-                        *if_end = *buf - (if_end - 1);
+                        *if_end = *buf - (if_end + 1);
 
-                        sprintf(locals.local_func_name, "IF_END%d", local_if);
-                        label = HtableNameFind(*tab, &locals);
-                        if (label) *label->offset = (int8_t)(*buf - (label->offset - 1));
+                        sprintf(locals_if.local_func_name, "IF_END%d", local_if);
+                        label = HtableNameFind(*tab, &locals_if);
+                        if (label) *label->offset = (int8_t)(*buf - (label->offset + 1));
                         else return WHAT_NOLABEL_ERROR;
 
                         break;
 
 
-            case WHILE:     local_while = WHILE_COUNT;
+            case WHILE:     PARSER_LOG("PROCESSING WHILE");
+
+                            local_while = WHILE_COUNT;
                             while_count = WHILE_COUNT;
                             WHILE_COUNT++;
 
+                            Name locals_while = {};
+                            locals_while.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
+                            if (!locals_while.local_func_name) return WHAT_MEMALLOC_ERROR;
+
                             fprintf(file, "WHILE%d:\n", while_count);
+                            char * while_ptr = *buf;
+
                             _create_bin(buf, tab, names, root->left, file, 0, 1, if_count, while_count);
+                            PARSER_LOG("PROCESSED WHILE BLOCK");
+
+                            sprintf(locals_while.local_func_name, "WHILE_FALSE%d", local_while);
+                            Name * label_while = HtableNameFind(*tab, &locals_while);
+                            if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
+                            else return WHAT_NOLABEL_ERROR;
 
                             fprintf(file, "WHILE_FALSE%d:\n", while_count);
-
 
                             PUSHIMM32(buf, file, 0);
 
@@ -346,12 +320,27 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
                             CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
                             fprintf(file, "je WHILE_END%d\n", while_count);
+                            EMIT_JMP(buf,JE_BYTE, 0);
+                            char * while_end_ptr = *buf - 1;
 
                             fprintf(file, "WHILE_TRUE%d:\n", while_count);
+
+                            sprintf(locals_while.local_func_name, "WHILE_TRUE%d", local_while);
+                            label_while = HtableNameFind(*tab, &locals_while);
+                            if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
+                            else return WHAT_NOLABEL_ERROR;
+
                             _create_bin(buf, tab, names, root->right, file, 0, 1, if_count, while_count);
 
                             fprintf(file, "jmp WHILE%d\n", local_while);
+                            EMIT_JMP(buf, JMP_BYTE, 0);
+                            (*buf)--;
+                            **buf = (while_ptr - 1) - *buf;
+                            (*buf)++;
+
                             fprintf(file, "WHILE_END%d:\n", local_while);
+                            EMIT_JMP(buf, JMP_BYTE, 0);
+                            *while_end_ptr = *buf - (while_end_ptr + 1);
 
                             fprintf(file, ";---------------------------\n\n");
                             break;
@@ -397,7 +386,7 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
     return 1;
 }
 
-int _def_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+int _def_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
 {
     PARSER_LOG("DEF_ASM...");
     if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
@@ -411,7 +400,7 @@ int _def_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond
         fprintf(file, "mov [r13], r14\n");
         fprintf(file, "add r13, 8\n");
 
-        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
         fprintf(file, "; popping return address to stack\n");
         fprintf(file, "sub r13, 8\n");
@@ -420,742 +409,8 @@ int _def_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond
 
         fprintf(file, "ret\n");
     }
-    if (root->left)  _def_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-    if (root->right) _def_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
+    if (root->left)  _def_bin(buf, tab,names, root->left, file, if_cond, while_cond, if_count, while_count);
+    if (root->right) _def_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
     return 1;
 }
 
-int _count_param(Node * root)
-{
-    if (NodeType(root) == VAR) return 0;
-    int i = 0;
-    Node * dummy = root;
-    while (dummy->left)
-    {
-        i++;
-        dummy = dummy->left;
-    }
-    return i;
-}
-
-int _var_table(Node * root, Name * names, const char * func_name)
-{
-    if (NodeType(root) == VAR)
-    {
-        int is_new = 1;
-        for (int i = 0; names[i].name; i++)
-        {
-            if (!strcmp(names[i].name, NodeName(root)))
-            {
-
-                is_new = 0;
-                break;
-            }
-        }
-        if (is_new)
-        {
-            names[ADR_COUNT].name = NodeName(root);
-            names[ADR_COUNT].address = ADR_COUNT?(names[ADR_COUNT - 1].address_end + 1) : ADR_COUNT;
-            names[ADR_COUNT].param = _count_param(root);
-            names[ADR_COUNT].address_end = names[ADR_COUNT].address + names[ADR_COUNT].param;
-            names[ADR_COUNT].type = VAR;
-            names[ADR_COUNT].func_name = func_name;
-            ADR_COUNT++;
-        }
-    }
-    if (root->left)
-        {
-            if (NodeType(root) == FUNC_NAME) func_name = NodeName(root);
-            _var_table(root->left, names, func_name);
-        }
-    if (root->right)
-            {
-            if (NodeType(root) == OPER && (int) NodeValue(root) == DEF) func_name = NodeName(root);
-            _var_table(root->right, names, func_name);
-        }
-    return 0;
-}
-
-int _func_table(Node * root, Name * names)
-{
-    if (NodeType(root) == OPER && NodeValue(root) == DEF)
-    {
-        int is_new = 1;
-        for (int i = 0; names[i].name; i++)
-        {
-            if (!strcmp(names[i].name, NodeName(root->left)))
-            {
-                is_new = 0;
-                break;
-            }
-        }
-        if (is_new)
-        {
-            names[ADR_COUNT].name = NodeName(root->left);
-            names[ADR_COUNT].address = ADR_COUNT;
-            names[ADR_COUNT].type = FUNC_NAME;
-            names[ADR_COUNT].param = _count_param(root->left);
-            names[ADR_COUNT].address_end = names[ADR_COUNT].address + names[ADR_COUNT].param;
-            ADR_COUNT++;
-        }
-    }
-    if (root->left) _func_table(root->left, names);
-    if (root->right)_func_table(root->right, names);
-    return 0;
-}
-
-Name * CreateVarTable(Node * root)
-{
-    Name * names = calloc(1024, sizeof(Name));
-    _var_table(root, names, "");
-    return names;
-}
-
-Name * CreateFuncTable(Node * root)
-{
-    Name * funcs = calloc(1024, sizeof(Name));
-    _func_table(root, funcs);
-    return funcs;
-}
-
-int _find_func_start(Name * names, const char * func_name)
-{
-    for (int i = 0; names[i].name; i++)
-    {
-        if (!strcmp(names[i].func_name, func_name)) return names[i].address;
-    }
-    return -1;
-
-}
-
-int _find_func_end(Name * names, const char * func_name)
-{
-    int end = -1;
-        for (int i = 0; names[i].name; i++)
-    {
-        if (!strcmp(names[i].func_name, func_name)) end = end > names[i].address ? end : names[i].address;
-    }
-
-    return end;
-
-}
-
-int CreateAsm(Tree * tree, const char * filename)
-{
-    PARSER_LOG("Creating ASM....");
-    FILE * fp = fopen(filename, "wb");
-    if (ferror(fp)) return -1;
-
-    Name * names = CreateVarTable(tree->root);
-    ADR_COUNT = 0;
-
-    Name * func  = CreateFuncTable(tree->root);
-
-    for (int i = 0; names[i].name; i++)
-    {
-        for(int j = 0; func[j].name; j++)
-        {
-            if (!strcmp(names[i].name, func[j].name))
-            {
-                PARSER_LOG("FOUND FUNC %s", func[j].name);
-                names[i].name = func[j].name;
-                names[i].param = func[j].param;
-                names[i].type = func[j].type;
-                names[i].address = _find_func_start(names, names[i].name);
-                names[i].address_end = _find_func_end(names, names[i].name);
-                break;
-            }
-        }
-    }
-    if (!names) return -1;
-
-    for (int i = 0; names[i].name; i++)
-    {
-        // printf("%s(param: %d, type: %d, func_name = %s): starts at %d, ends at %d\n", names[i].name, names[i].param, names[i].type, names[i].func_name, names[i].address, names[i].address_end);
-    }
-
-    fprintf(fp, "section .text\n");
-    fprintf(fp, "global _start\n");
-    fprintf(fp, "_start:\n");
-    fprintf(fp, "mov r13, stack4calls\n");
-    _create_asm(names, tree->root, fp, 0, 0, 0, 0);
-
-    fprintf(fp, "mov rax, 60\n");
-    fprintf(fp, "syscall\n");
-
-    _def_asm(names, tree->root, fp, 0, 0, 0, 0);
-
-    fprintf(fp, "section .data\n");
-    fprintf(fp, "stack4calls times 128 * 8 db 0  ; stack for calls");
-
-    free(names);
-    fclose(fp);
-    return 0;
-
-}
-
-void GenerateElfHeader(char * buf) {
-    Elf64_Ehdr header = {};
-
-    header.e_ident[EI_MAG0]         = ELFMAG0;                  // 0x7F
-    header.e_ident[EI_MAG1]         = ELFMAG1;                  // 'E'
-    header.e_ident[EI_MAG2]         = ELFMAG2;                  // 'L'
-    header.e_ident[EI_MAG3]         = ELFMAG3;                  // 'F'
-    header.e_ident[EI_CLASS]        = ELFCLASS64;               // 64-bit
-    header.e_ident[EI_DATA]         = ELFDATA2LSB;              // Little endian
-    header.e_ident[EI_VERSION]      = EV_CURRENT;
-
-    header.e_type                   = ET_EXEC;                  // Executable
-    header.e_machine                = EM_X86_64;                // x86-64
-    header.e_version                = EV_CURRENT;
-    header.e_entry                  = 0x400000;                 // Typical entry point
-    header.e_phoff                  = sizeof(Elf64_Ehdr);       // Program header offset
-    header.e_shoff                  = 0;                        // No section headers
-    header.e_flags                  = 0;
-    header.e_ehsize                 = sizeof(Elf64_Ehdr);
-    header.e_phentsize              = sizeof(Elf64_Phdr);
-    header.e_phnum                  = 1;                        // One program header
-    header.e_shentsize              = 0;
-    header.e_shnum                  = 0;
-    header.e_shstrndx               = SHN_UNDEF;
-
-    // Write header to buf
-    memcpy(buf, &header, sizeof(Elf64_Ehdr));
-}
-
-int CreateBin(Tree * tree, const char * filename)
-{
-    PARSER_LOG("Creating BIN....");
-    FILE * fp = fopen(filename, "wb");
-    if (ferror(fp))
-    {
-        perror("Error opening file fp");
-        return WHAT_FILEOPEN_ERROR;
-    }
-
-    FILE * bin = fopen("what.out", "ab");
-    if (ferror(bin))
-    {
-        perror("Error opening file what.out");
-        return WHAT_FILEOPEN_ERROR;
-    }
-
-
-
-    Name * names = CreateVarTable(tree->root);
-    ADR_COUNT = 0;
-
-    Name * func  = CreateFuncTable(tree->root);
-
-    for (int i = 0; names[i].name; i++)
-    {
-        for(int j = 0; func[j].name; j++)
-        {
-            if (!strcmp(names[i].name, func[j].name))
-            {
-                PARSER_LOG("FOUND FUNC %s", func[j].name);
-                names[i].name = func[j].name;
-                names[i].param = func[j].param;
-                names[i].type = func[j].type;
-                names[i].address = _find_func_start(names, names[i].name);
-                names[i].address_end = _find_func_end(names, names[i].name);
-                break;
-            }
-        }
-    }
-    if (!names) return -1;
-
-    // for (int i = 0; names[i].name; i++)
-    // {
-    //     // printf("%s(param: %d, type: %d, func_name = %s): starts at %d, ends at %d\n", names[i].name, names[i].param, names[i].type, names[i].func_name, names[i].address, names[i].address_end);
-    // }
-
-    char* buf = (char*) calloc(DEF_SIZE * 4, 1);
-    char* buf_ptr = buf;
-    GenerateElfHeader(buf);
-
-    PARSER_LOG("%c %c %c %c %c %c ", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
-    buf += ELF_HEADER_SIZE;
-    Htable * tab = NULL;
-    HtableInit(&tab, 32);
-
-    _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
-    PARSER_LOG("Bin created, in buf %10s", buf_ptr);
-    HtableDump(tab);
-
-    PARSER_LOG("Writing buf 2 file");
-    fwrite(buf_ptr, DEF_SIZE * 4, sizeof(char), bin);
-
-    fprintf(fp, "mov rax, 60\n");
-    fprintf(fp, "syscall\n");
-
-    // _def_asm(names, tree->root, fp, 0, 0, 0, 0);
-
-    fprintf(fp, "section .data\n");
-    fprintf(fp, "stack4calls times 128 * 8 db 0  ; stack for calls");
-
-    free(names);
-    fclose(fp);
-    fclose(bin);
-
-    return 0;
-
-}
-
-int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
-{
-    if (NodeType(root) == NUM)
-    {
-        fprintf(file, "push %lg\n", NodeValue(root));
-    }
-    if (NodeType(root) == VAR)
-    {
-        int adr = GetVarAdr(root, names);
-        if (adr >= 0) fprintf(file, "push %s\n", Adr2Reg(adr, 0));
-        else
-        {
-            Name * func = GetFuncAdr(root, names);
-            Node * dummy = root->left;
-
-            if (func->param != 0)
-            {
-                for (int i = func->address; dummy; i++)
-                {
-                    fprintf(file, "push %lg\n", NodeValue(dummy));
-                    fprintf(file, "pop %s\n", Adr2Reg(names[i].address, 0));
-                    dummy = dummy->left;
-                }
-            }
-            fprintf(file, "call %s\n", NodeName(root));
-        }
-    }
-
-    if (NodeType(root) == OPER)
-    {
-        int local_if = 0;
-        int local_while = 0;
-
-        switch ((int) NodeValue(root))
-        {
-            case '=':   _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "pop %s             ; '=' operation\n", Adr2Reg(GetVarAdr(root->left, names), 0));
-                        break;
-
-            case '+':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";'+' operation\n\n");
-
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "pop r15\n");
-
-                        fprintf(file, "add r14, r15\n");
-                        fprintf(file, "push r14\n");
-                        fprintf(file, ";---------------------------\n\n");
-                        break;
-
-            case '-':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";'-' operation\n\n");
-
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "pop r15\n");
-
-                        fprintf(file, "sub r15, r14\n");
-                        fprintf(file, "push r15\n");
-                        fprintf(file, ";---------------------------\n\n");
-                        break;
-
-            case '*':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";'*' operation\n\n");
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "pop rax\n");
-
-                        fprintf(file, "mul r14\n");
-                        fprintf(file, "push rax\n");
-                        fprintf(file, ";---------------------------\n\n");
-                        break;
-
-            case '/':   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";'/' operation\n\n");
-
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "pop rax\n");
-
-
-                        fprintf(file, "div r14\n");
-                        fprintf(file, "push rax\n");
-                        fprintf(file, ";---------------------------\n\n");
-                        break;
-
-            case MORE:      _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'>' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "ja SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "ja SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
-                            break;
-
-            case LESS:      _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, "'<' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "jb SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jb SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
-
-                            break;
-
-            case MORE_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'>=' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "jae SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jae SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
-
-                            break;
-
-            case LESS_E:    _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'<=' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "jbe SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jbe SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
-
-                            break;
-
-            case EQUAL:     _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'==' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "je SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "je SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
-
-                            break;
-
-            case N_EQUAL:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                            _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                            fprintf(file, ";---------------------------\n");
-                            fprintf(file, ";'!=' comparsion\n\n");
-
-                            fprintf(file, "pop r15\n");
-                            fprintf(file, "pop r14\n");
-                            fprintf(file, "push r14\n");
-                            fprintf(file, "push r15\n");
-
-                            fprintf(file, "cmp r14, r15\n");
-
-                            if (if_cond)           fprintf(file, "jne SUB_COND%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jne SUB_COND%d\n", while_count);
-
-                            fprintf(file, "push 0\n");
-                            if (if_cond)           fprintf(file, "jmp IF_END%d\n", if_count);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_FALSE%d\n", while_count);
-
-                            if          (if_cond) fprintf(file, "SUB_COND%d:\n", if_count);
-                            else if     (while_cond) fprintf(file, "SUB_COND%d:\n", while_count);
-
-                            fprintf(file, "push 1\n");
-                            if (if_cond)           fprintf(file, "jmp IF%d\n", if_count++);
-                            else if (while_cond)   fprintf(file, "jmp WHILE_TRUE%d\n", while_count++);
-
-                            fprintf(file, ";---------------------------\n\n");
-
-                            break;
-
-
-            case IF:
-                        local_if = IF_COUNT;
-                        if_count = IF_COUNT;
-                        IF_COUNT++;
-
-                        _create_asm(names, root->left, file, 1, 0, if_count, while_count);
-
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";if condition\n\n");
-
-                        fprintf(file, "IF%d:\n", if_count);
-                        fprintf(file, "push 0\n");
-
-
-                        fprintf(file, "pop r15\n");
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "push r14\n");
-                        fprintf(file, "push r15\n");
-
-                        fprintf(file, "cmp r14, r15\n");
-
-                        fprintf(file, "jne COND%d\n", if_count);
-
-                        fprintf(file, "jmp IF_END%d\n", if_count);
-
-                        fprintf(file, "COND%d:\n", if_count);
-                        if_count++;
-                        _create_asm(names, root->right, file, 1, 0, if_count, while_count);
-
-                        fprintf(file, "IF_END%d:\n", local_if);
-
-                        fprintf(file, ";---------------------------\n\n");
-                        break;
-
-
-            case WHILE:
-                        local_while = WHILE_COUNT;
-                        while_count = WHILE_COUNT;
-                        WHILE_COUNT++;
-
-                        fprintf(file, ";---------------------------\n");
-                        fprintf(file, ";while condition\n\n");
-                        fprintf(file, "WHILE%d:\n", while_count);
-                        _create_asm(names, root->left, file, 0, 1, if_count, while_count);
-
-                        fprintf(file, "WHILE_FALSE%d:\n", while_count);
-                        fprintf(file, "push 0\n");
-
-                        fprintf(file, "pop r15\n");
-                        fprintf(file, "pop r14\n");
-                        fprintf(file, "push r14\n");
-                        fprintf(file, "push r15\n");
-
-                        fprintf(file, "cmp r14, r15\n");
-
-                        fprintf(file, "je WHILE_END%d\n", while_count);
-
-                        fprintf(file, "WHILE_TRUE%d:\n", while_count);
-                        _create_asm(names, root->right, file, 0, 1, if_count, while_count);
-
-                        fprintf(file, "jmp WHILE%d\n", local_while);
-                        fprintf(file, "WHILE_END%d:\n", local_while);
-
-                        fprintf(file, ";---------------------------\n\n");
-                        break;
-
-            case DEF:   break;
-
-
-            default: return -1;
-
-
-        }
-    }
-    if (NodeType(root) == FUNC)
-    {
-        switch((int) NodeValue(root))
-        {
-            case SIN:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "sin\n");
-                        break;
-
-            case COS:   _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "cos\n");
-                        break;
-
-            case SQRT:  _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "sqrt\n");
-                        break;
-
-            case PRINT: _create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "out\n");
-                        break;
-
-            case INPUT: fprintf(file, "in\n");
-                        break;
-
-            default: return -1;
-        }
-    }
-
-    if (NodeType(root) == FUNC_NAME) fprintf(file, "call %s\n", NodeName(root));
-
-    if ((int) NodeValue(root) == ';')  {_create_asm(names, root->left, file, if_cond, while_cond, if_count, while_count); _create_asm(names, root->right, file, if_cond, while_cond, if_count, while_count);}
-    return 1;
-}
-
-const char * Adr2Reg(int adr, int xtnd)
-{
-    if (xtnd)
-    {
-        switch(adr)
-        {
-            case WHAT_REG_R8:   return "r8";
-            case WHAT_REG_R9:   return "r9";
-            case WHAT_REG_R10:  return "r10";
-            case WHAT_REG_R11:  return "r11";
-            case WHAT_REG_R12:  return "r12";
-            case WHAT_REG_R13:  return "r13";
-            case WHAT_REG_R14:  return "r14";
-            case WHAT_REG_R15:  return "r15";
-        }
-    }
-    switch(adr)
-    {
-        case 0:     return "ebx";
-        case 1:     return "ecx";
-        case 2:     return "edx";
-        case 3:     return "esi";
-        case 4:     return "edi";
-    }
-}
-
-const enum Registers Adr2EnumReg(int adr)
-{
-    switch(adr)
-    {
-        case 0:     return WHAT_REG_EBX;
-        case 1:     return WHAT_REG_ECX;
-        case 2:     return WHAT_REG_EDX;
-        case 3:     return WHAT_REG_ESI;
-        case 4:     return WHAT_REG_EDI;
-    }
-
-}
-
-const char * Reg2Str(int reg, int xtnd)
-{
-    if (xtnd)
-    {
-        switch(reg)
-        {
-            case WHAT_REG_R8:   return "r8";
-            case WHAT_REG_R9:   return "r9";
-            case WHAT_REG_R10:  return "r10";
-            case WHAT_REG_R11:  return "r11";
-            case WHAT_REG_R12:  return "r12";
-            case WHAT_REG_R13:  return "r13";
-            case WHAT_REG_R14:  return "r14";
-            case WHAT_REG_R15:  return "r15";
-        }
-    }
-
-    switch(reg)
-    {
-        case WHAT_REG_EAX:  return "rax";
-        case WHAT_REG_EBX:  return "rbx";
-        case WHAT_REG_ECX:  return "rcx";
-        case WHAT_REG_EDX:  return "rdx";
-        case WHAT_REG_ESI:  return "rsi";
-        case WHAT_REG_EDI:  return "rdi";
-        case WHAT_REG_EBP:  return "rbp";
-        case WHAT_REG_ESP:  return "rsp";
-    }
-}

@@ -27,9 +27,11 @@ int main(int argc, char * argv[])
             if (TreeParse(tree, argv[2]) == FOPEN_ERROR) return -fprintf(stderr, "Can't open file... plz try again.\n");
             TreeDump(tree, "dump");
             sprintf(ASM, "%s.asm", argv[2]);
+            sprintf(run, "%s.out", argv[2]);
+
             // CreateAsm(tree, ASM);
-            CreateBin(tree, "hello");
-            // DestroyTree(tree);
+            CreateBin(tree, ASM, run);
+            DestroyTree(tree);
 
             // sprintf(out, "SPU-Processor/compiler/bin/Compiler %s %s.out\n", ASM, argv[2]);
             // system(out);

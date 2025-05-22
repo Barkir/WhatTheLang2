@@ -27,6 +27,8 @@ void ADD_REG_VAL(char ** buf, FILE * file, uint8_t reg, field_t val, enum RegMod
 void ADD_REG_REG(char ** buf, FILE * file, uint8_t reg1, uint8_t reg2, enum RegModes mode);
 void SUB_REG_REG(char ** buf, FILE * file, uint8_t reg1, uint8_t reg2, enum RegModes mode);
 void EMIT_JMP(char ** buf, char jmp, char offset);
+void EMIT_COMPARSION(char ** buf, FILE * file, Htable ** tab, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond);
+void EMIT_EXIT(char ** buf);
 
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!
 // В CALL_DIRECT кладем абсолютный адрес

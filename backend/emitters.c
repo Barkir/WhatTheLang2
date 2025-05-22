@@ -10,6 +10,8 @@
 
 #include "what_lang/tree.h"
 #include "what_lang/backend.h"
+#include "what_lang/backend_utils.h"
+
 #include "what_lang/emitters.h"
 #include "what_lang/emit_constants.h"
 #include "what_lang/errors.h"
@@ -276,6 +278,18 @@ void EMIT_JMP(char ** buf, char jmp, char offset)
     (*buf)++;
 }
 
+void EMIT_EXIT(char ** buf)
+{
+    **buf = 0xb8;
+    (*buf)++;
+    **buf = 0x3c;
+    (*buf) += sizeof(int);
+    **buf = 0x0f;
+    (*buf)++;
+    **buf = 0x05;
+    (*buf)++;
+}
+
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!
 // В CALL_DIRECT кладем абсолютный адрес
 
@@ -287,5 +301,86 @@ void CALL_DIRECT(char ** buf, FILE * file, int adr, const char * name)
     (*buf)++;
     memcpy(*buf, ((*buf)-adr), sizeof(int));
     (*buf) += sizeof(int);
+}
+
+
+void EMIT_COMPARSION(char ** buf, FILE * file, Htable ** tab, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
+{
+    char * offset = 0;
+
+    Name locals = {};
+    locals.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
+
+    POP_XTEND_REG   (buf,   file, WHAT_REG_R15);
+    POP_XTEND_REG   (buf,   file, WHAT_REG_R14);
+    PUSH_XTEND_REG  (buf,   file, WHAT_REG_R14);
+    PUSH_XTEND_REG  (buf,   file, WHAT_REG_R14);
+    CMP_REG_REG     (buf,   file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+
+    if (if_cond)
+    {
+        fprintf(file, "%s SUB_COND%d\n", cond_jmp, *if_count);
+        EMIT_JMP(buf, oper, 0);
+    }
+
+    else if (while_cond)
+    {
+        fprintf(file, "%s SUB_COND%d\n", cond_jmp, *while_count);
+        EMIT_JMP(buf, oper, 0);
+    }
+
+    offset = *buf - 1;
+
+    PUSHIMM32(buf, file, 0);
+
+    if (if_cond)
+    {
+        fprintf(file, "jmp IF_END%d\n", *if_count);
+        EMIT_JMP(buf, JMP_BYTE, 0);
+
+        sprintf(locals.local_func_name, "IF_END%d", *if_count);
+        locals.offset = *buf - 1;
+
+        PARSER_LOG("Inserting local label %s with offset %p", locals.local_func_name, locals.offset);
+        HtableNameInsert(tab, &locals);
+
+    }
+
+    else if (while_cond)
+    {
+        fprintf(file, "jmp WHILE_FALSE%d\n", *while_count);
+        EMIT_JMP(buf, JMP_BYTE, 0);
+
+        sprintf(locals.local_func_name, "WHILE_FALSE%d", *while_count);
+        locals.offset = *buf - 1;
+        HtableNameInsert(tab, &locals);
+    }
+
+    if          (if_cond)    fprintf(file, "SUB_COND%d:\n",    *if_count);
+    else if     (while_cond) fprintf(file, "SUB_COND%d:\n", *while_count);
+    *offset = (int8_t)(*buf - (offset + 1));
+
+    PUSHIMM32(buf, file, 1);
+
+    if (if_cond)
+    {
+        PARSER_LOG("Inserting IF%d", *if_count);
+        fprintf(file, "jmp IF%d\n", (*if_count));
+        EMIT_JMP(buf, JMP_BYTE, 0);
+
+        sprintf(locals.local_func_name, "IF%d", (*if_count)++);
+        locals.offset = *buf - 1;
+        HtableNameInsert(tab, &locals);
+    }
+
+    else if (while_cond)
+    {
+        fprintf(file, "jmp WHILE_TRUE%d\n", (*while_count));
+        EMIT_JMP(buf, JMP_BYTE, 0);
+
+        sprintf(locals.local_func_name, "WHILE_TRUE%d", (*while_count)++);
+        locals.offset = *buf - 1;
+        HtableNameInsert(tab, &locals);
+    }
 }
 

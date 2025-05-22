@@ -3,27 +3,20 @@
 
 const static size_t LABEL_SIZE = 32;
 const static size_t ELF_HEADER_SIZE = 64;
+const static size_t BUF_OFFSET = 0x1000;
 
 
-Name * CreateVarTable(Node * root);
-Name  * CreateFuncTable(Node * root);
-int _var_table(Node * root, Name * names, const char * func_name);
-int _func_table(Node * root, Name * names);
-int GetVarAdr(Node * root, Name * names);
-const char * GetVarName(Node * root);
-
-
-int CreateBin(Tree * tree, const char * filename);
+int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin);
 int CreateAsm(Tree * tree, const char * filename);
-
-
-const enum Registers Adr2EnumReg(int adr);
-const char * Adr2Reg(int adr, int xtnd);
-const char * Reg2Str(int reg, int xtnd);
 
 int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
 int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
 
+int _def_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
+
+static int IF_COUNT = 0;
+static int WHILE_COUNT = 0;
+static int ADR_COUNT = 0;
 
 enum Registers
 {

@@ -2,6 +2,7 @@
 #define NASM2ELF_H
 
 int NASM2ELF(const char * filename);
+void GenerateElfHeader(char * buf);
 enum Instruction GetInstr(char * instr);
 size_t FileSize(FILE * fp);
 
