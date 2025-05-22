@@ -19,10 +19,6 @@
 #include "what_lang/errors.h"
 #include "what_lang/nasm2elf.h"
 
-// static int IF_COUNT = 0;
-// static int WHILE_COUNT = 0;
-// static int ADR_COUNT = 0;
-
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin)
 {
     PARSER_LOG("Creating BIN....");
@@ -188,8 +184,6 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
                         PUSHREG(buf, file, WHAT_REG_EAX);
                         break;
 
-            // TODO: функции под сравнения
-
             case MORE:      _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
@@ -232,119 +226,12 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
 
                             break;
 
-            case IF:   // _bin_if(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
-                        // break;
-                        PARSER_LOG("PROCESSING IF");
-                        local_if = IF_COUNT;
-                        if_count = IF_COUNT;
-                        IF_COUNT++;
-
-                        Name locals_if = {};
-                        locals_if.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
-                        if (!locals_if.local_func_name) return WHAT_MEMALLOC_ERROR;
-
-                        _create_bin(buf, tab, names, root->left, file, 1, 0, if_count, while_count);
-                        PARSER_LOG("PROCESSED IF BLOCK...");
-
-                        sprintf(locals_if.local_func_name, "IF%d", local_if);
-                        Name * label = HtableNameFind(*tab, &locals_if);
-                        if (label) *label->offset = (int8_t) (*buf - (label->offset + 1));
-                        else return WHAT_NOLABEL_ERROR;
-
-                        fprintf(file, "IF%d:\n", if_count);
-
-                        PUSHIMM32(buf, file, 0);
-
-                        POP_XTEND_REG   (buf, file, WHAT_REG_R15);
-                        POP_XTEND_REG   (buf, file, WHAT_REG_R14);
-                        PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
-                        PUSH_XTEND_REG  (buf, file, WHAT_REG_R15);
-
-                        CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
-
-                        fprintf(file, "jne COND%d\n", if_count);
-                        EMIT_JMP(buf, JNE_BYTE, 0);
-                        char * cond = *buf - 1;
-
-                        fprintf(file, "jmp IF_END%d\n", if_count);
-                        EMIT_JMP(buf, JMP_BYTE, 0);
-                        char * if_end = *buf - 1;
-
-                        fprintf(file, "COND%d:\n", if_count);
-                        *cond = *buf - (cond + 1);
-
-                        if_count++;
-                        _create_bin(buf, tab, names, root->right, file, 1, 0, if_count, while_count);
-
-                        fprintf(file, "IF_END%d:\n", local_if);
-                        *if_end = *buf - (if_end + 1);
-
-                        sprintf(locals_if.local_func_name, "IF_END%d", local_if);
-                        label = HtableNameFind(*tab, &locals_if);
-                        if (label) *label->offset = (int8_t)(*buf - (label->offset + 1));
-                        else return WHAT_NOLABEL_ERROR;
-
-                        break;
-
-
-            case WHILE:     PARSER_LOG("PROCESSING WHILE");
-
-                            local_while = WHILE_COUNT;
-                            while_count = WHILE_COUNT;
-                            WHILE_COUNT++;
-
-                            Name locals_while = {};
-                            locals_while.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
-                            if (!locals_while.local_func_name) return WHAT_MEMALLOC_ERROR;
-
-                            fprintf(file, "WHILE%d:\n", while_count);
-                            char * while_ptr = *buf;
-
-                            _create_bin(buf, tab, names, root->left, file, 0, 1, if_count, while_count);
-                            PARSER_LOG("PROCESSED WHILE BLOCK");
-
-                            sprintf(locals_while.local_func_name, "WHILE_FALSE%d", local_while);
-                            Name * label_while = HtableNameFind(*tab, &locals_while);
-                            if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
-                            else return WHAT_NOLABEL_ERROR;
-
-                            fprintf(file, "WHILE_FALSE%d:\n", while_count);
-
-                            PUSHIMM32(buf, file, 0);
-
-                            POP_XTEND_REG   (buf, file, WHAT_REG_R15);
-                            POP_XTEND_REG   (buf, file, WHAT_REG_R14);
-                            PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
-                            PUSH_XTEND_REG  (buf, file, WHAT_REG_R15);
-
-                            CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
-
-                            fprintf(file, "je WHILE_END%d\n", while_count);
-                            EMIT_JMP(buf,JE_BYTE, 0);
-                            char * while_end_ptr = *buf - 1;
-
-                            fprintf(file, "WHILE_TRUE%d:\n", while_count);
-
-                            sprintf(locals_while.local_func_name, "WHILE_TRUE%d", local_while);
-                            label_while = HtableNameFind(*tab, &locals_while);
-                            if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
-                            else return WHAT_NOLABEL_ERROR;
-
-                            _create_bin(buf, tab, names, root->right, file, 0, 1, if_count, while_count);
-
-                            fprintf(file, "jmp WHILE%d\n", local_while);
-                            EMIT_JMP(buf, JMP_BYTE, 0);
-                            (*buf)--;
-                            **buf = (while_ptr - 1) - *buf;
-                            (*buf)++;
-
-                            fprintf(file, "WHILE_END%d:\n", local_while);
-                            EMIT_JMP(buf, JMP_BYTE, 0);
-                            *while_end_ptr = *buf - (while_end_ptr + 1);
-
-                            fprintf(file, ";---------------------------\n\n");
+            case IF:        _if_bin(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
                             break;
 
+
+            case WHILE:     _while_bin(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
+                            break;
             case DEF:   break;
 
 
@@ -413,4 +300,121 @@ int _def_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file,
     if (root->right) _def_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
     return 1;
 }
+
+int _if_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+{
+    PARSER_LOG("PROCESSING IF");
+    int local_if = IF_COUNT;
+    if_count = IF_COUNT;
+    IF_COUNT++;
+
+    Name locals_if = {};
+    locals_if.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
+    if (!locals_if.local_func_name) return WHAT_MEMALLOC_ERROR;
+
+    _create_bin(buf, tab, names, root->left, file, 1, 0, if_count, while_count);
+    PARSER_LOG("PROCESSED IF BLOCK...");
+
+    sprintf(locals_if.local_func_name, "IF%d", local_if);
+    Name * label = HtableNameFind(*tab, &locals_if);
+    if (label) *label->offset = (int8_t) (*buf - (label->offset + 1));
+    else return WHAT_NOLABEL_ERROR;
+
+    fprintf(file, "IF%d:\n", if_count);
+
+    PUSHIMM32(buf, file, 0);
+
+    POP_XTEND_REG   (buf, file, WHAT_REG_R15);
+    POP_XTEND_REG   (buf, file, WHAT_REG_R14);
+    PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
+    PUSH_XTEND_REG  (buf, file, WHAT_REG_R15);
+
+    CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+
+    fprintf(file, "jne COND%d\n", if_count);
+    EMIT_JMP(buf, JNE_BYTE, 0);
+    char * cond = *buf - 1;
+
+    fprintf(file, "jmp IF_END%d\n", if_count);
+    EMIT_JMP(buf, JMP_BYTE, 0);
+    char * if_end = *buf - 1;
+
+    fprintf(file, "COND%d:\n", if_count);
+    *cond = *buf - (cond + 1);
+
+    if_count++;
+    _create_bin(buf, tab, names, root->right, file, 1, 0, if_count, while_count);
+
+    fprintf(file, "IF_END%d:\n", local_if);
+    *if_end = *buf - (if_end + 1);
+
+    sprintf(locals_if.local_func_name, "IF_END%d", local_if);
+    label = HtableNameFind(*tab, &locals_if);
+    if (label) *label->offset = (int8_t)(*buf - (label->offset + 1));
+    else return WHAT_NOLABEL_ERROR;
+
+    return WHAT_SUCCESS;
+
+}
+
+int _while_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+{
+    PARSER_LOG("PROCESSING WHILE");
+    int local_while = WHILE_COUNT;
+    while_count = WHILE_COUNT;
+    WHILE_COUNT++;
+
+    Name locals_while = {};
+    locals_while.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
+    if (!locals_while.local_func_name) return WHAT_MEMALLOC_ERROR;
+
+    fprintf(file, "WHILE%d:\n", while_count);
+    char * while_ptr = *buf;
+
+    _create_bin(buf, tab, names, root->left, file, 0, 1, if_count, while_count);
+    PARSER_LOG("PROCESSED WHILE BLOCK");
+
+    sprintf(locals_while.local_func_name, "WHILE_FALSE%d", local_while);
+    Name * label_while = HtableNameFind(*tab, &locals_while);
+    if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
+    else return WHAT_NOLABEL_ERROR;
+
+    fprintf(file, "WHILE_FALSE%d:\n", while_count);
+
+    PUSHIMM32(buf, file, 0);
+
+    POP_XTEND_REG   (buf, file, WHAT_REG_R15);
+    POP_XTEND_REG   (buf, file, WHAT_REG_R14);
+    PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
+    PUSH_XTEND_REG  (buf, file, WHAT_REG_R15);
+
+    CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+
+    fprintf(file, "je WHILE_END%d\n", while_count);
+    EMIT_JMP(buf,JE_BYTE, 0);
+    char * while_end_ptr = *buf - 1;
+
+    fprintf(file, "WHILE_TRUE%d:\n", while_count);
+
+    sprintf(locals_while.local_func_name, "WHILE_TRUE%d", local_while);
+    label_while = HtableNameFind(*tab, &locals_while);
+    if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
+    else return WHAT_NOLABEL_ERROR;
+
+    _create_bin(buf, tab, names, root->right, file, 0, 1, if_count, while_count);
+
+    fprintf(file, "jmp WHILE%d\n", local_while);
+    EMIT_JMP(buf, JMP_BYTE, 0);
+    (*buf)--;
+    **buf = (while_ptr - 1) - *buf;
+    (*buf)++;
+
+    fprintf(file, "WHILE_END%d:\n", local_while);
+    EMIT_JMP(buf, JMP_BYTE, 0);
+    *while_end_ptr = *buf - (while_end_ptr + 1);
+
+    fprintf(file, ";---------------------------\n\n");
+}
+
+
 
