@@ -1,16 +1,25 @@
 # WhatTheLang (basically just python copy)
+```
+AUTHOR: BARKIR
+
+MIPT DREC 2025
+```
 
 ## Preamble
-- [What is used](#used)
-- [To do](#to-do)
+- [Syntax](#used)
+- [// TODO](#to-do)
+- [Binary Translator](#im-back-bches)
 
 ## Used
-- [My Assembler](https://github.com/Barkir/Compiler)
+- [My Assembler](https://github.com/Barkir/SPU-Processor)
 
 ## Syntax and how to use
+
+Clone repo using this command
 ```
 git clone https://github.com/Barkir/WhatTheLang2
 ```
+
 - Language has math operations (+, -, >, < etc.), conditioins (if, while).
 - Also you can create functions with param (code example in toRun folder)
 - Create variables
@@ -43,7 +52,8 @@ def function(a, b, c)
 ```
 
 ## To do
-- [] Add error processing
+- [] iolib linking
+- [] debug calls
 
 
 ## Source
@@ -55,10 +65,8 @@ efefeefe
 
 # IM BACK B%%CHES
 
-
 # Binary Translator
-- Now let's turn our language into real binary translator
-
+- Now let's do some real stuff (elff)
 
 Let's see what we have now.
 
@@ -66,11 +74,12 @@ Let's see what we have now.
 |---------------------|
 | 1 level -> language parser |
 | 2 level -> AST-tree representation |
-| 3 level -> AST 2 IR representation |
-| 4 level -> IR to own binary representation|
+| 3 level -> AST to VM representation |
+| 4 level -> VM to own binary representation|
 
-My Intermediate represenation is connected with binary representation.
-But what if i want to run the binary file on any PC?
+My VM represenation is connected with binary representation.
+Let's make translation to **x86-64**
+
 GCC compiler creates **elf** binary file out of our code.
 Our compiler should do the same.
 
@@ -204,6 +213,27 @@ uint8_t modrm = (0xc0) | (0 << 3) | (reg & 7);
 ```
 You can see the whole code of this function [here](/backend/emitters.c) (same logic for cmp and sub)
 
+#### JUUUUMPS
+For translating jumps I use local variables and hash table to count the offset
+
+The algorithm how to calculate offset:
+1. Generating the code of ```if``` condition (Node->left)
+2. Generating ```cmp``` instruction with ```0``` offset conditional jmp
+3. Setting a local variable which will point to the jmp address in our buffer
+4. Compile if action (Node->right)
+5. Calculate and set the offset using local variable
+
+#### COMPILING
+Let's calculate [factorial](/toRun/what.wht) with WhatTheLang
+
+```
+./bin/WhatTheLang2 compile toRun/what.wht
+```
+
+This is how our elf file looks like in r2
+![alt text](readme/r2.png)
+
+The translation algorithm is not well-optimized because of stack architecture we used in our VM implementation.
 
 
 
