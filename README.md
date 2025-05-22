@@ -74,20 +74,15 @@ But what if i want to run the binary file on any PC?
 GCC compiler creates **elf** binary file out of our code.
 Our compiler should do the same.
 
-## First chapter (writing libraries)
+## Writing libraries
 Starting with our own **IO library** written in **NASM64**.
 We need to write to calls - **input** and **output**
 They're similar to the ones we use in [purintf](https://github.com/Barkir/Purintf). Although WhatTheLang uses float numbers, let's write all the calls for *integers* at first. It is just easier and faster at this stage.
 
-
-## Second chapter (rewriting our previous code)
-
-...
-
-## Third chapter (ELF-file structure)
-elf-file consists of:
+## ELF-file structure
+Simple elf-file consists of:
 1. Header
-2. Data
+2. Binary code
 
 To read elf-file we can use ```readelf```
 
@@ -110,7 +105,12 @@ Next byte is defining data field:
 
 Next byte is for version number and it is always ```01```
 
+You can learn more about elf-file header structure [here](https://mcuoneclipse.com/2018/01/27/converting-a-raw-binary-file-into-an-elf-dwarf-file-for-loading-and-debugging/) or just see the [code](/backend/nasm2elf.c)
+
+
 ## OPCODES
+
+All the opcodes of binary instructions I use are available [here](/include/what_lang/emit_constants.h)
 
 #### MOV
 
@@ -188,6 +188,23 @@ Pop is available for registers only
 
 
 #### ADD
+
+In add we need to correctly define main byte.
+It consists of three parts.
+
+```
+| 00 | 000 | 000 |
+
+| mode | reg2 | reg1|
+```
+
+For calculating this byte I used this operation
+```
+uint8_t modrm = (0xc0) | (0 << 3) | (reg & 7);
+```
+You can see the whole code of this function [here](/backend/emitters.c) (same logic for cmp and sub)
+
+
 
 
 
