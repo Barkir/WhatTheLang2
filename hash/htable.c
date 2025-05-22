@@ -15,6 +15,7 @@
 #include "what_lang/hashtable_errors.h"
 #include "what_lang/IO.h"
 #include "what_lang/crc32.h"
+#include "what_lang/errors.h"
 
 
 int HtableInit(Htable ** tab, size_t bins)
@@ -77,13 +78,21 @@ int HtableInsert(Htable * tab, const char * string)
     return HTABLE_SUCCESS;
 }
 
-int HtableNameInsert(Htable * tab, Name * name)
+int HtableNameInsert(Htable ** tab, Name * name)
 {
-    size_t ind = crc32_naive(name, sizeof(Name), CRC32INIT) % tab->bins;
-    for (List * lst = tab->table[ind]; lst; lst=lst->nxt)
+    PARSER_LOG("Inserting name %s with offset %p", name->local_func_name, name->offset);
+    size_t ind = crc32_naive(name->local_func_name, strlen(name->local_func_name), CRC32INIT) % (*tab)->bins;
+    PARSER_LOG("bin %ld", ind);
+
+
+    for (List * lst = (*tab)->table[ind]; lst; lst=lst->nxt)
     {
-        if (!strcmp(lst->name->name, name->name))
+        PARSER_LOG("inserting to list %p", lst);
+        if (!strcmp(lst->name->local_func_name, name->local_func_name))
+        {
+            PARSER_LOG("ALREADY THERE!");
             return HTABLE_SUCCESS;
+        }
     }
 
     List * n = (List*) calloc(1, sizeof(List));
@@ -92,10 +101,12 @@ int HtableNameInsert(Htable * tab, Name * name)
     n->name = (Name*) calloc(1, sizeof(Name));
     if (!n->name) return HTABLE_MEMALLOC_ERROR;
 
-    memcpy(n->name, name, sizeof(Name));
+    n->name->local_func_name = strdup(name->local_func_name);
+    n->name->offset = name->offset;
+    PARSER_LOG("copied %s to list %p", n->name->local_func_name, n);
 
-    n->nxt = tab->table[ind];
-    tab->table[ind] = n;
+    n->nxt = (*tab)->table[ind];
+    (*tab)->table[ind] = n;
 
     return HTABLE_SUCCESS;
 }
@@ -152,11 +163,15 @@ int HtableFind(Htable * tab, const char * string)
 
 Name * HtableNameFind(Htable * tab, Name * name)
 {
-    int bin = crc32_naive(name, sizeof(Name), CRC32INIT) % tab->bins;
+    PARSER_LOG("FINDING LABEL %s", name->local_func_name);
+    size_t bin = crc32_naive(name->local_func_name, strlen(name->local_func_name), CRC32INIT) % tab->bins;
+    PARSER_LOG("bin %ld", bin);
 
     for (List * lst = tab->table[bin]; lst; lst = lst->nxt)
     {
-        if (!strcmp(lst->name->name, name->name)) return lst->name;
+        PARSER_LOG("finding in list %p", lst);
+        PARSER_LOG("%s vs %s", lst->name->local_func_name, name->local_func_name)
+        if (!strcmp(lst->name->local_func_name, name->local_func_name)) return lst->name;
     }
 
     return NULL;
@@ -182,7 +197,7 @@ Name * HtableNameFind(Htable * tab, Name * name)
 
 int HtableDump(Htable * tab)
 {
-    FILE * file = fopen("info/log.dmp", "w+");
+    FILE * file = fopen("log.dmp", "w+");
     if (!file) return  HTABLE_FILE_OPEN_ERROR;
     fprintf(file, "<<<LOG FILE OF HASH TABLE>>>\n");
 
@@ -193,7 +208,7 @@ int HtableDump(Htable * tab)
         fprintf(file, "[BIN %d]", bins);
         fprintf(file, "----------------------------------\n");
         for (List * lst = tab->table[bins]; lst; lst=lst->nxt)
-        if (lst->elem) fprintf(file, "\t %s", lst->elem);
+        if (lst->name) fprintf(file, "\t %s %p", lst->name->local_func_name, lst->name->offset);
         fprintf(file, "----------------------------------\n");
     }
 

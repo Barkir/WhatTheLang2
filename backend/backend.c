@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <elf.h>
 
 #include "what_lang/nametable.h"
 
@@ -58,7 +59,7 @@ Name * GetFuncAdr(Node * root, Name * names)
     return NULL;
 }
 
-void EmitComparsion(char ** buf, FILE * file, Htable * tab, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
+void EmitComparsion(char ** buf, FILE * file, Htable ** tab, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
 {
     char * offset = 0;
 
@@ -94,6 +95,8 @@ void EmitComparsion(char ** buf, FILE * file, Htable * tab, char oper, const cha
 
         sprintf(locals.local_func_name, "IF_END%d", *if_count);
         locals.offset = *buf - 1;
+
+        PARSER_LOG("Inserting local label %s with offset %p", locals.local_func_name, locals.offset);
         HtableNameInsert(tab, &locals);
 
     }
@@ -110,16 +113,17 @@ void EmitComparsion(char ** buf, FILE * file, Htable * tab, char oper, const cha
 
     if          (if_cond)    fprintf(file, "SUB_COND%d:\n",    *if_count);
     else if     (while_cond) fprintf(file, "SUB_COND%d:\n", *while_count);
-    *offset = (int8_t)(*buf - offset);
+    *offset = (int8_t)(*buf - (offset - 1));
 
     PUSHIMM32(buf, file, 1);
 
-    if      (if_cond)
+    if (if_cond)
     {
-        fprintf(file, "jmp IF%d\n", (*if_count)++);
+        PARSER_LOG("Inserting IF%d", *if_count);
+        fprintf(file, "jmp IF%d\n", (*if_count));
         EMIT_JMP(buf, JMP_BYTE, 0);
 
-        sprintf(locals.local_func_name, "IF%d", *if_count);
+        sprintf(locals.local_func_name, "IF%d", (*if_count)++);
         locals.offset = *buf - 1;
         HtableNameInsert(tab, &locals);
     }
@@ -135,9 +139,8 @@ void EmitComparsion(char ** buf, FILE * file, Htable * tab, char oper, const cha
     }
 }
 
-int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
 {
-    PARSER_LOG("NodeType(root) = %d, NodeName(root) = %s", NodeType(root), NodeName(root));
     if (NodeType(root) == NUM)
     {
         PARSER_LOG("PUSHING IMM32");
@@ -148,6 +151,8 @@ int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * fil
         int adr = GetVarAdr(root, names);
         if (adr >= 0)
         {
+            PARSER_LOG("PUSHING REG...");
+            PARSER_LOG("Variable Name = %s, adr = %d, reg = %d", NodeName(root), adr, Adr2EnumReg(adr));
             PUSHREG(buf, file, (uint8_t) Adr2EnumReg(adr));
         }
         else
@@ -172,17 +177,16 @@ int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * fil
 
     if (NodeType(root) == OPER)
     {
-        PARSER_LOG("FOUND_OPER");
         int local_if = 0;
         int local_while = 0;
 
         switch ((int) NodeValue(root))
         {
-            case '=':   _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
+            case '=':   _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);    PARSER_LOG("OPER '='");
                         POPREG(buf, file, Adr2EnumReg(GetVarAdr(root->left, names)));
                         break;
 
-            case '+':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case '+':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '+'");
                         _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
 
@@ -193,7 +197,7 @@ int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * fil
                         PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
                         break;
 
-            case '-':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case '-':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '-'");
                         _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
                         POP_XTEND_REG(buf, file, WHAT_REG_R14);
@@ -203,7 +207,7 @@ int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * fil
 
                         break;
 
-            case '*':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case '*':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '*'");
                         _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
                         POP_XTEND_REG(buf, file, WHAT_REG_R14);
@@ -213,7 +217,7 @@ int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * fil
                         PUSHREG(buf, file, WHAT_REG_EAX);
                         break;
 
-            case '/':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+            case '/':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '/'");
                         _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
                         POP_XTEND_REG(buf, file, WHAT_REG_R14);
@@ -268,7 +272,8 @@ int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * fil
 
                             break;
 
-            case IF:    local_if = IF_COUNT;
+            case IF:    PARSER_LOG("PROCESSING IF");
+                        local_if = IF_COUNT;
                         if_count = IF_COUNT;
                         IF_COUNT++;
 
@@ -277,10 +282,11 @@ int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * fil
                         if (!locals.local_func_name) return WHAT_MEMALLOC_ERROR;
 
                         _create_bin(buf, tab, names, root->left, file, 1, 0, if_count, while_count);
+                        PARSER_LOG("PROCESSED IF BLOCK...");
 
 
-                        sprintf(locals.local_func_name, "IF%d", if_count);
-                        Name * label = HtableNameFind(tab, &locals);
+                        sprintf(locals.local_func_name, "IF%d", local_if);
+                        Name * label = HtableNameFind(*tab, &locals);
                         if (label) *label->offset = (int8_t) (*buf - label->offset);
                         else return WHAT_NOLABEL_ERROR;
 
@@ -304,17 +310,17 @@ int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * fil
                         char * if_end = *buf - 1;
 
                         fprintf(file, "COND%d:\n", if_count);
-                        *cond = *buf - cond;
+                        *cond = *buf - (cond - 1);
 
                         if_count++;
                         _create_bin(buf, tab, names, root->right, file, 1, 0, if_count, while_count);
 
                         fprintf(file, "IF_END%d:\n", local_if);
-                        *if_end = *buf - if_end;
+                        *if_end = *buf - (if_end - 1);
 
-                        sprintf(locals.local_func_name, "IF_END%d", if_count);
-                        label = HtableNameFind(tab, &locals);
-                        if (label) *label->offset = (int8_t)(*buf - label->offset);
+                        sprintf(locals.local_func_name, "IF_END%d", local_if);
+                        label = HtableNameFind(*tab, &locals);
+                        if (label) *label->offset = (int8_t)(*buf - (label->offset - 1));
                         else return WHAT_NOLABEL_ERROR;
 
                         break;
@@ -588,6 +594,35 @@ int CreateAsm(Tree * tree, const char * filename)
 
 }
 
+void GenerateElfHeader(char * buf) {
+    Elf64_Ehdr header = {};
+
+    header.e_ident[EI_MAG0]         = ELFMAG0;                  // 0x7F
+    header.e_ident[EI_MAG1]         = ELFMAG1;                  // 'E'
+    header.e_ident[EI_MAG2]         = ELFMAG2;                  // 'L'
+    header.e_ident[EI_MAG3]         = ELFMAG3;                  // 'F'
+    header.e_ident[EI_CLASS]        = ELFCLASS64;               // 64-bit
+    header.e_ident[EI_DATA]         = ELFDATA2LSB;              // Little endian
+    header.e_ident[EI_VERSION]      = EV_CURRENT;
+
+    header.e_type                   = ET_EXEC;                  // Executable
+    header.e_machine                = EM_X86_64;                // x86-64
+    header.e_version                = EV_CURRENT;
+    header.e_entry                  = 0x400000;                 // Typical entry point
+    header.e_phoff                  = sizeof(Elf64_Ehdr);       // Program header offset
+    header.e_shoff                  = 0;                        // No section headers
+    header.e_flags                  = 0;
+    header.e_ehsize                 = sizeof(Elf64_Ehdr);
+    header.e_phentsize              = sizeof(Elf64_Phdr);
+    header.e_phnum                  = 1;                        // One program header
+    header.e_shentsize              = 0;
+    header.e_shnum                  = 0;
+    header.e_shstrndx               = SHN_UNDEF;
+
+    // Write header to buf
+    memcpy(buf, &header, sizeof(Elf64_Ehdr));
+}
+
 int CreateBin(Tree * tree, const char * filename)
 {
     PARSER_LOG("Creating BIN....");
@@ -598,12 +633,13 @@ int CreateBin(Tree * tree, const char * filename)
         return WHAT_FILEOPEN_ERROR;
     }
 
-    FILE * bin = fopen("what.out", "wb");
+    FILE * bin = fopen("what.out", "ab");
     if (ferror(bin))
     {
         perror("Error opening file what.out");
         return WHAT_FILEOPEN_ERROR;
     }
+
 
 
     Name * names = CreateVarTable(tree->root);
@@ -636,11 +672,16 @@ int CreateBin(Tree * tree, const char * filename)
 
     char* buf = (char*) calloc(DEF_SIZE * 4, 1);
     char* buf_ptr = buf;
-    Htable * tab = NULL;
-    HtableInit(&tab, DEF_SIZE);
+    GenerateElfHeader(buf);
 
-    _create_bin(&buf, tab, names, tree->root, fp, 0, 0, 0, 0);
+    PARSER_LOG("%c %c %c %c %c %c ", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+    buf += ELF_HEADER_SIZE;
+    Htable * tab = NULL;
+    HtableInit(&tab, 32);
+
+    _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
     PARSER_LOG("Bin created, in buf %10s", buf_ptr);
+    HtableDump(tab);
 
     PARSER_LOG("Writing buf 2 file");
     fwrite(buf_ptr, DEF_SIZE * 4, sizeof(char), bin);
@@ -655,6 +696,8 @@ int CreateBin(Tree * tree, const char * filename)
 
     free(names);
     fclose(fp);
+    fclose(bin);
+
     return 0;
 
 }
@@ -1083,7 +1126,36 @@ const enum Registers Adr2EnumReg(int adr)
         case 2:     return WHAT_REG_EDX;
         case 3:     return WHAT_REG_ESI;
         case 4:     return WHAT_REG_EDI;
-        default:    return WHAT_REG_EBX;
     }
 
+}
+
+const char * Reg2Str(int reg, int xtnd)
+{
+    if (xtnd)
+    {
+        switch(reg)
+        {
+            case WHAT_REG_R8:   return "r8";
+            case WHAT_REG_R9:   return "r9";
+            case WHAT_REG_R10:  return "r10";
+            case WHAT_REG_R11:  return "r11";
+            case WHAT_REG_R12:  return "r12";
+            case WHAT_REG_R13:  return "r13";
+            case WHAT_REG_R14:  return "r14";
+            case WHAT_REG_R15:  return "r15";
+        }
+    }
+
+    switch(reg)
+    {
+        case WHAT_REG_EAX:  return "rax";
+        case WHAT_REG_EBX:  return "rbx";
+        case WHAT_REG_ECX:  return "rcx";
+        case WHAT_REG_EDX:  return "rdx";
+        case WHAT_REG_ESI:  return "rsi";
+        case WHAT_REG_EDI:  return "rdi";
+        case WHAT_REG_EBP:  return "rbp";
+        case WHAT_REG_ESP:  return "rsp";
+    }
 }

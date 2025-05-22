@@ -31,8 +31,8 @@ int main(int argc, char * argv[])
             CreateBin(tree, "hello");
             // DestroyTree(tree);
 
-            sprintf(out, "SPU-Processor/compiler/bin/Compiler %s %s.out\n", ASM, argv[2]);
-            system(out);
+            // sprintf(out, "SPU-Processor/compiler/bin/Compiler %s %s.out\n", ASM, argv[2]);
+            // system(out);
 
             return fprintf(stdout, "Created %s.out!\n", argv[2]);
         }

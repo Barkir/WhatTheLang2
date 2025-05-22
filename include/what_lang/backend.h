@@ -2,6 +2,7 @@
 #define BACKEND_H
 
 const static size_t LABEL_SIZE = 32;
+const static size_t ELF_HEADER_SIZE = 64;
 
 
 Name * CreateVarTable(Node * root);
@@ -18,9 +19,10 @@ int CreateAsm(Tree * tree, const char * filename);
 
 const enum Registers Adr2EnumReg(int adr);
 const char * Adr2Reg(int adr, int xtnd);
+const char * Reg2Str(int reg, int xtnd);
 
 int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-int _create_bin(char ** buf, Htable * tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
+int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
 
 
 enum Registers

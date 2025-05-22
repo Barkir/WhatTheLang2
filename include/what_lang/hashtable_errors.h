@@ -1,5 +1,5 @@
-#ifndef ERRORS_H
-#define ERRORS_H
+#ifndef HASHTABLE_ERRORS_H
+#define HASHTABLE_ERRORS_H
 
 // #define DEBUG
 
