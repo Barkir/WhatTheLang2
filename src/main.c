@@ -30,13 +30,13 @@ int main(int argc, char * argv[])
             sprintf(run, "%s.out", argv[2]);
 
             // CreateAsm(tree, ASM);
-            CreateBin(tree, ASM, run);
-            DestroyTree(tree);
+            CreateBin(tree, ASM, run, WHAT_DEBUG_MODE);
+            // DestroyTree(tree);
 
             // sprintf(out, "SPU-Processor/compiler/bin/Compiler %s %s.out\n", ASM, argv[2]);
             // system(out);
 
-            return fprintf(stdout, "Created %s.out!\n", argv[2]);
+            // return fprintf(stdout, "Created %s.out!\n", argv[2]);
         }
 
         if (!strcmp(argv[1], "run"))

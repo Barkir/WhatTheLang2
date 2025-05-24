@@ -142,7 +142,6 @@ int _var_table(Node * root, Name * names, const char * func_name)
         {
             if (!strcmp(names[i].name, NodeName(root)))
             {
-
                 is_new = 0;
                 break;
             }
@@ -230,8 +229,6 @@ int _find_func_end(Name * names, const char * func_name)
     {
         if (!strcmp(names[i].func_name, func_name)) end = end > names[i].address ? end : names[i].address;
     }
-
     return end;
-
 }
 

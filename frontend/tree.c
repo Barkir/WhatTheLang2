@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "what_lang/buff.h"
 #include "what_lang/tree.h"
@@ -158,6 +159,9 @@ int TreeParse(Tree * tree, const char * filename)
 
     pointer = 0;
     tree->root = GetMajor(array, &pointer);
+    PARSER_LOG("Starting constant convolution...");
+
+    tree->root = _constant_convolution(&tree->root);
 
     pointer = 0;
     while (array[pointer])
@@ -325,6 +329,56 @@ Node * _copy_node(Node * node)
 
 
     return copy_node;
+}
+
+Node * _constant_convolution(Node ** node)
+{
+    if (!*node)  return NULL;
+
+    if (NodeType(*node) == OPER)
+    {
+        (*node)->left  = _constant_convolution(&((*node)->left));
+        (*node)->right = _constant_convolution(&((*node)->right));
+
+        if (NodeType((*node)->right) == NUM && NodeType((*node)->left) == NUM)
+        {
+            PARSER_LOG("CONSTANT CONVOLUTION");
+
+            Field * field   = NULL;
+            Node * new_node = NULL;
+            field_t result = 0;
+
+            switch((int) NodeValue((*node)))
+            {
+
+                case '+':   result = NodeValue((*node)->left) + NodeValue((*node)->right);
+                            break;
+
+
+                case '-':   result = NodeValue((*node)->left) - NodeValue((*node)->right);
+                            break;
+
+
+                case '*':   result = NodeValue((*node)->left) * NodeValue((*node)->right);
+                            break;
+
+
+                case '/':   assert(!NodeValue((*node)->right));
+                            result = NodeValue((*node)->left) / NodeValue((*node)->right);
+                            break;
+
+            }
+
+            Field result_field = {.value = result, .type = NUM};
+            new_node = _create_node(&result_field, NULL, NULL);
+            *node = new_node;
+        }
+    }
+
+    _constant_convolution(&(*node)->left);
+    _constant_convolution(&(*node)->right);
+
+    return *node;
 }
 
 Node * _copy_branch(Node * node)

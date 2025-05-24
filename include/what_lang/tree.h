@@ -70,6 +70,7 @@ Node * _create_node(Field * val, Node * left, Node * right);
 Field * _copy_field(Field * field);
 Node * _copy_node(Node * node);
 Node * _copy_branch(Node * node);
+Node * _constant_convolution(Node ** node);
 
 
 #endif

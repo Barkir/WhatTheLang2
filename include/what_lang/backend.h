@@ -5,12 +5,10 @@ const static size_t LABEL_SIZE = 32;
 const static size_t ELF_HEADER_SIZE = 64;
 const static size_t BUF_OFFSET = 0x1000;
 
-
-
 int _while_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
 int _if_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
 
-int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin);
+int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode);
 int CreateAsm(Tree * tree, const char * filename);
 
 int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
@@ -46,7 +44,14 @@ enum AdditionalRegisters
     WHAT_REG_R15 = 0x07,
 };
 
-//
+enum RunModes
+{
+    WHAT_DEBUG_MODE,
+    WHAT_NASM_MODE,
+    WHAT_BIN_MODE
+};
+
+
 // typedef struct _locals
 // {
 //     char * if_label;

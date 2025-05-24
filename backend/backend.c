@@ -9,7 +9,6 @@
 #include "what_lang/list.h"
 #include "what_lang/htable.h"
 
-
 #include "what_lang/tree.h"
 #include "what_lang/parser.h"
 #include "what_lang/backend.h"
@@ -19,7 +18,7 @@
 #include "what_lang/errors.h"
 #include "what_lang/nasm2elf.h"
 
-int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin)
+int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode)
 {
     PARSER_LOG("Creating BIN....");
     FILE * fp = fopen(filename_asm, "wb");
@@ -29,7 +28,6 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin)
         return WHAT_FILEOPEN_ERROR;
     }
 
-
     FILE * bin = fopen(filename_bin, "wb");
     if (ferror(bin))
     {
@@ -38,9 +36,12 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin)
     }
 
     Name * names = CreateVarTable(tree->root);
-    ADR_COUNT = 0;
+    if (!names) return WHAT_VARTABLE_ERROR;
 
     Name * func  = CreateFuncTable(tree->root);
+    if (!func) return WHAT_FUNCTABLE_ERROR;
+
+    fprintf(fp, "%s", NASM_TOP);
 
     for (int i = 0; names[i].name; i++)
     {
@@ -58,33 +59,31 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin)
             }
         }
     }
-    if (!names) return -1;
 
     char* buf = (char*) calloc(DEF_SIZE * 8, 1);
+    if (!buf) return WHAT_MEMALLOC_ERROR;
     char* buf_ptr = buf;
-    GenerateElfHeader(buf);
 
-    // PARSER_LOG("%c %c %c %c %c %c ", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]);
+    GenerateElfHeader(buf);
     buf += BUF_OFFSET;
+
     Htable * tab = NULL;
-    HtableInit(&tab, 32);
+    HtableInit(&tab, HTABLE_BINS);
 
     _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
+
     EMIT_EXIT(&buf);
 
     PARSER_LOG("Bin created, in buf %10s", buf_ptr);
-    HtableDump(tab);
+    if (mode == WHAT_DEBUG_MODE) HtableDump(tab);
 
     PARSER_LOG("Writing buf to file");
     fwrite(buf_ptr, DEF_SIZE * 8, sizeof(char), bin);
 
-    fprintf(fp, "mov rax, 60\n");
-    fprintf(fp, "syscall\n");
+    fprintf(fp, "%s", NASM_BTM);
 
-    // _def_asm(names, tree->root, fp, 0, 0, 0, 0);
+    _def_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
 
-    fprintf(fp, "section .data\n");
-    fprintf(fp, "stack4calls times 128 * 8 db 0  ; stack for calls");
 
     free(names);
     fclose(fp);
@@ -137,52 +136,52 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
 
         switch ((int) NodeValue(root))
         {
-            case '=':   _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);    PARSER_LOG("OPER '='");
-                        POPREG(buf, file, Adr2EnumReg(GetVarAdr(root->left, names)));
-                        break;
+            case '=':       _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);    PARSER_LOG("OPER '='");
+                            POPREG(buf, file, Adr2EnumReg(GetVarAdr(root->left, names)));
+                            break;
 
-            case '+':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '+'");
-                        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-
-                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
-                        POP_XTEND_REG(buf, file, WHAT_REG_R15);
-
-                        ADD_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
-                        PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
-                        break;
-
-            case '-':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '-'");
-                        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                        POP_XTEND_REG(buf, file, WHAT_REG_R15);
-                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
-
-                        SUB_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
-                        PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
-
-                        break;
-
-            case '*':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '*'");
-                        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
-                        POPREG(buf, file, WHAT_REG_EAX);
-
-                        MUL_XTEND_REG(buf, file, WHAT_REG_R14);
-                        PUSHREG(buf, file, WHAT_REG_EAX);
-                        break;
-
-            case '/':   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '/'");
-                        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
-
-                        POP_XTEND_REG(buf, file, WHAT_REG_R14);
-                        POPREG(buf, file, WHAT_REG_EAX);
+            case '+':       _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '+'");
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
 
 
-                        DIV_XTEND_REG(buf, file, WHAT_REG_R14);
-                        PUSHREG(buf, file, WHAT_REG_EAX);
-                        break;
+                            POP_XTEND_REG(buf, file, WHAT_REG_R14);
+                            POP_XTEND_REG(buf, file, WHAT_REG_R15);
+
+                            ADD_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+                            PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
+                            break;
+
+            case '-':       _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '-'");
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            POP_XTEND_REG(buf, file, WHAT_REG_R15);
+                            POP_XTEND_REG(buf, file, WHAT_REG_R14);
+
+                            SUB_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+                            PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
+
+                            break;
+
+            case '*':       _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '*'");
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            POP_XTEND_REG(buf, file, WHAT_REG_R14);
+                            POPREG(buf, file, WHAT_REG_EAX);
+
+                            MUL_XTEND_REG(buf, file, WHAT_REG_R14);
+                            PUSHREG(buf, file, WHAT_REG_EAX);
+                            break;
+
+            case '/':       _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);     PARSER_LOG("OPER '/'");
+                            _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
+
+                            POP_XTEND_REG(buf, file, WHAT_REG_R14);
+                            POPREG(buf, file, WHAT_REG_EAX);
+
+
+                            DIV_XTEND_REG(buf, file, WHAT_REG_R14);
+                            PUSHREG(buf, file, WHAT_REG_EAX);
+                            break;
 
             case MORE:      _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
                             _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
@@ -232,7 +231,8 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
 
             case WHILE:     _while_bin(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
                             break;
-            case DEF:   break;
+
+            case DEF:       break;
 
 
             default: return -1;
@@ -257,10 +257,12 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
                         break;
 
             case PRINT: _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "out\n");
+                        fprintf(file, "pop rax\n");
+                        fprintf(file, "call _IOLIB_OUTPUT\n");
                         break;
 
-            case INPUT: fprintf(file, "in\n");
+            case INPUT: fprintf(file, "call _IOLIB_INPUT\n");
+                        fprintf(file, "push rax\n");
                         break;
 
             default: return -1;
@@ -415,6 +417,9 @@ int _while_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fil
 
     fprintf(file, ";---------------------------\n\n");
 }
+
+
+
 
 
 

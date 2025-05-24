@@ -236,6 +236,21 @@ This is how our elf file looks like in r2
 The translation algorithm is not well-optimized because of stack architecture we used in our VM implementation.
 
 
+## Measurements
+Let's count the boost percent relative to VM mode.
+Using ```hyperfine``` utility to do it.
+
+
+
+|  Time (mean ± σ) | Range (min … max) |
+|------------------|-------------------|
+|  215.8 ms ±  49.0 ms    [User: 214.3 ms, System: 1.3 ms] | 201.2 ms … 423.4 ms |
+  517.2 µs ± 197.6 µs    [User: 292.1 µs, System: 403.3 µs] | 40.2 µs … 851.7 µs |
+
+
+
+
+
 
 
 

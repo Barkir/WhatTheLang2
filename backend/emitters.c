@@ -28,7 +28,6 @@ void PUSHIMM32(char ** buf,  FILE * file, field_t value)
     (*buf) += sizeof(int);
 }
 
-
 void PUSHREG(char ** buf, FILE * file, uint8_t reg)
 {
     PARSER_LOG("PUSHING REG %d %s", reg, Reg2Str(reg, 0));
