@@ -5,9 +5,6 @@ const static size_t LABEL_SIZE = 32;
 const static size_t ELF_HEADER_SIZE = 64;
 const static size_t BUF_OFFSET = 0x1000;
 
-int _while_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-int _if_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-
 int CreateAsm(Tree * tree, const char * filename);
 
 int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);

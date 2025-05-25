@@ -4,7 +4,9 @@
 #include <stdint.h>
 
 #include "what_lang/nametable.h"
+#include "what_lang/emit_constants.h"
 
+#include "what_lang/parser.h"
 #include "what_lang/list.h"
 #include "what_lang/htable.h"
 
@@ -13,7 +15,6 @@
 #include "what_lang/backend_utils.h"
 
 #include "what_lang/emitters.h"
-#include "what_lang/emit_constants.h"
 #include "what_lang/errors.h"
 
 void PUSHIMM32(char ** buf,  FILE * file, field_t value)

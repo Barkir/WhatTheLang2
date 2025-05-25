@@ -17,6 +17,7 @@
         "list.h": "c",
         "stdlib.h": "c",
         "emit_constants.h": "c",
-        "nasm2elf.h": "c"
+        "nasm2elf.h": "c",
+        "backend_utils.h": "c"
     }
 }

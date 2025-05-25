@@ -60,10 +60,8 @@ def function(a, b, c)
 Spasibo dedu za Huawei
 efefeefe
 
-
-
-
 # IM BACK B%%CHES
+
 
 # Binary Translator
 - Now let's do some real stuff (elff)
