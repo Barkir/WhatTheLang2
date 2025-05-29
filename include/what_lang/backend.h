@@ -3,7 +3,6 @@
 
 const static size_t LABEL_SIZE = 32;
 const static size_t ELF_HEADER_SIZE = 64;
-const static size_t BUF_OFFSET = 0x1000;
 
 int CreateAsm(Tree * tree, const char * filename);
 

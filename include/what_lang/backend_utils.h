@@ -34,7 +34,7 @@ int             BinWhile    (char ** buf, Htable ** tab, Name * names, Node * ro
 int             BinIf       (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int   if_count, int   while_count);
 int             BinFunc     (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int   if_count, int   while_count);
 
-static const char *     NASM_TOP =  "%%include 'iolib/iolib.asm'    \n"
+static const char *     NASM_TOP =  "%include \"iolib/iolib.asm\"   \n"
                                     "section .text                  \n"
                                     "global _start                  \n"
                                     "_start:                        \n"

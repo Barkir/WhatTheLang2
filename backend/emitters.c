@@ -292,19 +292,19 @@ void EMIT_EXIT(char ** buf)
 
 void EMIT_PRINT(char ** buf, FILE * file)
 {
-    fprintf(file, "pop rax              \n")
+    PARSER_LOG("emitting print...");
+
+    POPREG(buf, file, WHAT_REG_EAX);
     fprintf(file, "call _IOLIB_OUTPUT   \n");
 
-    POPREG(buf, file, REG_EAX);
 
 }
 
 void EMIT_INPUT(char ** buf, FILE * file)
 {
+    PARSER_LOG("emitting input...");
     fprintf(file, "call _IOLIB_INPUT    \n");
-    fprintf(file, "push rax             \n");
-
-    PUSHREG(buf, file, REG_EAX);
+    PUSHREG(buf, file, WHAT_REG_EAX);
 }
 
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!

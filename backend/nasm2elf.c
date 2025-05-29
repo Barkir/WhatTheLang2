@@ -32,7 +32,7 @@ int NASM2ELF(const char * filename)
 
 }
 
-void GenerateElfHeader(char * buf)
+void GenerateElfHeader(char ** buf)
 {
     Elf64_Ehdr header = {};
 
@@ -69,8 +69,9 @@ void GenerateElfHeader(char * buf)
     phdr.p_flags                    = PF_R | PF_X;              // read + execute mode
     phdr.p_align                    = 0x1000;
 
-    memcpy(buf, &header, sizeof(Elf64_Ehdr));
-    memcpy(buf + sizeof(Elf64_Ehdr), &phdr, sizeof(Elf64_Phdr));
+    memcpy(*buf, &header, sizeof(Elf64_Ehdr));
+    memcpy(*buf + sizeof(Elf64_Ehdr), &phdr, sizeof(Elf64_Phdr));
+    (*buf) += BUF_OFFSET;
 }
 
 enum Instruction GetInstr(char * instr)

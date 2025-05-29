@@ -286,7 +286,8 @@ int isCmpOper(enum operations oper_enum)
 
 int isArithOper(enum operations oper_enum)
 {
-    return oper_enum == '+' || oper_enum == '-' || oper_enum == '/' || oper_enum == '*';
+    PARSER_LOG("calling isArithOper...");
+    return oper_enum == '+' || oper_enum == '-' || oper_enum == '/' || oper_enum == '*' || oper_enum == '=' ;
 }
 
 void BinCmpOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count)
@@ -301,9 +302,12 @@ void BinCmpOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
 
 void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count)
 {
-    if (NodeValue(root) == '=')
-    {
+    int nodeVal = (int) NodeValue(root);
+    PARSER_LOG("calling BinArithOper with NodeValue %c %d", nodeVal, nodeVal);
 
+    if (nodeVal == '=')
+    {
+        PARSER_LOG("BinArithOper in '=' condition");
         _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, *if_count, *while_count);
         POPREG(buf, file, Adr2EnumReg(GetVarAdr(root->left, names)));
         return;
@@ -313,7 +317,7 @@ void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * 
     _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, *if_count, *while_count);
     _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, *if_count, *while_count);
 
-    if (NodeValue(root) == '+')
+    if (nodeVal == '+')
     {
 
         POP_XTEND_REG(buf, file, WHAT_REG_R14);
@@ -323,7 +327,7 @@ void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * 
         return;
     }
 
-    else if (NodeValue(root) == '-')
+    else if (nodeVal == '-')
     {
         POP_XTEND_REG(buf, file, WHAT_REG_R14);
         POP_XTEND_REG(buf, file, WHAT_REG_R15);
@@ -332,7 +336,7 @@ void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * 
         return;
     }
 
-    else if (NodeValue(root) == '*')
+    else if (nodeVal == '*')
     {
 
         POP_XTEND_REG(buf, file, WHAT_REG_R14);
@@ -343,7 +347,7 @@ void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * 
     }
 
 
-    else if (NodeValue(root) == '/')
+    else if (nodeVal == '/')
     {
 
         POP_XTEND_REG(buf, file, WHAT_REG_R14);
@@ -474,6 +478,7 @@ int BinWhile(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file,
 
 int BinFunc(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
 {
+    PARSER_LOG("CALLED BIN_FUNC");
     int nodeVal = (int) NodeValue(root);
 
 

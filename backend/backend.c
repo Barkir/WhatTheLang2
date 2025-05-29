@@ -48,13 +48,11 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
 
     DefineFuncTable(&func, &names);
 
-
-    char* buf = (char*) calloc(DEF_SIZE * 8, 1);
+    char * buf = (char*) calloc(DEF_SIZE * 8, 1);
     if (!buf) return WHAT_MEMALLOC_ERROR;
-    char* buf_ptr = buf;
+    char * buf_ptr = buf;
 
-    GenerateElfHeader(buf);
-    buf += BUF_OFFSET;
+    GenerateElfHeader(&buf);
 
     Htable * tab = NULL;
     HtableInit(&tab, HTABLE_BINS);
@@ -66,13 +64,18 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     EMIT_EXIT(&buf);
 
     PARSER_LOG("Bin created, in buf %10s", buf_ptr);
-    if (mode == WHAT_DEBUG_MODE) HtableDump(tab);
 
-    PARSER_LOG("Writing buf to file");
-    size_t err_chk = 0;
+    if (mode == WHAT_DEBUG_MODE)
+    {
+        HtableDump(tab);
+        TreeDump(tree, "dump");
+    }
+
 
     _def_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
 
+    PARSER_LOG("Writing buf to file");
+    size_t err_chk = 0;
     assert((err_chk = fwrite(buf_ptr, sizeof(char), DEF_SIZE * 8, bin)) == DEF_SIZE * 8);
 
     free(buf_ptr);
@@ -82,6 +85,12 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
 
     return WHAT_SUCCESS;
 }
+
+/*
+##########################################################################################################
+##########################################################################################################
+##########################################################################################################
+*/
 
 int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
 {
@@ -128,7 +137,7 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
         int nodeVal = (int) NodeValue(root);
 
         if      (isCmpOper(nodeVal))    BinCmpOper  (buf, tab, names, root, file, if_cond, while_cond, &if_count, &while_count);
-        else if (isArithOper(nodeVal))  BinArithOper(buf, tab, names, root->left, file, if_cond, while_cond, &if_count, &while_count);
+        else if (isArithOper(nodeVal))  BinArithOper(buf, tab, names, root, file, if_cond, while_cond, &if_count, &while_count);
         else if (nodeVal == IF)         BinIf       (buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
         else if (nodeVal == WHILE)      BinWhile    (buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
     }

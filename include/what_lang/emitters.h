@@ -28,6 +28,8 @@ void ADD_REG_REG(char ** buf, FILE * file, uint8_t reg1, uint8_t reg2, enum RegM
 void SUB_REG_REG(char ** buf, FILE * file, uint8_t reg1, uint8_t reg2, enum RegModes mode);
 void EMIT_JMP(char ** buf, char jmp, char offset);
 void EMIT_COMPARSION(char ** buf, FILE * file, Htable ** tab, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond);
+void EMIT_PRINT(char ** buf, FILE * file);
+void EMIT_INPUT(char ** buf, FILE * file);
 void EMIT_EXIT(char ** buf);
 
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!
