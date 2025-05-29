@@ -236,6 +236,29 @@ int _find_func_end(Name * names, const char * func_name)
     return end;
 }
 
+int DefineFuncTable(Name ** func, Name ** names)
+{
+    if (!*func)  return WHAT_NULLPOINTER_ERROR;
+    if (!*names) return WHAT_NULLPOINTER_ERROR;
+
+    for (int i = 0; (*names)[i].name; i++)
+    {
+        for(int j = 0; (*func)[j].name; j++)
+        {
+            if (!strcmp((*names)[i].name, (*func)[j].name))
+            {
+                PARSER_LOG("FOUND FUNC %s", (*func)[j].name);
+                (*names)[i].name =  (*func)[j].name;
+                (*names)[i].param = (*func)[j].param;
+                (*names)[i].type =  (*func)[j].type;
+                (*names)[i].address     = _find_func_start  (*names, (*names)[i].name);
+                (*names)[i].address_end = _find_func_end    (*names, (*names)[i].name);
+                break;
+            }
+        }
+    }
+}
+
 char CmpByte(enum operations oper_enum)
 {
     for (int i = 0; i < OPER_ARRAY_SIZE; i++)
@@ -445,4 +468,27 @@ int BinWhile(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file,
     *while_end_ptr = *buf - (while_end_ptr + 1);
 
     fprintf(file, ";---------------------------\n\n");
+
+    return WHAT_SUCCESS;
 }
+
+int BinFunc(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+{
+    int nodeVal = (int) NodeValue(root);
+
+
+    if (nodeVal == PRINT)
+    {
+        _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+        EMIT_PRINT(buf, file);
+    }
+
+    else if (nodeVal == INPUT)
+    {
+        EMIT_INPUT(buf, file);
+    }
+
+    return WHAT_SUCCESS;
+}
+
+

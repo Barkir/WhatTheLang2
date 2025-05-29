@@ -3,20 +3,25 @@
 #include <string.h>
 #include <stdint.h>
 #include <elf.h>
+#include <assert.h>
 
 #include "what_lang/nametable.h"
 
-#include "what_lang/list.h"
-#include "what_lang/htable.h"
+#include "what_lang/list.h"             // List Structure
+#include "what_lang/htable.h"           // Hash Table (includes list)
 
-#include "what_lang/tree.h"
-#include "what_lang/parser.h"
-#include "what_lang/backend.h"
-#include "what_lang/emit_constants.h"
-#include "what_lang/backend_utils.h"
-#include "what_lang/emitters.h"
-#include "what_lang/errors.h"
-#include "what_lang/nasm2elf.h"
+#include "what_lang/tree.h"             // Binary Tree Structure
+#include "what_lang/parser.h"           // Included for operations enum (bad)
+
+#include "what_lang/errors.h"           // Errors and loggers
+
+#include "what_lang/emit_constants.h"   // Emitters Constants
+#include "what_lang/emitters.h"         // Emitters Functions
+
+#include "what_lang/backend_utils.h"    // Backend Utils Header
+#include "what_lang/backend.h"          // Backend Header
+
+#include "what_lang/nasm2elf.h"         // what the hell is that?
 
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode)
 {
@@ -41,24 +46,8 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     Name * func  = CreateFuncTable(tree->root);
     if (!func) return WHAT_FUNCTABLE_ERROR;
 
-    fprintf(fp, "%s", NASM_TOP);
+    DefineFuncTable(&func, &names);
 
-    for (int i = 0; names[i].name; i++)
-    {
-        for(int j = 0; func[j].name; j++)
-        {
-            if (!strcmp(names[i].name, func[j].name))
-            {
-                PARSER_LOG("FOUND FUNC %s", func[j].name);
-                names[i].name = func[j].name;
-                names[i].param = func[j].param;
-                names[i].type = func[j].type;
-                names[i].address = _find_func_start(names, names[i].name);
-                names[i].address_end = _find_func_end(names, names[i].name);
-                break;
-            }
-        }
-    }
 
     char* buf = (char*) calloc(DEF_SIZE * 8, 1);
     if (!buf) return WHAT_MEMALLOC_ERROR;
@@ -70,7 +59,9 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     Htable * tab = NULL;
     HtableInit(&tab, HTABLE_BINS);
 
+    fprintf(fp, "%s", NASM_TOP);
     _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
+    fprintf(fp, "%s", NASM_BTM);
 
     EMIT_EXIT(&buf);
 
@@ -78,19 +69,18 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     if (mode == WHAT_DEBUG_MODE) HtableDump(tab);
 
     PARSER_LOG("Writing buf to file");
-    fwrite(buf_ptr, DEF_SIZE * 8, sizeof(char), bin);
-
-    fprintf(fp, "%s", NASM_BTM);
+    size_t err_chk = 0;
 
     _def_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
 
+    assert((err_chk = fwrite(buf_ptr, sizeof(char), DEF_SIZE * 8, bin)) == DEF_SIZE * 8);
 
+    free(buf_ptr);
     free(names);
     fclose(fp);
     fclose(bin);
 
-    return 0;
-
+    return WHAT_SUCCESS;
 }
 
 int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
@@ -100,16 +90,11 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
         PARSER_LOG("PUSHING IMM32");
         PUSHIMM32(buf, file, (int) NodeValue(root));
     }
-    if (NodeType(root) == VAR)
+
+    else if (NodeType(root) == VAR)
     {
         int adr = GetVarAdr(root, names);
-        if (adr >= 0)
-        {
-            PARSER_LOG("PUSHING REG...");
-            PARSER_LOG("Variable Name = %s, adr = %d, reg = %d", NodeName(root), adr, Adr2EnumReg(adr));
-            PUSHREG(buf, file, (uint8_t) Adr2EnumReg(adr));
-        }
-        else
+        if (adr < 0)    // means it is a function
         {
             Name * func = GetFuncAdr(root, names);
             Node * dummy = root->left;
@@ -127,9 +112,15 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
             }
             CALL_DIRECT(buf, file, NodeIP(root), NodeName(root));
         }
+        else            // means it is a variable
+        {
+            PARSER_LOG("PUSHING REG...");
+            PARSER_LOG("Variable Name = %s, adr = %d, reg = %d", NodeName(root), adr, Adr2EnumReg(adr));
+            PUSHREG(buf, file, (uint8_t) Adr2EnumReg(adr));
+        }
     }
 
-    if (NodeType(root) == OPER)
+    else if (NodeType(root) == OPER)
     {
         int local_if = 0;
         int local_while = 0;
@@ -141,39 +132,17 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
         else if (nodeVal == IF)         BinIf       (buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
         else if (nodeVal == WHILE)      BinWhile    (buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
     }
-    if (NodeType(root) == FUNC)
+
+    else if (NodeType(root) == FUNC) BinFunc(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
+    else if (NodeType(root) == FUNC_NAME) fprintf(file, "call %s\n", NodeName(root));
+
+    else if ((int) NodeValue(root) == ';')
     {
-        switch((int) NodeValue(root))
-        {
-            case SIN:   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "sin\n");
-                        break;
-
-            case COS:   _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "cos\n");
-                        break;
-
-            case SQRT:  _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "sqrt\n");
-                        break;
-
-            case PRINT: _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
-                        fprintf(file, "pop rax\n");
-                        fprintf(file, "call _IOLIB_OUTPUT\n");
-                        break;
-
-            case INPUT: fprintf(file, "call _IOLIB_INPUT\n");
-                        fprintf(file, "push rax\n");
-                        break;
-
-            default: return -1;
-        }
+        _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
     }
 
-    if (NodeType(root) == FUNC_NAME) fprintf(file, "call %s\n", NodeName(root));
-
-    if ((int) NodeValue(root) == ';')  {_create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count); _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);}
-    return 1;
+    return WHAT_SUCCESS;
 }
 
 int _def_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)

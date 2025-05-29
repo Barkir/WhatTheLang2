@@ -18,16 +18,21 @@ int _find_func_start(Name * names, const char * func_name);
 int _find_func_end(Name * names, const char * func_name);
 
 
+int             DefineFuncTable(Name ** func, Name ** names);
+
+// Compare functions (used in BinCmpOper, etc.)
 int             isCmpOper(enum operations oper_enum);
 int             isArithOper(enum operations oper_enum);
 const char *    CmpStr(enum operations oper_enum);
 char            CmpByte(enum operations oper_enum);
 
 
-void BinCmpOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count);
-void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count);
-int BinWhile(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-int BinIf(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
+//  Functions for generating binary code from if, while or opers (yep, i know there is bad parameters, fixing it soon...)
+void            BinCmpOper  (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count);
+void            BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count);
+int             BinWhile    (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int   if_count, int   while_count);
+int             BinIf       (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int   if_count, int   while_count);
+int             BinFunc     (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int   if_count, int   while_count);
 
 static const char *     NASM_TOP =  "%%include 'iolib/iolib.asm'    \n"
                                     "section .text                  \n"

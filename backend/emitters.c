@@ -290,6 +290,23 @@ void EMIT_EXIT(char ** buf)
     (*buf)++;
 }
 
+void EMIT_PRINT(char ** buf, FILE * file)
+{
+    fprintf(file, "pop rax              \n")
+    fprintf(file, "call _IOLIB_OUTPUT   \n");
+
+    POPREG(buf, file, REG_EAX);
+
+}
+
+void EMIT_INPUT(char ** buf, FILE * file)
+{
+    fprintf(file, "call _IOLIB_INPUT    \n");
+    fprintf(file, "push rax             \n");
+
+    PUSHREG(buf, file, REG_EAX);
+}
+
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!
 // В CALL_DIRECT кладем абсолютный адрес
 
