@@ -1,5 +1,6 @@
 *.out
 *.asm
+!iolib.asm
 dump
 dump.png
 *.txt
@@ -10,3 +11,4 @@ What
 run
 uuu.txt
 *.dmp
+what
