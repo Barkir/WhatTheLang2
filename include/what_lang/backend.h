@@ -48,34 +48,6 @@ enum RunModes
 
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode);
 
-// typedef struct _locals
-// {
-//     char * if_label;
-//     char * if_end_label;
-//     char * while_false_label;
-//     char * while_true_label;
-//     char * while_end_label;
-//
-// } Locals;
-//
-// typedef struct _ctx
-// {
-//     static int ctx_if_count;
-//     static int ctx_while_count;
-//     static int ctx_adr_count;
-//
-//     static int if_cond;
-//     static int while_cond;
-//
-// } Ctx;
-
-
-// static struct _ctx GlobalContext =
-// {
-//     .ctx_adr_count      = 0,
-//     .ctx_if_count       = 0,
-//     .ctx_while_count    = 0
-// };
 
 
 #endif

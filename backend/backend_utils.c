@@ -22,16 +22,9 @@ const char * Adr2Reg(int adr, int xtnd)
 {
     if (xtnd)
     {
-        switch(adr)
+        for (int i = 0; i < REG_ARRAY_SIZE; i++)
         {
-            case WHAT_REG_R8:   return "r8";
-            case WHAT_REG_R9:   return "r9";
-            case WHAT_REG_R10:  return "r10";
-            case WHAT_REG_R11:  return "r11";
-            case WHAT_REG_R12:  return "r12";
-            case WHAT_REG_R13:  return "r13";
-            case WHAT_REG_R14:  return "r14";
-            case WHAT_REG_R15:  return "r15";
+            if (RegArray[i].reg_xtnd == adr) return RegArray[i].reg_str;
         }
     }
 
@@ -62,30 +55,12 @@ const char * Reg2Str(int reg, int xtnd)
 {
     if (xtnd)
     {
-        switch(reg)
-        {
-            case WHAT_REG_R8:   return "r8";
-            case WHAT_REG_R9:   return "r9";
-            case WHAT_REG_R10:  return "r10";
-            case WHAT_REG_R11:  return "r11";
-            case WHAT_REG_R12:  return "r12";
-            case WHAT_REG_R13:  return "r13";
-            case WHAT_REG_R14:  return "r14";
-            case WHAT_REG_R15:  return "r15";
-        }
+        for (int i = 0; i < REG_ARRAY_SIZE; i++)
+            if (RegArray[i].reg_xtnd == reg) return RegArray[i].reg_str;
     }
 
-    switch(reg)
-    {
-        case WHAT_REG_EAX:  return "rax";
-        case WHAT_REG_EBX:  return "rbx";
-        case WHAT_REG_ECX:  return "rcx";
-        case WHAT_REG_EDX:  return "rdx";
-        case WHAT_REG_ESI:  return "rsi";
-        case WHAT_REG_EDI:  return "rdi";
-        case WHAT_REG_EBP:  return "rbp";
-        case WHAT_REG_ESP:  return "rsp";
-    }
+    for (int i = 0; i < REG_ARRAY_SIZE; i++)
+        if (RegArray[i].reg == reg) return RegArray[i].reg_str;
 }
 
 const char * GetVarName(Node * root)

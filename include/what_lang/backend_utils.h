@@ -54,7 +54,16 @@ typedef struct _cmp_oper
 
 } CmpOper;
 
+typedef struct _what_reg
+{
+    enum Registers reg;
+    enum Registers reg_xtnd;
+    const char * reg_str;
+
+} WhatReg;
+
 #define OPER_ARRAY_SIZE 6
+#define REG_ARRAY_SIZE  16
 
 const static CmpOper OperArray[OPER_ARRAY_SIZE] =
 {
@@ -64,6 +73,26 @@ const static CmpOper OperArray[OPER_ARRAY_SIZE] =
     {.oper_byte = LESS_E,   .oper_str = "jbe",  .oper_byte = JBE_BYTE},
     {.oper_byte = EQUAL,    .oper_str = "je",   .oper_byte = JE_BYTE},
     {.oper_byte = N_EQUAL,  .oper_str = "jne",  .oper_byte = JNE_BYTE}
+};
+
+const static WhatReg RegArray[] =
+{
+    {.reg = WHAT_REG_EAX,     .reg_xtnd = -1          ,  .reg_str = "rax"},
+    {.reg = WHAT_REG_EBX,     .reg_xtnd = -1          ,  .reg_str = "rbx"},
+    {.reg = WHAT_REG_EBP,     .reg_xtnd = -1          ,  .reg_str = "rbp"},
+    {.reg = WHAT_REG_ECX,     .reg_xtnd = -1          ,  .reg_str = "rcx"},
+    {.reg = WHAT_REG_EDX,     .reg_xtnd = -1          ,  .reg_str = "rdx"},
+    {.reg = WHAT_REG_EDI,     .reg_xtnd = -1          ,  .reg_str = "rdi"},
+    {.reg = WHAT_REG_ESI,     .reg_xtnd = -1          ,  .reg_str = "rsi"},
+    {.reg = WHAT_REG_ESP,     .reg_xtnd = -1          ,  .reg_str = "rsp"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R8 ,  .reg_str = "r8" },
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R9 ,  .reg_str = "r9" },
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R10,  .reg_str = "r10"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R11,  .reg_str = "r11"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R12,  .reg_str = "r12"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R13,  .reg_str = "r13"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R14,  .reg_str = "r14"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R15,  .reg_str = "r15"}
 };
 
 
