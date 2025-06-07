@@ -15,33 +15,32 @@ Node * _sep_token       (const char * string, int * p);
 Node * _number_token    (const char * string, int * p);
 Node * _name_token      (const char * string, int * p);
 Node * _oper_token      (const char * string, int * p);
-Node * _find_name       (char * result);
+Node * _find_name       (char * result, int is_func);
 
 static Field NameTable[] =
 {
-    {.type = FUNC_EXT,      .value = SIN},
-    {.type = FUNC_EXT,      .value = COS},
-    {.type = FUNC_EXT,      .value = TG},
-    {.type = FUNC_EXT,      .value = CTG},
-    {.type = FUNC_EXT,      .value = SH},
-    {.type = FUNC_EXT,      .value = CH},
-    {.type = FUNC_EXT,      .value = TH},
-    {.type = FUNC_EXT,      .value = CTH},
-    {.type = FUNC_EXT,      .value = LN},
-    {.type = FUNC_EXT,      .value = LOG},
-    {.type = FUNC_EXT,      .value = PRINT},
-    {.type = FUNC_EXT,      .value = SQRT},
-    {.type = FUNC_EXT,      .value = INPUT},
-
-    {.type = OPER,      .value = IF},
-    {.type = OPER,      .value = WHILE},
-    {.type = OPER,      .value = MORE},
-    {.type = OPER,      .value = LESS},
-    {.type = OPER,      .value = MORE_E},
-    {.type = OPER,      .value = LESS_E},
-    {.type = OPER,      .value = EQUAL},
-    {.type = OPER,      .value = N_EQUAL},
-    {.type = OPER,      .value = DEF},
+    {.type = FUNC_EXT,  .value = SIN    },
+    {.type = FUNC_EXT,  .value = COS    },
+    {.type = FUNC_EXT,  .value = TG     },
+    {.type = FUNC_EXT,  .value = CTG    },
+    {.type = FUNC_EXT,  .value = SH     },
+    {.type = FUNC_EXT,  .value = CH     },
+    {.type = FUNC_EXT,  .value = TH     },
+    {.type = FUNC_EXT,  .value = CTH    },
+    {.type = FUNC_EXT,  .value = LN     },
+    {.type = FUNC_EXT,  .value = LOG    },
+    {.type = FUNC_EXT,  .value = PRINT  },
+    {.type = FUNC_EXT,  .value = SQRT   },
+    {.type = FUNC_EXT,  .value = INPUT  },
+    {.type = OPER    ,  .value = IF     },
+    {.type = OPER    ,  .value = WHILE  },
+    {.type = OPER    ,  .value = MORE   },
+    {.type = OPER    ,  .value = LESS   },
+    {.type = OPER    ,  .value = MORE_E },
+    {.type = OPER    ,  .value = LESS_E },
+    {.type = OPER    ,  .value = EQUAL  },
+    {.type = OPER    ,  .value = N_EQUAL},
+    {.type = OPER    ,  .value = DEF    },
 };
 
 typedef struct _token_map
@@ -52,7 +51,7 @@ typedef struct _token_map
 
 }  TokenMap;
 
-#define TOKEN_ARRAY_SIZE 60
+#define TOKEN_ARRAY_SIZE 29
 
 static TokenMap TokenArray[TOKEN_ARRAY_SIZE] =
 {

@@ -483,7 +483,7 @@ Node * GetParam(Node ** nodes, int * p)
 
 Node * GetID(Node ** nodes, int * p)
 {
-    if (NodeType(nodes[*p]) != VAR) return NULL;
+    if (NodeType(nodes[*p]) != VAR && NodeType(nodes[*p]) != FUNC_INTER) return NULL;
     PARSER_LOG("Got node %p with name %s, p = %d", nodes[*p], NodeName(nodes[*p]), *p);
     Node * result = _copy_node(nodes[*p]);
     if (!result) return NULL;

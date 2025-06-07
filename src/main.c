@@ -31,6 +31,7 @@ int main(int argc, char * argv[])
 
             CreateBin(tree, ASM, run, WHAT_DEBUG_MODE);
 
+            TreeDump(tree, "dump");
             DestroyTree(tree);
         }
     }

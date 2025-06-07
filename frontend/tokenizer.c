@@ -27,13 +27,13 @@ Node ** StringTokenize(const char * string, int * p)
 Node * _get_token(const char * string, int * p)
 {
     SKIPSPACE;
-    if (_is_oper(string, p)) {PARSER_LOG("operator %c! ", string[*p]); return _oper_token(string, p);}
+    if (_is_oper(string, p))    {PARSER_LOG("operator %c! ", string[*p]);   return _oper_token(string, p);}
 
-    if (string[*p] == ';') {PARSER_LOG("separator of line!"); return _sep_token(string, p);}
+    if (string[*p] == ';')      {PARSER_LOG("separator of line!");          return _sep_token(string, p);}
 
-    if (isalpha(string[*p])) {PARSER_LOG("name %c! ", string[*p]); return _name_token(string, p);}
+    if (isalpha(string[*p]))    {PARSER_LOG("name %c! ", string[*p]);       return _name_token(string, p);}
 
-    if (isdigit(string[*p])) {PARSER_LOG("number %c! ", string[*p]); return _number_token(string, p);}
+    if (isdigit(string[*p]))    {PARSER_LOG("number %c! ", string[*p]);     return _number_token(string, p);}
 
     return NULL;
 
@@ -72,13 +72,15 @@ Node * _name_token(const char * string, int * p)
 {
     SKIPSPACE;
     int start_p = *p;
+    int is_func = 0;
 
     while(isalpha(string[*p])) (*p)++;
+    if (string[*p] == '(')      is_func = 1;
 
     const char * result = (const char*) calloc((*p) - start_p + 1, 1);
     memcpy(result, &string[start_p], (*p) - start_p);
 
-    Node * name = _find_name(result);
+    Node * name = _find_name(result, is_func);
     free(result);
     if (!name) return NULL;
 
@@ -119,7 +121,7 @@ Node * _oper_token(const char * string, int * p)
     return result;
 }
 
-Node * _find_name(char * result)
+Node * _find_name(char * result, int is_func)
 {
     PARSER_LOG("Need to find name %s... ", result);
     Field name = _name_table(_name_to_enum(result));
@@ -130,7 +132,7 @@ Node * _find_name(char * result)
     {
         field = calloc(1, sizeof(Field));
         memcpy(field->name, result, strlen(result));
-        field->type = VAR;
+        field->type = is_func ? FUNC_INTER : VAR;
         field->value = 0;
     }
 
