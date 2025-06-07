@@ -118,7 +118,7 @@ Node * GetOperator(Node ** nodes, int * p)
         SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
     }
 
-    if (val1 = GetFunc(nodes, p))
+    if (val1 = GetFuncExt(nodes, p))
     {
         PARSER_LOG("Got func...");
         if ((int) NodeValue(nodes[*p]) == ';')
@@ -131,7 +131,7 @@ Node * GetOperator(Node ** nodes, int * p)
         SYNTAX_ERROR(';', (char) NodeValue(nodes[*p]));
     }
 
-    if (val1 = GetFuncName(nodes, p))
+    if (val1 = GetFuncInter(nodes, p))
     {
         PARSER_LOG("Got FuncName...");
         if ((int) NodeValue(nodes[*p]) == ';')
@@ -175,7 +175,7 @@ Node * GetCall(Node ** nodes, int * p)
     PARSER_LOG("Getting CALL... p = %d", *p);
     (*p)++;
     Node * name = GetID(nodes, p);
-    ((Field*)((char*)name + sizeof(Node)))->type = FUNC_NAME;
+    ((Field*)((char*)name + sizeof(Node)))->type = FUNC_INTER;
 
     Node * group = GetGroup(nodes, p);
     return _create_node(field, name, group);
@@ -411,15 +411,15 @@ Node * GetBracket(Node ** nodes, int * p)
         return val;
     }
 
-    if (NodeType(nodes[*p]) == FUNC_NAME) return GetFuncName(nodes, p);
-    else if (NodeType(nodes[*p]) == FUNC) return GetFunc(nodes, p);
+    if (NodeType(nodes[*p]) == FUNC_INTER) return GetFuncInter(nodes, p);
+    else if (NodeType(nodes[*p]) == FUNC_EXT) return GetFuncExt(nodes, p);
     else if (NodeType(nodes[*p]) == VAR)  return GetID(nodes, p);
     else return GetNumber(nodes, p);
 }
 
-Node * GetFuncName(Node ** nodes, int * p)
+Node * GetFuncInter(Node ** nodes, int * p)
 {
-    if (NodeType(nodes[*p]) != FUNC_NAME && NodeType(nodes[*p]) != VAR) return NULL;
+    if (NodeType(nodes[*p]) != FUNC_INTER && NodeType(nodes[*p]) != VAR) return NULL;
     PARSER_LOG("Getting FUNC_NAME");
     Node * result = _copy_node(nodes[*p]);
     if (!result) return NULL;
@@ -433,9 +433,9 @@ Node * GetFuncName(Node ** nodes, int * p)
 
 }
 
-Node * GetFunc(Node ** nodes, int * p)
+Node * GetFuncExt(Node ** nodes, int * p)
 {
-    if ((int) NodeType(nodes[*p]) != FUNC) return NULL;
+    if ((int) NodeType(nodes[*p]) != FUNC_EXT) return NULL;
     PARSER_LOG("Getting FUNC");
     if (!nodes[*p]) return NULL;
     PARSER_LOG("Got node %p %lg", nodes[*p], NodeValue(nodes[*p]));

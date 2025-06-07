@@ -142,8 +142,8 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
         else if (nodeVal == WHILE)      BinWhile    (buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
     }
 
-    else if (NodeType(root) == FUNC) BinFunc(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
-    else if (NodeType(root) == FUNC_NAME) fprintf(file, "call %s\n", NodeName(root));
+    else if (NodeType(root) == FUNC_EXT) BinFunc(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
+    else if (NodeType(root) == FUNC_INTER) fprintf(file, "call %s\n", NodeName(root));
 
     else if ((int) NodeValue(root) == ';')
     {

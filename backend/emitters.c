@@ -312,7 +312,7 @@ void EMIT_INPUT(char ** buf, FILE * file)
 
 void CALL_DIRECT(char ** buf, FILE * file, int adr, const char * name)
 {
-
+    PARSER_LOG("DIRECT_CALL of function with name %s...", name);
     fprintf(file, "call %s\n", name);
     **buf = CALL_DIRECT_BYTE;
     (*buf)++;

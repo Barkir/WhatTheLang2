@@ -93,7 +93,7 @@ Name * GetFuncAdr(Node * root, Name * names)
     for(int i = 0; i < 1024; i++)
     {
         if (!(names[i].name)) return NULL;
-        if (!strcmp(NodeName(root), names[i].name) && names[i].type == FUNC_NAME) return &(names[i]);
+        if (!strcmp(NodeName(root), names[i].name) && names[i].type == FUNC_INTER) return &(names[i]);
     }
 
     return NULL;
@@ -138,7 +138,7 @@ int _var_table(Node * root, Name * names, const char * func_name)
     }
     if (root->left)
         {
-            if (NodeType(root) == FUNC_NAME) func_name = NodeName(root);
+            if (NodeType(root) == FUNC_INTER) func_name = NodeName(root);
             _var_table(root->left, names, func_name);
         }
     if (root->right)
@@ -166,7 +166,7 @@ int _func_table(Node * root, Name * names)
         {
             names[ADR_COUNT].name = NodeName(root->left);
             names[ADR_COUNT].address = ADR_COUNT;
-            names[ADR_COUNT].type = FUNC_NAME;
+            names[ADR_COUNT].type = FUNC_INTER;
             names[ADR_COUNT].param = _count_param(root->left);
             names[ADR_COUNT].address_end = names[ADR_COUNT].address + names[ADR_COUNT].param;
             ADR_COUNT++;

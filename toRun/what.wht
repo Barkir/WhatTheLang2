@@ -1,10 +1,13 @@
-a = input(0);
-p = 1;
-while (a > 0)
+factorial(10);
+
+
+def factorial(param)
 {
-    p = p * a;
-    a = a -1;
+    while (param > 0)
+    {
+        p = p * param;
+        param = param - 1;
+    }
+
+    print(p);
 }
-
-print(p);
-

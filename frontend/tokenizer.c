@@ -161,40 +161,8 @@ int _is_oper(const char * string, int * p)
 
 int _name_to_enum(char * name)
 {
-    if (strcmp(name, "sin") == 0)       return SIN;
-    if (strcmp(name, "cos") == 0)       return COS;
-    if (strcmp(name, "tg") == 0)        return TG;
-    if (strcmp(name, "ctg") == 0)       return CTG;
-    if (strcmp(name, "sh") == 0)        return SH;
-    if (strcmp(name, "ch") == 0)        return CH;
-    if (strcmp(name, "ln") == 0)        return LN;
-    if (strcmp(name, "log") == 0)       return LOG;
-    if (strcmp(name, "if") == 0)        return IF;
-    if (strcmp(name, "while") == 0)     return WHILE;
-    if (strcmp(name, "print") == 0)     return PRINT;
-    if (strcmp(name, "sqrt") == 0)      return SQRT;
-    if (strcmp(name, "def") == 0)       return DEF;
-    if (strcmp(name, "input") == 0)     return INPUT;
-
-
-    if (strcmp(name, "+") == 0)         return '+';
-    if (strcmp(name, "-") == 0)         return '-';
-    if (strcmp(name, "*") == 0)         return '*';
-    if (strcmp(name, "/") == 0)         return '/';
-    if (strcmp(name, "^") == 0)         return '^';
-    if (strcmp(name, "=") == 0)         return '=';
-    if (strcmp(name, "(") == 0)         return '(';
-    if (strcmp(name, ")") == 0)         return ')';
-    if (strcmp(name, "{") == 0)         return '{';
-    if (strcmp(name, "}") == 0)         return '}';
-
-    if (strcmp(name, ">") == 0)         return MORE;
-    if (strcmp(name, "<") == 0)         return LESS;
-    if (strcmp(name, ">=") == 0)        return MORE_E;
-    if (strcmp(name, "<=") == 0)        return LESS_E;
-    if (strcmp(name, "==") == 0)        return EQUAL;
-    if (strcmp(name, "!=") == 0)        return N_EQUAL;
-
+    for (int i = 0; i < TOKEN_ARRAY_SIZE; i++)
+        if (!strcmp(TokenArray[i].token_str, name)) return TokenArray[i].token_enum;
 
     PARSER_LOG("Can't find name %s", name);
     return -1;
@@ -202,45 +170,8 @@ int _name_to_enum(char * name)
 
 const char * _enum_to_name(int name)
 {
-    switch(name)
-    {
-        case MORE:       return "more";
-        case LESS:       return "less";
-        case MORE_E:     return "more_e";
-        case LESS_E:     return "less_e";
-        case EQUAL:      return "equal";
-        case N_EQUAL:    return "n_equal";
-        case DEF:        return "def";
-
-        case '+':        return "+";
-        case '=':        return "=";
-        case '/':        return "//";
-        case '*':        return "*";
-        case '^':        return "^";
-        case '-':        return "-";
-        case '(':        return "(";
-        case ')':        return ")";
-        case '{':        return "{";
-        case '}':        return "}";
-
-        case SIN:        return "sin";
-        case COS:        return "cos";
-        case SQRT:       return "sqrt";
-        case SH:         return "sh";
-        case CH:         return "ch";
-        case TG:         return "tg";
-        case LOG:        return "log";
-        case CTG:        return "ctg";
-        case LN:         return "ln";
-        case TH:         return "th";
-        case CTH:        return "cth";
-        case IF:         return "if";
-        case WHILE:      return "while";
-        case PRINT:      return "print";
-        case INPUT:      return "input";
-
-        default: return "notfound";
-    }
+    for (int i = 0; i < TOKEN_ARRAY_SIZE; i++)
+        if (TokenArray[i].token_enum == name) return TokenArray[i].graphviz_str;
 }
 
 Field _name_table(int name)

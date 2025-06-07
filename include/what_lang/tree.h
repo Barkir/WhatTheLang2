@@ -7,9 +7,9 @@ enum types
     OPER = 0,
     VAR = 1,
     NUM = 2,
-    FUNC = 3,
+    FUNC_EXT = 3,
     SEP_SYMB = 4,
-    FUNC_NAME = 5
+    FUNC_INTER = 5
 };
 
 typedef double field_t;

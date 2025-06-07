@@ -94,7 +94,7 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
                     *node, NodeValue(*node), *node, color);
                     break;
 
-        case FUNC:  fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
+        case FUNC_EXT:  fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
                     *node, _enum_to_name((int) field), *node, color);
                     break;
 
@@ -102,7 +102,7 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
                         *node, (int) field, color);
                         break;
 
-        case FUNC_NAME: fprintf(Out, "node%p [shape = Mrecord; label = \"{%s}\"; style = filled; fillcolor = \"#%06X\"];\n",
+        case FUNC_INTER: fprintf(Out, "node%p [shape = Mrecord; label = \"{%s}\"; style = filled; fillcolor = \"#%06X\"];\n",
                         *node, NodeName(*node), color);
                         break;
 
@@ -247,7 +247,7 @@ unsigned int NodeColor(Node * node)
             color = NUM_COLOR;
             break;
 
-        case FUNC:
+        case FUNC_EXT:
             color = FUNC_COLOR;
             break;
 
@@ -255,7 +255,7 @@ unsigned int NodeColor(Node * node)
             color = SEP_COLOR;
             break;
 
-        case FUNC_NAME:
+        case FUNC_INTER:
             color = FUNC_NAME_COLOR;
             break;
 
