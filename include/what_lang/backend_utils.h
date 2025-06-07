@@ -67,12 +67,12 @@ typedef struct _what_reg
 
 const static CmpOper OperArray[OPER_ARRAY_SIZE] =
 {
-    {.oper_byte = MORE,     .oper_str = "ja",   .oper_byte = JA_BYTE},
-    {.oper_byte = LESS,     .oper_str = "jb",   .oper_byte = JB_BYTE},
-    {.oper_byte = MORE_E,   .oper_str = "jae",  .oper_byte = JAE_BYTE},
-    {.oper_byte = LESS_E,   .oper_str = "jbe",  .oper_byte = JBE_BYTE},
-    {.oper_byte = EQUAL,    .oper_str = "je",   .oper_byte = JE_BYTE},
-    {.oper_byte = N_EQUAL,  .oper_str = "jne",  .oper_byte = JNE_BYTE}
+    {.oper_enum = MORE,     .oper_str = "ja",   .oper_byte = JA_BYTE},
+    {.oper_enum = LESS,     .oper_str = "jb",   .oper_byte = JB_BYTE},
+    {.oper_enum = MORE_E,   .oper_str = "jae",  .oper_byte = JAE_BYTE},
+    {.oper_enum = LESS_E,   .oper_str = "jbe",  .oper_byte = JBE_BYTE},
+    {.oper_enum = EQUAL,    .oper_str = "je",   .oper_byte = JE_BYTE},
+    {.oper_enum = N_EQUAL,  .oper_str = "jne",  .oper_byte = JNE_BYTE},
 };
 
 const static WhatReg RegArray[] =

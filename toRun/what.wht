@@ -1,3 +1,10 @@
 a = input(0);
-print(a);
+p = 1;
+while (a > 0)
+{
+    p = p * a;
+    a = a -1;
+}
+
+print(p);
 

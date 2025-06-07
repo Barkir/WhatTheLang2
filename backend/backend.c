@@ -18,8 +18,8 @@
 #include "what_lang/emit_constants.h"   // Emitters Constants
 #include "what_lang/emitters.h"         // Emitters Functions
 
-#include "what_lang/backend_utils.h"    // Backend Utils Header
 #include "what_lang/backend.h"          // Backend Header
+#include "what_lang/backend_utils.h"    // Backend Utils Header
 
 #include "what_lang/nasm2elf.h"         // what the hell is that?
 

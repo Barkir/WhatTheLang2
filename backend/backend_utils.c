@@ -236,9 +236,14 @@ int DefineFuncTable(Name ** func, Name ** names)
 
 char CmpByte(enum operations oper_enum)
 {
+    PARSER_LOG("%d in CmpByte", oper_enum);
     for (int i = 0; i < OPER_ARRAY_SIZE; i++)
     {
-        if (OperArray[i].oper_enum == oper_enum) return OperArray[i].oper_byte;
+        if ((char) OperArray[i].oper_enum == oper_enum)
+        {
+            PARSER_LOG("returning %d", OperArray[i].oper_byte);
+            return OperArray[i].oper_byte;
+        }
     }
 
     return 0;
@@ -246,9 +251,14 @@ char CmpByte(enum operations oper_enum)
 
 const char * CmpStr(enum operations oper_enum)
 {
+    PARSER_LOG("%d in CmpStr", oper_enum)
     for (int i = 0; i < OPER_ARRAY_SIZE; i++)
     {
-        if (OperArray[i].oper_enum == oper_enum) return OperArray[i].oper_str;
+        if (OperArray[i].oper_enum == oper_enum)
+        {
+            PARSER_LOG("returning %s", OperArray[i].oper_str);
+            return OperArray[i].oper_str;
+        }
     }
 
     return NULL;
@@ -306,8 +316,8 @@ void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * 
     {
         POP_XTEND_REG(buf, file, WHAT_REG_R14);
         POP_XTEND_REG(buf, file, WHAT_REG_R15);
-        SUB_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
-        PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
+        SUB_REG_REG(buf, file, WHAT_REG_R15, WHAT_REG_R14, WHAT_XTEND_XTEND);
+        PUSH_XTEND_REG(buf, file, WHAT_REG_R15);
         return;
     }
 
