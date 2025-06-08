@@ -67,48 +67,63 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
 {
 
     if (!tree)
+    {
+        PARSER_LOG("tree is null");
         return NULL;
+    }
 
-    if (!*node) return NULL;
+    if (!*node)
+    {
+        PARSER_LOG("*node = null")
+        return NULL;
+    }
 
     unsigned int color = NodeColor(*node);
     field_t field = NodeValue(*node);
 
     switch ((int) NodeType(*node))
     {
-        case OPER:
-                    // PARSER_LOG("OPER");
-                    // PARSER_LOG("node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                    // *node, _enum_to_name((int) field), *node, color);
+        case OPER:              PARSER_LOG("OPER");
+                                PARSER_LOG("node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                                *node, _enum_to_name((int) field), *node, color);
 
-                    fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                    *node, _enum_to_name((int) field), *node, color);
-                    break;
+                                fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                                *node, _enum_to_name((int) field), *node, color);
+                                break;
 
-        case VAR:   PARSER_LOG("VAR name = %s", NodeName(*node));
-                    fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                    *node, NodeName(*node), *node, color);
-                    break;
+        case VAR:               PARSER_LOG("VAR name = %s", NodeName(*node));
+                                fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                                *node, NodeName(*node), *node, color);
+                                break;
 
-        case NUM:   fprintf(Out, "node%p [shape = Mrecord; label = \"{%lg | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                    *node, NodeValue(*node), *node, color);
-                    break;
+        case NUM:               PARSER_LOG("NUM = %d", (int) NodeValue(*node));
+                                fprintf(Out, "node%p [shape = Mrecord; label = \"{%lg | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                                *node, NodeValue(*node), *node, color);
+                                break;
 
-        case FUNC_EXT:  fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                    *node, _enum_to_name((int) field), *node, color);
-                    break;
+        case FUNC_EXT:          PARSER_LOG("FUNC_EXT name = %s", NodeName(*node));
+                                fprintf(Out, "node%p [shape = Mrecord; label = \"{%s | %p}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                                *node, _enum_to_name((int) field), *node, color);
+                                break;
 
-        case SEP_SYMB:  fprintf(Out, "node%p [shape = Mrecord; label = \"{%c}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                        *node, (int) field, color);
-                        break;
+        case SEP_SYMB:          fprintf(Out, "node%p [shape = Mrecord; label = \"{%c}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                                *node, (int) field, color);
+                                break;
 
-        case FUNC_INTER: fprintf(Out, "node%p [shape = Mrecord; label = \"{%s}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                        *node, NodeName(*node), color);
-                        break;
+        case FUNC_INTER_DEF:    PARSER_LOG("FUNC_INTER_DEF name = %s", NodeName(*node));
+                                fprintf(Out, "node%p [shape = Mrecord; label = \"{%s}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                                *node, NodeName(*node), color);
+                                break;
 
-        default:    fprintf(Out, "node%p [shape = Mrecord; label = \"{}\"; style = filled; fillcolor = \"#%06X\"];\n",
-                    *node, color);
-                    break;
+        case FUNC_INTER_CALL:   PARSER_LOG("FUNC_INTER_CALL name = %s with color %x", NodeName(*node), color);
+                                fprintf(Out, "node%p[shape = Mrecord; label = \"{%s}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                                *node, NodeName(*node), color);
+                                break;
+
+        default:                PARSER_LOG("DEFAULT");
+                                fprintf(Out, "node%p [shape = Mrecord; label = \"{}\"; style = filled; fillcolor = \"#%06X\"];\n",
+                                *node, color);
+                                break;
 
     }
 
@@ -124,6 +139,7 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
 
 Tree * TreeDump(Tree * tree, const char * FileName)
 {
+    PARSER_LOG("Dumping Tree...");
     FILE * Out = fopen(FileName, "wb");
 
     fprintf(Out, "digraph\n{\n");
@@ -248,15 +264,19 @@ unsigned int NodeColor(Node * node)
             break;
 
         case FUNC_EXT:
-            color = FUNC_COLOR;
+            color = FUNC_EXT_COLOR;
             break;
 
         case SEP_SYMB:
             color = SEP_COLOR;
             break;
 
-        case FUNC_INTER:
-            color = FUNC_NAME_COLOR;
+        case FUNC_INTER_DEF:
+            color = FUNC_INTER_DEF_COLOR;
+            break;
+
+        case FUNC_INTER_CALL:
+            color = FUNC_INTER_CALL_COLOR;
             break;
 
         default:

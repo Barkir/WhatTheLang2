@@ -79,6 +79,7 @@ const char * GetVarName(Node * root)
 
 int GetVarAdr(Node * root, Name * names)
 {
+    PARSER_LOG("Getting Var Address");
     for(int i = 0; i < 1024; i++)
     {
         if (!(names[i].name)) return -1;
@@ -90,12 +91,15 @@ int GetVarAdr(Node * root, Name * names)
 
 Name * GetFuncAdr(Node * root, Name * names)
 {
+    PARSER_LOG("Getting Func Address");
     for(int i = 0; i < 1024; i++)
     {
-        if (!(names[i].name)) return NULL;
-        if (!strcmp(NodeName(root), names[i].name) && names[i].type == FUNC_INTER) return &(names[i]);
+        PARSER_LOG("NodeName(root) = %s, names[i].name = %s", NodeName(root), names[i].name);
+        if (!(names[i].name)) {PARSER_LOG("Returning NULL at i = %d", i); return NULL;}
+        if (!strcmp(NodeName(root), names[i].name) && (names[i].type == FUNC_INTER_DEF || names[i].type == VAR)) return &(names[i]);
     }
 
+    PARSER_LOG("Returning NULL");
     return NULL;
 }
 
@@ -114,7 +118,7 @@ int _count_param(Node * root)
 
 int _var_table(Node * root, Name * names, const char * func_name)
 {
-    if (NodeType(root) == VAR)
+    if (NodeType(root) == VAR && NodeType(root) == FUNC_INTER_CALL)
     {
         int is_new = 1;
         for (int i = 0; names[i].name; i++)
@@ -138,7 +142,7 @@ int _var_table(Node * root, Name * names, const char * func_name)
     }
     if (root->left)
         {
-            if (NodeType(root) == FUNC_INTER) func_name = NodeName(root);
+            if (NodeType(root) == FUNC_INTER_DEF) func_name = NodeName(root);
             _var_table(root->left, names, func_name);
         }
     if (root->right)
@@ -166,7 +170,7 @@ int _func_table(Node * root, Name * names)
         {
             names[ADR_COUNT].name = NodeName(root->left);
             names[ADR_COUNT].address = ADR_COUNT;
-            names[ADR_COUNT].type = FUNC_INTER;
+            names[ADR_COUNT].type = FUNC_INTER_DEF;
             names[ADR_COUNT].param = _count_param(root->left);
             names[ADR_COUNT].address_end = names[ADR_COUNT].address + names[ADR_COUNT].param;
             ADR_COUNT++;

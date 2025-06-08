@@ -132,7 +132,7 @@ Node * _find_name(char * result, int is_func)
     {
         field = calloc(1, sizeof(Field));
         memcpy(field->name, result, strlen(result));
-        field->type = is_func ? FUNC_INTER : VAR;
+        field->type = is_func ? FUNC_INTER_CALL : VAR;
         field->value = 0;
     }
 

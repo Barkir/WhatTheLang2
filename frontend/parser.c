@@ -61,7 +61,7 @@ Node * GetOperator(Node ** nodes, int * p)
 {
     int old_p = (*p);
     if (!nodes[*p]) return NULL;
-    PARSER_LOG("Getting O... Got node %p with val %lg, name %s, p = %d", nodes[*p], NodeValue(nodes[*p]), NodeName(nodes[*p]), *p);
+    PARSER_LOG("Getting O... Got node %p with val %lg, type %d name %s, p = %d", nodes[*p], NodeValue(nodes[*p]), NodeType(nodes[*p]), NodeName(nodes[*p]), *p);
     Node * val1 = NULL;
     if ((val1 = GetAssignment(nodes, p)))
     {
@@ -175,7 +175,7 @@ Node * GetCall(Node ** nodes, int * p)
     PARSER_LOG("Getting CALL... p = %d", *p);
     (*p)++;
     Node * name = GetID(nodes, p);
-    ((Field*)((char*)name + sizeof(Node)))->type = FUNC_INTER;
+    ((Field*)((char*)name + sizeof(Node)))->type = FUNC_INTER_DEF;
 
     Node * group = GetGroup(nodes, p);
     return _create_node(field, name, group);
@@ -411,7 +411,7 @@ Node * GetBracket(Node ** nodes, int * p)
         return val;
     }
 
-    if (NodeType(nodes[*p]) == FUNC_INTER) return GetFuncInter(nodes, p);
+    if (NodeType(nodes[*p]) == FUNC_INTER_CALL) return GetFuncInter(nodes, p);
     else if (NodeType(nodes[*p]) == FUNC_EXT) return GetFuncExt(nodes, p);
     else if (NodeType(nodes[*p]) == VAR)  return GetID(nodes, p);
     else return GetNumber(nodes, p);
@@ -419,7 +419,7 @@ Node * GetBracket(Node ** nodes, int * p)
 
 Node * GetFuncInter(Node ** nodes, int * p)
 {
-    if (NodeType(nodes[*p]) != FUNC_INTER && NodeType(nodes[*p]) != VAR) return NULL;
+    if (NodeType(nodes[*p]) != FUNC_INTER_CALL && NodeType(nodes[*p]) != VAR) return NULL;
     PARSER_LOG("Getting FUNC_NAME");
     Node * result = _copy_node(nodes[*p]);
     if (!result) return NULL;
@@ -483,7 +483,7 @@ Node * GetParam(Node ** nodes, int * p)
 
 Node * GetID(Node ** nodes, int * p)
 {
-    if (NodeType(nodes[*p]) != VAR && NodeType(nodes[*p]) != FUNC_INTER) return NULL;
+    if (NodeType(nodes[*p]) != VAR && NodeType(nodes[*p]) != FUNC_INTER_CALL) return NULL;
     PARSER_LOG("Got node %p with name %s, p = %d", nodes[*p], NodeName(nodes[*p]), *p);
     Node * result = _copy_node(nodes[*p]);
     if (!result) return NULL;

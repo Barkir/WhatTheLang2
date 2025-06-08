@@ -100,37 +100,37 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
         PUSHIMM32(buf, file, (int) NodeValue(root));
     }
 
+    else if (NodeType(root) == FUNC_INTER_DEF)
+    {
+        PARSER_LOG("PROCESSING FUNC_INTER");
+        int adr = GetVarAdr(root, names);
+        Name * func = GetFuncAdr(root, names);
+        Node * dummy = root->left;
+
+        if (func->param != 0)
+        {
+            PARSER_LOG("PROCESSING FUNCTION PARAM...");
+            for (int i = func->address; dummy; i++)
+            {
+                PARSER_LOG("PUSHING IMM32");
+                PUSHIMM32   (buf, file, (int) NodeValue(dummy));
+                POPREG      (buf, file, (uint8_t) Adr2EnumReg(adr));
+                dummy = dummy->left;
+            }
+        }
+        CALL_DIRECT(buf, file, NodeIP(root), NodeName(root));
+    }
     else if (NodeType(root) == VAR)
     {
         int adr = GetVarAdr(root, names);
-        if (adr < 0)    // means it is a function
-        {
-            Name * func = GetFuncAdr(root, names);
-            Node * dummy = root->left;
-
-            if (func->param != 0)
-            {
-                for (int i = func->address; dummy; i++)
-                {
-                    PARSER_LOG("PUSHING IMM32");
-                    PUSHIMM32   (buf, file, (int) NodeValue(dummy));
-                    POPREG      (buf, file, (uint8_t) Adr2EnumReg(adr));
-
-                    dummy = dummy->left;
-                }
-            }
-            CALL_DIRECT(buf, file, NodeIP(root), NodeName(root));
-        }
-        else            // means it is a variable
-        {
-            PARSER_LOG("PUSHING REG...");
-            PARSER_LOG("Variable Name = %s, adr = %d, reg = %d", NodeName(root), adr, Adr2EnumReg(adr));
-            PUSHREG(buf, file, (uint8_t) Adr2EnumReg(adr));
-        }
+        PARSER_LOG("PUSHING REG...");
+        PARSER_LOG("Variable Name = %s, adr = %d, reg = %d", NodeName(root), adr, Adr2EnumReg(adr));
+        PUSHREG(buf, file, (uint8_t) Adr2EnumReg(adr));
     }
 
     else if (NodeType(root) == OPER)
     {
+        PARSER_LOG("PROCESSING OPER");
         int local_if = 0;
         int local_while = 0;
 
@@ -143,7 +143,7 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
     }
 
     else if (NodeType(root) == FUNC_EXT) BinFunc(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
-    else if (NodeType(root) == FUNC_INTER) fprintf(file, "call %s\n", NodeName(root));
+    // else if (NodeType(root) == FUNC_INTER) fprintf(file, "call %s\n", NodeName(root));
 
     else if ((int) NodeValue(root) == ';')
     {

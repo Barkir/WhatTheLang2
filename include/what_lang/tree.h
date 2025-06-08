@@ -3,13 +3,15 @@
 
 enum types
 {
-    ERROR = -1,
-    OPER = 0,
-    VAR = 1,
-    NUM = 2,
-    FUNC_EXT = 3,
-    SEP_SYMB = 4,
-    FUNC_INTER = 5
+    ERROR           = -1,
+    OPER            =  0,
+    VAR             =  1,
+    NUM             =  2,
+    FUNC_EXT        =  3,
+    SEP_SYMB        =  4,
+    FUNC_INTER_DEF  =  5,
+    FUNC_INTER_CALL =  6
+
 };
 
 typedef double field_t;
