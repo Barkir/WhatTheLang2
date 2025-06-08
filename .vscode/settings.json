@@ -18,6 +18,7 @@
         "stdlib.h": "c",
         "emit_constants.h": "c",
         "nasm2elf.h": "c",
-        "backend_utils.h": "c"
+        "backend_utils.h": "c",
+        "crc32.h": "c"
     }
 }

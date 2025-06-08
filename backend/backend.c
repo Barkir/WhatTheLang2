@@ -40,48 +40,50 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
         return WHAT_FILEOPEN_ERROR;
     }
 
-    Name * names = CreateVarTable(tree->root);
-    if (!names) return WHAT_VARTABLE_ERROR;
+    Name * names = CreateNameTable(tree->root);
 
-    Name * func  = CreateFuncTable(tree->root);
-    if (!func) return WHAT_FUNCTABLE_ERROR;
+    // Name * names = CreateVarTable(tree->root);
+    // if (!names) return WHAT_VARTABLE_ERROR;
 
-    DefineFuncTable(&func, &names);
+    // Name * func  = CreateFuncTable(tree->root);
+    // if (!func) return WHAT_FUNCTABLE_ERROR;
 
-    char * buf = (char*) calloc(DEF_SIZE * 8, 1);
-    if (!buf) return WHAT_MEMALLOC_ERROR;
-    char * buf_ptr = buf;
-
-    GenerateElfHeader(&buf);
-
-    Htable * tab = NULL;
-    HtableInit(&tab, HTABLE_BINS);
-
-    fprintf(fp, "%s", NASM_TOP);
-    _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
-    fprintf(fp, "%s", NASM_BTM);
-
-    EMIT_EXIT(&buf);
-
-    PARSER_LOG("Bin created, in buf %10s", buf_ptr);
-
-    if (mode == WHAT_DEBUG_MODE)
-    {
-        HtableDump(tab);
-        TreeDump(tree, "dump");
-    }
-
-
-    _def_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
-
-    PARSER_LOG("Writing buf to file");
-    size_t err_chk = 0;
-    assert((err_chk = fwrite(buf_ptr, sizeof(char), DEF_SIZE * 8, bin)) == DEF_SIZE * 8);
-
-    free(buf_ptr);
-    free(names);
-    fclose(fp);
-    fclose(bin);
+    // DefineFuncTable(&func, &names);
+//
+//     char * buf = (char*) calloc(DEF_SIZE * 8, 1);
+//     if (!buf) return WHAT_MEMALLOC_ERROR;
+//     char * buf_ptr = buf;
+//
+//     GenerateElfHeader(&buf);
+//
+//     Htable * tab = NULL;
+//     HtableInit(&tab, HTABLE_BINS);
+//
+//     fprintf(fp, "%s", NASM_TOP);
+//     _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
+//     fprintf(fp, "%s", NASM_BTM);
+//
+//     EMIT_EXIT(&buf);
+//
+//     PARSER_LOG("Bin created, in buf %10s", buf_ptr);
+//
+//     if (mode == WHAT_DEBUG_MODE)
+//     {
+//         HtableDump(tab);
+//         TreeDump(tree, "dump");
+//     }
+//
+//
+//     _def_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
+//
+//     PARSER_LOG("Writing buf to file");
+//     size_t err_chk = 0;
+//     assert((err_chk = fwrite(buf_ptr, sizeof(char), DEF_SIZE * 8, bin)) == DEF_SIZE * 8);
+//
+//     free(buf_ptr);
+//     free(names);
+//     fclose(fp);
+//     fclose(bin);
 
     return WHAT_SUCCESS;
 }

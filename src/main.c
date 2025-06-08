@@ -26,13 +26,13 @@ int main(int argc, char * argv[])
             Tree * tree = CreateTree(NULL, NULL, NULL);
             if (TreeParse(tree, argv[2]) == FOPEN_ERROR) return -fprintf(stderr, "Can't open file... plz try again.\n");
             TreeDump(tree, "dump");
-//
-//             sprintf(ASM, "%s.asm", argv[2]);
-//             sprintf(run, "%s.out", argv[2]);
-//
-//             CreateBin(tree, ASM, run, WHAT_DEBUG_MODE);
-//
-//             DestroyTree(tree);
+
+            sprintf(ASM, "%s.asm", argv[2]);
+            sprintf(run, "%s.out", argv[2]);
+
+            CreateBin(tree, ASM, run, WHAT_DEBUG_MODE);
+
+            DestroyTree(tree);
         }
     }
     else return -fprintf(stderr, "Type: ./bin/WhatTheLang  whatc <filename>\n");

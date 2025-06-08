@@ -359,7 +359,7 @@ void EMIT_COMPARSION(char ** buf, FILE * file, Htable ** tab, char oper, const c
         locals.offset = *buf - 1;
 
         PARSER_LOG("Inserting local label %s with offset %p", locals.local_func_name, locals.offset);
-        HtableNameInsert(tab, &locals);
+        HtableLabelInsert(tab, &locals);
 
     }
 
@@ -370,7 +370,7 @@ void EMIT_COMPARSION(char ** buf, FILE * file, Htable ** tab, char oper, const c
 
         sprintf(locals.local_func_name, "WHILE_FALSE%d", *while_count);
         locals.offset = *buf - 1;
-        HtableNameInsert(tab, &locals);
+        HtableLabelInsert(tab, &locals);
     }
 
     if          (if_cond)    fprintf(file, "SUB_COND%d:\n",    *if_count);
@@ -387,7 +387,7 @@ void EMIT_COMPARSION(char ** buf, FILE * file, Htable ** tab, char oper, const c
 
         sprintf(locals.local_func_name, "IF%d", (*if_count)++);
         locals.offset = *buf - 1;
-        HtableNameInsert(tab, &locals);
+        HtableLabelInsert(tab, &locals);
     }
 
     else if (while_cond)
@@ -397,7 +397,7 @@ void EMIT_COMPARSION(char ** buf, FILE * file, Htable ** tab, char oper, const c
 
         sprintf(locals.local_func_name, "WHILE_TRUE%d", (*while_count)++);
         locals.offset = *buf - 1;
-        HtableNameInsert(tab, &locals);
+        HtableLabelInsert(tab, &locals);
     }
 }
 

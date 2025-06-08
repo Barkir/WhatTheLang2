@@ -118,7 +118,7 @@ int _count_param(Node * root)
 
 int _var_table(Node * root, Name * names, const char * func_name)
 {
-    if (NodeType(root) == VAR && NodeType(root) == FUNC_INTER_CALL)
+    if (NodeType(root) == VAR && NodeType(root) == FUNC_INTER_CALL && NodeType(root) == FUNC_INTER_DEF)
     {
         int is_new = 1;
         for (int i = 0; names[i].name; i++)
@@ -193,6 +193,48 @@ Name * CreateFuncTable(Node * root)
     Name * funcs = calloc(1024, sizeof(Name));
     _func_table(root, funcs);
     return funcs;
+}
+
+int _create_name_table(Node * root, Htable ** name_tab, const char * func_name)
+{
+    if (NodeType(root) == VAR)
+    {
+        Name name = {.func_name = func_name, .name = NodeName(root), .type = VAR, .stack_offset = };
+        if (HtableNameInsert(name_tab, &name));
+    }
+
+    else if (NodeType(root) == FUNC_EXT)
+    {
+
+    }
+
+    else if (NodeType(root) == FUNC_INTER_CALL)
+    {
+
+    }
+
+    else if (NodeType(root) == FUNC_INTER_DEF)
+    {
+
+
+        _create_name_table(root->right, names, NodeName(root));
+    }
+
+
+    if (root->left)     _create_name_table(root->left,  names);
+    if (root->right)    _create_name_table(root->right, names);
+    return WHAT_SUCCESS;
+}
+
+Htable * CreateNameTable(Node * root)
+{
+    Htable * name_tab = NULL;
+    HtableInit(&name_tab, HTABLE_BINS);
+
+    NameTableCtx nmt_ctx = {.tab = &name_tab, .func_name = GLOBAL_FUNC_NAME, .stack_offset = 0};
+
+    _create_name_table(root, &nmt_ctx);
+    return name_tab;
 }
 
 int _find_func_start(Name * names, const char * func_name)
@@ -363,7 +405,7 @@ int BinIf(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, in
     PARSER_LOG("PROCESSED IF BLOCK...");
 
     sprintf(locals_if.local_func_name, "IF%d", local_if);
-    Name * label = HtableNameFind(*tab, &locals_if);
+    Name * label = HtableLabelFind(*tab, &locals_if);
     if (label) *label->offset = (int8_t) (*buf - (label->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
@@ -396,7 +438,7 @@ int BinIf(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, in
     *if_end = *buf - (if_end + 1);
 
     sprintf(locals_if.local_func_name, "IF_END%d", local_if);
-    label = HtableNameFind(*tab, &locals_if);
+    label = HtableLabelFind(*tab, &locals_if);
     if (label) *label->offset = (int8_t)(*buf - (label->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
@@ -422,7 +464,7 @@ int BinWhile(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file,
     PARSER_LOG("PROCESSED WHILE BLOCK");
 
     sprintf(locals_while.local_func_name, "WHILE_FALSE%d", local_while);
-    Name * label_while = HtableNameFind(*tab, &locals_while);
+    Name * label_while = HtableLabelFind(*tab, &locals_while);
     if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
@@ -444,7 +486,7 @@ int BinWhile(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file,
     fprintf(file, "WHILE_TRUE%d:\n", while_count);
 
     sprintf(locals_while.local_func_name, "WHILE_TRUE%d", local_while);
-    label_while = HtableNameFind(*tab, &locals_while);
+    label_while = HtableLabelFind(*tab, &locals_while);
     if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 

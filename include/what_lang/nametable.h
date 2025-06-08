@@ -18,7 +18,7 @@ typedef struct _name
     int param;
 
     int is_in_reg;                  // Shows if variable is located in register or in stack
-    int location;                   // Register enum or rsp value
+    int stack_offset;                   // Register enum or rsp value
 
 } Name;
 

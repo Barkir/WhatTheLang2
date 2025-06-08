@@ -24,8 +24,11 @@ int HtableInsert(Htable * tab, const char * string);
 int HtableFind(Htable * tab, const char * string);
 
 
-Name * HtableNameFind(Htable * tab, Name * name);
 int HtableNameInsert(Htable ** tab, Name * name);
+int HtableNameFind  (Htable * tab,  Name * name);
+
+Name * HtableLabelFind  (Htable * tab,  Name * name);
+int HtableLabelInsert   (Htable ** tab, Name * name);
 
 // int HtableOptFind(Htable * tab, const char * string, char * result);
 // extern "C" int HtableOptFind(Htable * tab, const char * string, char * result);

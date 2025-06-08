@@ -78,7 +78,7 @@ int HtableInsert(Htable * tab, const char * string)
     return HTABLE_SUCCESS;
 }
 
-int HtableNameInsert(Htable ** tab, Name * name)
+int HtableLabelInsert(Htable ** tab, Name * name)
 {
     PARSER_LOG("Inserting name %s with offset %p", name->local_func_name, name->offset);
     size_t ind = crc32_naive(name->local_func_name, strlen(name->local_func_name), CRC32INIT) % (*tab)->bins;
@@ -161,7 +161,7 @@ int HtableFind(Htable * tab, const char * string)
     return HTABLE_NOT_FOUND;
 }
 
-Name * HtableNameFind(Htable * tab, Name * name)
+Name * HtableLabelFind(Htable * tab, Name * name)
 {
     PARSER_LOG("FINDING LABEL %s", name->local_func_name);
     size_t bin = crc32_naive(name->local_func_name, strlen(name->local_func_name), CRC32INIT) % tab->bins;
@@ -175,6 +175,49 @@ Name * HtableNameFind(Htable * tab, Name * name)
     }
 
     return NULL;
+}
+
+int HtableNameFind(Htable * tab, Name * name)
+{
+    PARSER_LOG("FINDING NAME %s", name->name);
+    size_t bin = crc32(naive, name->name, strlen(name->name), CRC32INIT) % tab->bins;
+
+    for (List * lst = tab->table[bin]; lst; lst = lst->nxt)
+    {
+        PARSER_LOG("finding in list %p", lst);
+        if (!strcmp(lst->name->name, name->name)) return HTABLE_FOUND;
+    }
+
+    return HTABLE_NOT_FOUND;
+}
+
+int HtableNameInsert(Htable ** tab, Name * name)
+{
+    size_t ind = crc32_naive(name->local_func_name, strlen(name->local_func_name), CRC32INIT) % (*tab)->bins;
+
+    for (List * lst = (*tab)->table[ind]; lst; lst=lst->nxt)
+    {
+        PARSER_LOG("inserting to list %p", lst);
+        if (!strcmp(lst->name->name, name->name) && !(strcmp(lst->name->func_name, name->func_name)));
+        {
+            PARSER_LOG("ALREADY THERE!");
+            return HTABLE_SUCCESS;
+        }
+    }
+
+    List * n = (List*) calloc(1, sizeof(List));
+    if (!n) return HTABLE_MEMALLOC_ERROR;
+
+    n->name = (Name*) calloc(1, sizeof(Name));
+    if (!n->name) return HTABLE_MEMALLOC_ERROR;
+
+    n->name->name       = strdup(name->name);
+    n->name->func_name  = strdup(name->func_name);
+
+    n->nxt = (*tab)->table[ind];
+    (*tab)->table[ind] = n;
+
+    return HTABLE_SUCCESS;
 }
 
 // int HtableOptFind(Htable * tab, const char * string, char * result)

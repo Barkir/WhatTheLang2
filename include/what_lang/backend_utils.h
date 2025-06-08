@@ -1,6 +1,8 @@
 #ifndef BACKEND_UTILS_H
 #define BACKEND_UTILS_H
 
+const char * GLOBAL_FUNC_NAME = "GLOBAL_FUNC";
+
 const enum Registers Adr2EnumReg(int adr);
 const char * Adr2Reg(int adr, int xtnd);
 const char * Reg2Str(int reg, int xtnd);
@@ -61,6 +63,14 @@ typedef struct _what_reg
     const char * reg_str;
 
 } WhatReg;
+
+typedef struct _nametable_ctx
+{
+    Htable ** tab;
+    char * func_name;
+    int stack_offset;
+
+} NameTableCtx;
 
 #define OPER_ARRAY_SIZE 6
 #define REG_ARRAY_SIZE  16
