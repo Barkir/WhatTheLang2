@@ -9,6 +9,10 @@ const char * Reg2Str(int reg, int xtnd);
 
 Name * CreateVarTable(Node * root);
 Name * CreateFuncTable(Node * root);
+
+
+Htable * CreateNameTable(Node * root);
+
 const char * GetVarName(Node * root);
 int GetVarAdr(Node * root, Name * names);
 Name * GetFuncAdr(Node * root, Name * names);
@@ -27,7 +31,6 @@ int             isCmpOper(enum operations oper_enum);
 int             isArithOper(enum operations oper_enum);
 const char *    CmpStr(enum operations oper_enum);
 char            CmpByte(enum operations oper_enum);
-
 
 //  Functions for generating binary code from if, while or opers (yep, i know there is bad parameters, fixing it soon...)
 void            BinCmpOper  (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count);

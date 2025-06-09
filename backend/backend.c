@@ -40,7 +40,7 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
         return WHAT_FILEOPEN_ERROR;
     }
 
-    Name * names = CreateNameTable(tree->root);
+    Htable * names = CreateNameTable(tree->root);
 
     // Name * names = CreateVarTable(tree->root);
     // if (!names) return WHAT_VARTABLE_ERROR;
@@ -102,34 +102,20 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
         PUSHIMM32(buf, file, (int) NodeValue(root));
     }
 
-    else if (NodeType(root) == FUNC_INTER_DEF)
+    else if (NodeType(root) == FUNC_INTER_CALL)
     {
-        PARSER_LOG("PROCESSING FUNC_INTER");
-        int adr = GetVarAdr(root, names);
-        Name * func = GetFuncAdr(root, names);
-        Node * dummy = root->left;
+        // ###########################################
+        // DANGER ZONE!!! UB!!! REFACTORING!!!
+        // ###########################################
 
-        if (func->param != 0)
-        {
-            PARSER_LOG("PROCESSING FUNCTION PARAM...");
-            for (int i = func->address; dummy; i++)
-            {
-                PARSER_LOG("PUSHING IMM32");
-                PUSHIMM32   (buf, file, (int) NodeValue(dummy));
-                POPREG      (buf, file, (uint8_t) Adr2EnumReg(adr));
-                dummy = dummy->left;
-            }
-        }
-        CALL_DIRECT(buf, file, NodeIP(root), NodeName(root));
     }
     else if (NodeType(root) == VAR)
     {
-        int adr = GetVarAdr(root, names);
-        PARSER_LOG("PUSHING REG...");
-        PARSER_LOG("Variable Name = %s, adr = %d, reg = %d", NodeName(root), adr, Adr2EnumReg(adr));
-        PUSHREG(buf, file, (uint8_t) Adr2EnumReg(adr));
-    }
+        // ###########################################
+        // DANGER ZONE!!! UB!!! REFACTORING!!!
+        // ###########################################
 
+    }
     else if (NodeType(root) == OPER)
     {
         PARSER_LOG("PROCESSING OPER");
@@ -143,10 +129,7 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
         else if (nodeVal == IF)         BinIf       (buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
         else if (nodeVal == WHILE)      BinWhile    (buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
     }
-
     else if (NodeType(root) == FUNC_EXT) BinFunc(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
-    // else if (NodeType(root) == FUNC_INTER) fprintf(file, "call %s\n", NodeName(root));
-
     else if ((int) NodeValue(root) == ';')
     {
         _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);

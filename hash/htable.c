@@ -205,6 +205,8 @@ int HtableNameInsert(Htable ** tab, Name * name)
         }
     }
 
+    if (!strcmp(lst->name->name, name->name)) PARSER_LOG("WARNING! VARIABLES WITH SAME NAMES IN DIFFERENT FUNCTIONS [UB]");
+
     List * n = (List*) calloc(1, sizeof(List));
     if (!n) return HTABLE_MEMALLOC_ERROR;
 
@@ -251,7 +253,7 @@ int HtableDump(Htable * tab)
         fprintf(file, "[BIN %d]", bins);
         fprintf(file, "----------------------------------\n");
         for (List * lst = tab->table[bins]; lst; lst=lst->nxt)
-        if (lst->name) fprintf(file, "\t %s %p", lst->name->local_func_name, lst->name->offset);
+        if (lst->name) fprintf(file, "\t type = %d, name = %s stack_offset = %d, param = %d\n", lst->name->type, lst->name->name, lst->name->stack_offset, lst->name->param);
         fprintf(file, "----------------------------------\n");
     }
 

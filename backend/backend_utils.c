@@ -195,34 +195,53 @@ Name * CreateFuncTable(Node * root)
     return funcs;
 }
 
-int _create_name_table(Node * root, Htable ** name_tab, const char * func_name)
+int InitFuncParam(Node * root, Name ** name, Htable ** name_tab, NameTableCtx ** ctx)
+{
+    Name param_name = {.name = NodeName(root), .func_name = (*ctx)->func_name, .stack_offset = ((*ctx)->stack_offset++)};
+
+    HtableNameInsert(name_tab, &param_name);
+    if (root->left) InitFuncParam(root->left, name, name_tab, ctx);
+
+    return WHAT_SUCCESS;
+}
+
+int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 {
     if (NodeType(root) == VAR)
     {
-        Name name = {.func_name = func_name, .name = NodeName(root), .type = VAR, .stack_offset = };
-        if (HtableNameInsert(name_tab, &name));
+        Name name = {.func_name = ctx->func_name, .name = NodeName(root), .type = VAR, .stack_offset = (ctx->stack_offset++)};
+        HtableNameInsert(name_tab, &name);
     }
 
     else if (NodeType(root) == FUNC_EXT)
     {
+        Name name = {.name = NodeName(root), .type = FUNC_EXT};
+        HtableNameInsert(name_tab, &name);
 
     }
 
     else if (NodeType(root) == FUNC_INTER_CALL)
     {
-
+        Name name = {.name = NodeName(root), .type = FUNC_INTER_CALL};
+        HtableNameInsert(name_tab, &name);
     }
 
     else if (NodeType(root) == FUNC_INTER_DEF)
     {
+        Name name = {.name = NodeName(root), .type = FUNC_INTER_DEF};
+        name.name_array = calloc(DEFAULT_NAME_ARRAY_SIZE, sizeof(Name*));
+        InitFuncParam(root->left, &name, name_tab, &ctx);
 
+        HtableNameInsert(name_tab, &name);
 
-        _create_name_table(root->right, names, NodeName(root));
+        ctx->func_name = NodeName(root);
+        _create_name_table(root->right, name_tab, ctx);
+        return WHAT_SUCCESS;
     }
 
 
-    if (root->left)     _create_name_table(root->left,  names);
-    if (root->right)    _create_name_table(root->right, names);
+    if (root->left)     _create_name_table(root->left,  name_tab, ctx);
+    if (root->right)    _create_name_table(root->right, name_tab, ctx);
     return WHAT_SUCCESS;
 }
 

@@ -1,6 +1,8 @@
 #ifndef NAMETABLE_H
 #define NAMETABLE_H
 
+const size_t DEFAULT_NAME_ARRAY_SIZE = 10;
+
 typedef struct _name
 {
 
@@ -17,8 +19,9 @@ typedef struct _name
     int type;
     int param;
 
-    int is_in_reg;                  // Shows if variable is located in register or in stack
-    int stack_offset;                   // Register enum or rsp value
+    int stack_offset;
+
+    struct _name ** name_array;            // Used to contain variables
 
 } Name;
 
