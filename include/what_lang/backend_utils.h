@@ -1,7 +1,7 @@
 #ifndef BACKEND_UTILS_H
 #define BACKEND_UTILS_H
 
-const char * GLOBAL_FUNC_NAME = "GLOBAL_FUNC";
+const static char * GLOBAL_FUNC_NAME = "GLOBAL_FUNC";
 
 const enum Registers Adr2EnumReg(int adr);
 const char * Adr2Reg(int adr, int xtnd);

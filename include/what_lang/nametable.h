@@ -1,7 +1,7 @@
 #ifndef NAMETABLE_H
 #define NAMETABLE_H
 
-const size_t DEFAULT_NAME_ARRAY_SIZE = 10;
+const static size_t DEFAULT_NAME_ARRAY_SIZE = 10;
 
 typedef struct _name
 {

@@ -180,7 +180,7 @@ Name * HtableLabelFind(Htable * tab, Name * name)
 int HtableNameFind(Htable * tab, Name * name)
 {
     PARSER_LOG("FINDING NAME %s", name->name);
-    size_t bin = crc32(naive, name->name, strlen(name->name), CRC32INIT) % tab->bins;
+    size_t bin = crc32_naive(name->name, strlen(name->name), CRC32INIT) % tab->bins;
 
     for (List * lst = tab->table[bin]; lst; lst = lst->nxt)
     {
@@ -193,20 +193,21 @@ int HtableNameFind(Htable * tab, Name * name)
 
 int HtableNameInsert(Htable ** tab, Name * name)
 {
-    size_t ind = crc32_naive(name->local_func_name, strlen(name->local_func_name), CRC32INIT) % (*tab)->bins;
+    PARSER_LOG("Inserting name %s with type %d in hash table", name->name, name->type);
+    size_t ind = crc32_naive(name->name, strlen(name->name), CRC32INIT) % (*tab)->bins;
+    PARSER_LOG("bin = %ld", ind);
 
     for (List * lst = (*tab)->table[ind]; lst; lst=lst->nxt)
     {
-        PARSER_LOG("inserting to list %p", lst);
-        if (!strcmp(lst->name->name, name->name) && !(strcmp(lst->name->func_name, name->func_name)));
+        PARSER_LOG("inserting to list %p with name %s, type %d", lst, lst->name->name, lst->name->type);
+        if (!strcmp(lst->name->name, name->name) && !(strcmp(lst->name->func_name, name->func_name)) && (lst->name->type == name->type))
         {
             PARSER_LOG("ALREADY THERE!");
             return HTABLE_SUCCESS;
         }
     }
 
-    if (!strcmp(lst->name->name, name->name)) PARSER_LOG("WARNING! VARIABLES WITH SAME NAMES IN DIFFERENT FUNCTIONS [UB]");
-
+    PARSER_LOG("Adding new element to bin...");
     List * n = (List*) calloc(1, sizeof(List));
     if (!n) return HTABLE_MEMALLOC_ERROR;
 
@@ -215,6 +216,10 @@ int HtableNameInsert(Htable ** tab, Name * name)
 
     n->name->name       = strdup(name->name);
     n->name->func_name  = strdup(name->func_name);
+    n->name->type       = name->type;
+    n->name->stack_offset = name->stack_offset;
+
+    PARSER_LOG("Added new element to bin...");
 
     n->nxt = (*tab)->table[ind];
     (*tab)->table[ind] = n;

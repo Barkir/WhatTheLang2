@@ -195,12 +195,13 @@ Name * CreateFuncTable(Node * root)
     return funcs;
 }
 
-int InitFuncParam(Node * root, Name ** name, Htable ** name_tab, NameTableCtx ** ctx)
+int InitFuncParam(Node * root, Htable ** name_tab, NameTableCtx ** ctx)
 {
-    Name param_name = {.name = NodeName(root), .func_name = (*ctx)->func_name, .stack_offset = ((*ctx)->stack_offset++)};
+    Name param_name = {.name = NodeName(root), .type = VAR, .func_name = (*ctx)->func_name, .stack_offset = ((*ctx)->stack_offset++)};
+    PARSER_LOG("Param name = %s, function_name = %s, offset = %d", param_name.name, param_name.func_name, param_name.stack_offset);
 
     HtableNameInsert(name_tab, &param_name);
-    if (root->left) InitFuncParam(root->left, name, name_tab, ctx);
+    if (root->left) InitFuncParam(root->left, name_tab, ctx);
 
     return WHAT_SUCCESS;
 }
@@ -209,33 +210,42 @@ int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 {
     if (NodeType(root) == VAR)
     {
+        PARSER_LOG("Got VAR with name %s (stack_offset = %d)", NodeName(root), ctx->stack_offset);
         Name name = {.func_name = ctx->func_name, .name = NodeName(root), .type = VAR, .stack_offset = (ctx->stack_offset++)};
         HtableNameInsert(name_tab, &name);
     }
 
     else if (NodeType(root) == FUNC_EXT)
     {
-        Name name = {.name = NodeName(root), .type = FUNC_EXT};
+
+        PARSER_LOG("Got FUNC_EXT with name %s (stack_offset = %d)", NodeName(root), ctx->stack_offset);
+        Name name = {.name = NodeName(root), .type = FUNC_EXT, .func_name = NodeName(root)};
         HtableNameInsert(name_tab, &name);
 
     }
-
     else if (NodeType(root) == FUNC_INTER_CALL)
     {
-        Name name = {.name = NodeName(root), .type = FUNC_INTER_CALL};
+        PARSER_LOG("Got FUNC_INTER_CALL with name %s (stack_offset = %d)", NodeName(root), ctx->stack_offset);
+        Name name = {.name = NodeName(root), .type = FUNC_INTER_CALL, .func_name = ctx->func_name, .stack_offset=ctx->stack_offset};
         HtableNameInsert(name_tab, &name);
+        PARSER_LOG("Inserted name in hash_table");
     }
-
     else if (NodeType(root) == FUNC_INTER_DEF)
     {
-        Name name = {.name = NodeName(root), .type = FUNC_INTER_DEF};
+        PARSER_LOG("Got FUNC_INTER_DEF with name %s (stack_offset = %d)", NodeName(root), ctx->stack_offset);
+        Name name = {.name = NodeName(root), .type = FUNC_INTER_DEF, .func_name = ctx->func_name};
+        ctx->func_name = NodeName(root);
+
         name.name_array = calloc(DEFAULT_NAME_ARRAY_SIZE, sizeof(Name*));
-        InitFuncParam(root->left, &name, name_tab, &ctx);
+        if (!name.name_array) return WHAT_MEMALLOC_ERROR;
+
+        PARSER_LOG("Intializing parameters of function %s", NodeName(root));
+        InitFuncParam(root->left, name_tab, &ctx);
 
         HtableNameInsert(name_tab, &name);
+        PARSER_LOG("Inserted definition of function %s in hash table", NodeName(root));
 
-        ctx->func_name = NodeName(root);
-        _create_name_table(root->right, name_tab, ctx);
+        if (root->right) _create_name_table(root->right, name_tab, ctx);
         return WHAT_SUCCESS;
     }
 
@@ -247,12 +257,14 @@ int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 
 Htable * CreateNameTable(Node * root)
 {
+    PARSER_LOG("Creating Name Table");
     Htable * name_tab = NULL;
     HtableInit(&name_tab, HTABLE_BINS);
+    PARSER_LOG("Created Hash Table");
 
     NameTableCtx nmt_ctx = {.tab = &name_tab, .func_name = GLOBAL_FUNC_NAME, .stack_offset = 0};
 
-    _create_name_table(root, &nmt_ctx);
+    _create_name_table(root, &name_tab, &nmt_ctx);
     return name_tab;
 }
 

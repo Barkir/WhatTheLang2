@@ -41,6 +41,8 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     }
 
     Htable * names = CreateNameTable(tree->root);
+    PARSER_LOG("Created NameTable");
+    HtableDump(names);
 
     // Name * names = CreateVarTable(tree->root);
     // if (!names) return WHAT_VARTABLE_ERROR;
