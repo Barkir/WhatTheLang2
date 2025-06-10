@@ -43,37 +43,28 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     Htable * names = CreateNameTable(tree->root);
     PARSER_LOG("Created NameTable");
     HtableDump(names);
+    TreeDump(tree, "dump");
 
-    // Name * names = CreateVarTable(tree->root);
-    // if (!names) return WHAT_VARTABLE_ERROR;
+    char * buf = (char*) calloc(DEF_SIZE * 8, 1);
+    if (!buf) return WHAT_MEMALLOC_ERROR;
+    char * buf_ptr = buf;
 
-    // Name * func  = CreateFuncTable(tree->root);
-    // if (!func) return WHAT_FUNCTABLE_ERROR;
+    GenerateElfHeader(&buf);
 
-    // DefineFuncTable(&func, &names);
-//
-//     char * buf = (char*) calloc(DEF_SIZE * 8, 1);
-//     if (!buf) return WHAT_MEMALLOC_ERROR;
-//     char * buf_ptr = buf;
-//
-//     GenerateElfHeader(&buf);
-//
-//     Htable * tab = NULL;
-//     HtableInit(&tab, HTABLE_BINS);
-//
+    Htable * tab = NULL;
+    HtableInit(&tab, HTABLE_BINS);
+
 //     fprintf(fp, "%s", NASM_TOP);
-//     _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
+    _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
 //     fprintf(fp, "%s", NASM_BTM);
-//
 //     EMIT_EXIT(&buf);
-//
-//     PARSER_LOG("Bin created, in buf %10s", buf_ptr);
-//
-//     if (mode == WHAT_DEBUG_MODE)
-//     {
-//         HtableDump(tab);
-//         TreeDump(tree, "dump");
-//     }
+// //
+// //     PARSER_LOG("Bin created, in buf %10s", buf_ptr);
+// //
+// //     if (mode == WHAT_DEBUG_MODE)
+// //     {
+// //         HtableDump(tab);
+// //     }
 //
 //
 //     _def_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
@@ -96,7 +87,7 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
 ##########################################################################################################
 */
 
-int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     if (NodeType(root) == NUM)
     {
@@ -126,22 +117,22 @@ int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * fi
 
         int nodeVal = (int) NodeValue(root);
 
-        if      (isCmpOper(nodeVal))    BinCmpOper  (buf, tab, names, root, file, if_cond, while_cond, &if_count, &while_count);
-        else if (isArithOper(nodeVal))  BinArithOper(buf, tab, names, root, file, if_cond, while_cond, &if_count, &while_count);
-        else if (nodeVal == IF)         BinIf       (buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
-        else if (nodeVal == WHILE)      BinWhile    (buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
+        if      (isCmpOper(nodeVal))    BinCmpOper  (buf, tab, root, ctx);
+        else if (isArithOper(nodeVal))  BinArithOper(buf, tab, root, ctx);
+        else if (nodeVal == IF)         BinIf       (buf, tab, root, ctx);
+        else if (nodeVal == WHILE)      BinWhile    (buf, tab, root, ctx);
     }
-    else if (NodeType(root) == FUNC_EXT) BinFunc(buf, tab, names, root, file, if_cond, while_cond, if_count, while_count);
+    else if (NodeType(root) == FUNC_EXT) BinFunc(buf, tab, root, ctx);
     else if ((int) NodeValue(root) == ';')
     {
-        _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
-        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
+        _create_bin(buf, tab, root->left,  ctx);
+        _create_bin(buf, tab, root->right, ctx);
     }
 
     return WHAT_SUCCESS;
 }
 
-int _def_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     PARSER_LOG("DEF_ASM...");
     if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
@@ -155,7 +146,7 @@ int _def_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file,
         fprintf(file, "mov [r13], r14\n");
         fprintf(file, "add r13, 8\n");
 
-        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
+        _create_bin(buf, tab, root->right, ctx);
 
         fprintf(file, "; popping return address to stack\n");
         fprintf(file, "sub r13, 8\n");
@@ -164,8 +155,8 @@ int _def_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file,
 
         fprintf(file, "ret\n");
     }
-    if (root->left)  _def_bin(buf, tab,names, root->left, file, if_cond, while_cond, if_count, while_count);
-    if (root->right) _def_bin(buf, tab, names, root->right, file, if_cond, while_cond, if_count, while_count);
+    if (root->left)  _def_bin(buf, tab, root->left,  ctx);
+    if (root->right) _def_bin(buf, tab, root->right, ctx);
     return 1;
 }
 

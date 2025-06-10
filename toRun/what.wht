@@ -1,4 +1,7 @@
 factorial(10);
+a = 20;
+b = 30;
+bpbpb = 334643;
 
 
 def factorial(param)

@@ -177,7 +177,7 @@ Name * HtableLabelFind(Htable * tab, Name * name)
     return NULL;
 }
 
-int HtableNameFind(Htable * tab, Name * name)
+Name * HtableNameFind(Htable * tab, Name * name)
 {
     PARSER_LOG("FINDING NAME %s", name->name);
     size_t bin = crc32_naive(name->name, strlen(name->name), CRC32INIT) % tab->bins;
@@ -185,10 +185,10 @@ int HtableNameFind(Htable * tab, Name * name)
     for (List * lst = tab->table[bin]; lst; lst = lst->nxt)
     {
         PARSER_LOG("finding in list %p", lst);
-        if (!strcmp(lst->name->name, name->name)) return HTABLE_FOUND;
+        if (!strcmp(lst->name->name, name->name)) return lst->name;
     }
 
-    return HTABLE_NOT_FOUND;
+    return NULL;
 }
 
 int HtableNameInsert(Htable ** tab, Name * name)
@@ -203,7 +203,7 @@ int HtableNameInsert(Htable ** tab, Name * name)
         if (!strcmp(lst->name->name, name->name) && !(strcmp(lst->name->func_name, name->func_name)) && (lst->name->type == name->type))
         {
             PARSER_LOG("ALREADY THERE!");
-            return HTABLE_SUCCESS;
+            return HTABLE_REPEAT;
         }
     }
 

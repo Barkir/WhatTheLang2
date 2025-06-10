@@ -31,8 +31,8 @@ void PUSHIMM32(char ** buf,  FILE * file, field_t value)
 
 void PUSHREG(char ** buf, FILE * file, uint8_t reg)
 {
-    PARSER_LOG("PUSHING REG %d %s", reg, Reg2Str(reg, 0));
-    fprintf(file, "push %s\n", Reg2Str(reg, 0));
+    PARSER_LOG("PUSHING REG %d %s", reg, EnumReg2Str(reg, 0));
+    fprintf(file, "push %s\n", EnumReg2Str(reg, 0));
     **buf = PUSHREG_BYTE + reg;
     PARSER_LOG("OPCODE %x + %x = %x", PUSHREG_BYTE, reg, **buf);
     (*buf)++;
@@ -40,8 +40,8 @@ void PUSHREG(char ** buf, FILE * file, uint8_t reg)
 
 void PUSH_XTEND_REG(char ** buf, FILE * file, uint8_t reg)
 {
-    PARSER_LOG("PUSHING REG %d %s", reg, Reg2Str(reg, 1));
-    fprintf(file, "push %s\n", Reg2Str(reg, 1));
+    PARSER_LOG("PUSHING REG %d %s", reg, EnumReg2Str(reg, 1));
+    fprintf(file, "push %s\n", EnumReg2Str(reg, 1));
     **buf = ADDITIONAL_REG_BYTE;
     PARSER_LOG("OPCODE %x", **buf);
     (*buf)++;
@@ -52,8 +52,8 @@ void PUSH_XTEND_REG(char ** buf, FILE * file, uint8_t reg)
 
 void POPREG(char ** buf, FILE * file, uint8_t reg)
 {
-    PARSER_LOG("POPPING REG %d %s", reg, Reg2Str(reg, 0));
-    fprintf(file, "pop %s\n", Reg2Str(reg, 0));
+    PARSER_LOG("POPPING REG %d %s", reg, EnumReg2Str(reg, 0));
+    fprintf(file, "pop %s\n", EnumReg2Str(reg, 0));
     (**buf) = POP_BYTE + reg;
     PARSER_LOG("OPCODE %x + %x = %x", POP_BYTE, reg, **buf);
     (*buf)++;
@@ -61,8 +61,8 @@ void POPREG(char ** buf, FILE * file, uint8_t reg)
 
 void POP_XTEND_REG(char ** buf, FILE * file, uint8_t reg)
 {
-    PARSER_LOG("POPPING REG %d %s", reg, Reg2Str(reg, 1));
-    fprintf(file, "pop %s\n", Reg2Str(reg, 1));
+    PARSER_LOG("POPPING REG %d %s", reg, EnumReg2Str(reg, 1));
+    fprintf(file, "pop %s\n", EnumReg2Str(reg, 1));
     **buf = ADDITIONAL_REG_BYTE;
     PARSER_LOG("OPCODE %x", **buf);
     (*buf)++;
@@ -73,7 +73,7 @@ void POP_XTEND_REG(char ** buf, FILE * file, uint8_t reg)
 
 void MULREG(char ** buf, FILE * file, uint8_t reg)
 {
-    fprintf(file, "mul %s\n", Reg2Str(reg, 0));
+    fprintf(file, "mul %s\n", EnumReg2Str(reg, 0));
     **buf = 0xf7;
     (*buf)++;
     **buf = MULREG_BYTE + reg;
@@ -82,7 +82,7 @@ void MULREG(char ** buf, FILE * file, uint8_t reg)
 
 void MUL_XTEND_REG(char ** buf, FILE * file, uint8_t reg)
 {
-    fprintf(file, "mul %s\n", Reg2Str(reg, 1));
+    fprintf(file, "mul %s\n", EnumReg2Str(reg, 1));
     **buf = XTEND_OPER_BYTE;
     (*buf)++;
     **buf = 0xf7;
@@ -94,7 +94,7 @@ void MUL_XTEND_REG(char ** buf, FILE * file, uint8_t reg)
 
 void DIVREG(char ** buf, FILE * file, uint8_t reg)
 {
-    fprintf(file, "div %s\n", Reg2Str(reg, 0));
+    fprintf(file, "div %s\n", EnumReg2Str(reg, 0));
     **buf = 0xf7;
     (*buf)++;
     **buf = DIVREG_BYTE + reg;
@@ -103,7 +103,7 @@ void DIVREG(char ** buf, FILE * file, uint8_t reg)
 
 void DIV_XTEND_REG(char ** buf, FILE * file, uint8_t reg)
 {
-    fprintf(file, "div %s\n", Reg2Str(reg, 1));
+    fprintf(file, "div %s\n", EnumReg2Str(reg, 1));
     **buf = XTEND_OPER_BYTE;
     (*buf)++;
     **buf = 0xf7;
@@ -116,26 +116,26 @@ void CMP_REG_REG(char ** buf, FILE * file, uint8_t reg1, uint8_t reg2, enum RegM
 {
     switch(mode)
     {
-        case WHAT_REG_REG:      fprintf(file, "cmp %s, %s\n", Reg2Str(reg1, 0), Reg2Str(reg2, 0));
-                                PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, Reg2Str(reg1, 0), reg2, Reg2Str(reg2, 0));
+        case WHAT_REG_REG:      fprintf(file, "cmp %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
+                                PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 0));
                                 **buf = REG_REG_BYTE;
                                 (*buf)++;
                                 break;
 
-        case WHAT_REG_XTEND:    fprintf(file, "cmp %s, %s\n", Reg2Str(reg1, 0), Reg2Str(reg2, 1));
-                                PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, Reg2Str(reg1, 0), reg2, Reg2Str(reg2, 1));
+        case WHAT_REG_XTEND:    fprintf(file, "cmp %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
+                                PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 1));
                                 **buf = REG_XTEND_BYTE;
                                 (*buf)++;
                                 break;
 
-        case WHAT_XTEND_REG:    fprintf(file, "cmp %s, %s\n", Reg2Str(reg1, 1), Reg2Str(reg2, 0));
-                                PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, Reg2Str(reg1, 1), reg2, Reg2Str(reg2, 0));
+        case WHAT_XTEND_REG:    fprintf(file, "cmp %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
+                                PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 0));
                                 **buf = XTEND_REG_BYTE;
                                 (*buf)++;
                                 break;
 
-        case WHAT_XTEND_XTEND:  fprintf(file, "cmp %s, %s\n", Reg2Str(reg1, 1), Reg2Str(reg2, 1));
-                                PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, Reg2Str(reg1, 1), reg2, Reg2Str(reg2, 1));
+        case WHAT_XTEND_XTEND:  fprintf(file, "cmp %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
+                                PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 1));
                                 **buf = XTEND_XTEND_BYTE;
                                 (*buf)++;
                                 break;
@@ -156,13 +156,13 @@ void ADD_REG_VAL(char ** buf, FILE * file, uint8_t reg, field_t val, enum RegMod
 {
     int add_value = (int) val;
 
-    if (mode == WHAT_REG_VAL) {PARSER_LOG("ADDING VALUE %d to reg %d %s", val, reg, Reg2Str(reg, 0));}
-    else                      {PARSER_LOG("ADDING VALUE %d to reg %d %s", val, reg, Reg2Str(reg, 1));}
+    if (mode == WHAT_REG_VAL) {PARSER_LOG("ADDING VALUE %d to reg %d %s", val, reg, EnumReg2Str(reg, 0));}
+    else                      {PARSER_LOG("ADDING VALUE %d to reg %d %s", val, reg, EnumReg2Str(reg, 1));}
 
     uint8_t fbyte = (mode == WHAT_REG_VAL) ? OPER_BYTE : XTEND_OPER_BYTE;
 
-    if (fbyte == OPER_BYTE) fprintf(file, "add %s, %d\n", Reg2Str(reg, 0), add_value);
-    else                    fprintf(file, "add %s, %d\n", Reg2Str(reg, 1), add_value);
+    if (fbyte == OPER_BYTE) fprintf(file, "add %s, %d\n", EnumReg2Str(reg, 0), add_value);
+    else                    fprintf(file, "add %s, %d\n", EnumReg2Str(reg, 1), add_value);
 
     **buf = fbyte;
     PARSER_LOG("OPCODE %x", **buf);
@@ -195,26 +195,26 @@ void ADD_REG_REG(char ** buf, FILE * file, uint8_t reg1, uint8_t reg2, enum RegM
 {
     switch(mode)
     {
-        case WHAT_REG_REG:      fprintf(file, "add %s, %s\n", Reg2Str(reg1, 0), Reg2Str(reg2, 0));
-                                PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, Reg2Str(reg1, 0), reg2, Reg2Str(reg2, 0));
+        case WHAT_REG_REG:      fprintf(file, "add %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
+                                PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 0));
                                 **buf = REG_REG_BYTE;
                                 (*buf)++;
                                 break;
 
-        case WHAT_REG_XTEND:    fprintf(file, "add %s, %s\n", Reg2Str(reg1, 0), Reg2Str(reg2, 1));
-                                PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, Reg2Str(reg1, 0), reg2, Reg2Str(reg2, 1));
+        case WHAT_REG_XTEND:    fprintf(file, "add %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
+                                PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 1));
                                 **buf = REG_XTEND_BYTE;
                                 (*buf)++;
                                 break;
 
-        case WHAT_XTEND_REG:    fprintf(file, "add %s, %s\n", Reg2Str(reg1, 1), Reg2Str(reg2, 0));
-                                PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, Reg2Str(reg1, 1), reg2, Reg2Str(reg2, 0));
+        case WHAT_XTEND_REG:    fprintf(file, "add %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
+                                PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 0));
                                 **buf = XTEND_REG_BYTE;
                                 (*buf)++;
                                 break;
 
-        case WHAT_XTEND_XTEND:  fprintf(file, "add %s, %s\n", Reg2Str(reg1, 1), Reg2Str(reg2, 1));
-                                PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, Reg2Str(reg1, 1), reg2, Reg2Str(reg2, 1));
+        case WHAT_XTEND_XTEND:  fprintf(file, "add %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
+                                PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 1));
                                 **buf = XTEND_XTEND_BYTE;
                                 (*buf)++;
                                 break;
@@ -236,22 +236,22 @@ void SUB_REG_REG(char ** buf, FILE * file, uint8_t reg1, uint8_t reg2, enum RegM
 
     switch(mode)
     {
-        case WHAT_REG_REG:      fprintf(file, "sub %s, %s\n", Reg2Str(reg1, 0), Reg2Str(reg2, 0));
+        case WHAT_REG_REG:      fprintf(file, "sub %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
                                 **buf = REG_REG_BYTE;
                                 (*buf)++;
                                 break;
 
-        case WHAT_REG_XTEND:    fprintf(file, "sub %s, %s\n", Reg2Str(reg1, 0), Reg2Str(reg2, 1));
+        case WHAT_REG_XTEND:    fprintf(file, "sub %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
                                 **buf = REG_XTEND_BYTE;
                                 (*buf)++;
                                 break;
 
-        case WHAT_XTEND_REG:    fprintf(file, "sub %s, %s\n", Reg2Str(reg1, 1), Reg2Str(reg2, 0));
+        case WHAT_XTEND_REG:    fprintf(file, "sub %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
                                 **buf = XTEND_REG_BYTE;
                                 (*buf)++;
                                 break;
 
-        case WHAT_XTEND_XTEND:  fprintf(file, "sub %s, %s\n", Reg2Str(reg1, 1), Reg2Str(reg2, 1));
+        case WHAT_XTEND_XTEND:  fprintf(file, "sub %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
                                 **buf = XTEND_XTEND_BYTE;
                                 (*buf)++;
                                 break;
@@ -321,9 +321,11 @@ void CALL_DIRECT(char ** buf, FILE * file, int adr, const char * name)
 }
 
 
-void EMIT_COMPARSION(char ** buf, FILE * file, Htable ** tab, char oper, const char * cond_jmp, int * if_count, int * while_count, int if_cond, int while_cond)
+void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal)
 {
     char * offset = 0;
+
+    cond_jmp = CmpStr()
 
     Name locals = {};
     locals.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
@@ -331,7 +333,7 @@ void EMIT_COMPARSION(char ** buf, FILE * file, Htable ** tab, char oper, const c
     POP_XTEND_REG   (buf,   file, WHAT_REG_R15);
     POP_XTEND_REG   (buf,   file, WHAT_REG_R14);
     PUSH_XTEND_REG  (buf,   file, WHAT_REG_R14);
-    PUSH_XTEND_REG  (buf,   file, WHAT_REG_R14);
+    PUSH_XTEND_REG  (buf,   file, WHAT_REG_R15);
     CMP_REG_REG     (buf,   file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
     if (if_cond)

@@ -3,9 +3,9 @@
 
 const static char * GLOBAL_FUNC_NAME = "GLOBAL_FUNC";
 
-const enum Registers Adr2EnumReg(int adr);
-const char * Adr2Reg(int adr, int xtnd);
-const char * Reg2Str(int reg, int xtnd);
+const enum Registers Offset2EnumReg(int adr);
+const char * Offset2StrReg(int adr, int xtnd);
+const char * EnumReg2Str(int reg, int xtnd);
 
 Name * CreateVarTable(Node * root);
 Name * CreateFuncTable(Node * root);
@@ -14,30 +14,21 @@ Name * CreateFuncTable(Node * root);
 Htable * CreateNameTable(Node * root);
 
 const char * GetVarName(Node * root);
-int GetVarAdr(Node * root, Name * names);
-Name * GetFuncAdr(Node * root, Name * names);
+int GetVarOffset(Node * root, Htable * names);
 
-int _count_param(Node * root);
-int _var_table(Node * root, Name * names, const char * func_name);
-int _func_table(Node * root, Name * names);
-int _find_func_start(Name * names, const char * func_name);
-int _find_func_end(Name * names, const char * func_name);
-
-
-int             DefineFuncTable(Name ** func, Name ** names);
 
 // Compare functions (used in BinCmpOper, etc.)
-int             isCmpOper(enum operations oper_enum);
-int             isArithOper(enum operations oper_enum);
-const char *    CmpStr(enum operations oper_enum);
-char            CmpByte(enum operations oper_enum);
+int             isCmpOper   (enum operations oper_enum);
+int             isArithOper (enum operations oper_enum);
+const char *    CmpStr      (enum operations oper_enum);
+char            CmpByte     (enum operations oper_enum);
 
 //  Functions for generating binary code from if, while or opers (yep, i know there is bad parameters, fixing it soon...)
-void            BinCmpOper  (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count);
-void            BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count);
-int             BinWhile    (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int   if_count, int   while_count);
-int             BinIf       (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int   if_count, int   while_count);
-int             BinFunc     (char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int   if_count, int   while_count);
+void            BinCmpOper  (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
+void            BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
+int             BinWhile    (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
+int             BinIf       (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
+int             BinFunc     (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
 
 static const char *     NASM_TOP =  "%include \"iolib/iolib.asm\"   \n"
                                     "section .text                  \n"
@@ -74,6 +65,17 @@ typedef struct _nametable_ctx
     int stack_offset;
 
 } NameTableCtx;
+
+typedef struct _bin_ctx
+{
+    Htable * names;
+    FILE * file;
+    int if_cond;
+    int while_cond;
+    int if_count;
+    int while_count;
+
+} BinCtx;
 
 #define OPER_ARRAY_SIZE 6
 #define REG_ARRAY_SIZE  16

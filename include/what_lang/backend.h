@@ -7,9 +7,9 @@ const static size_t ELF_HEADER_SIZE = 64;
 int CreateAsm(Tree * tree, const char * filename);
 
 int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-int _create_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
+int _create_bin(char ** buf, Htable ** tab, Htable * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
 
-int _def_bin(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
+int _def_bin(char ** buf, Htable ** tab, Htable * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
 
 static int IF_COUNT = 0;
 static int WHILE_COUNT = 0;

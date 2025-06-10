@@ -24,7 +24,9 @@ enum HtableError
     HTABLE_NULLPTR              = 6,
 
     HTABLE_FOUND                = 7,
-    HTABLE_NOT_FOUND            = 8
+    HTABLE_NOT_FOUND            = 8,
+
+    HTABLE_REPEAT               = 9
 };
 
 enum ListError

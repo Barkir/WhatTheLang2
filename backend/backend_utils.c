@@ -17,183 +17,7 @@
 #include "what_lang/backend_utils.h"
 #include "what_lang/emitters.h"
 #include "what_lang/errors.h"
-
-const char * Adr2Reg(int adr, int xtnd)
-{
-    if (xtnd)
-    {
-        for (int i = 0; i < REG_ARRAY_SIZE; i++)
-        {
-            if (RegArray[i].reg_xtnd == adr) return RegArray[i].reg_str;
-        }
-    }
-
-    switch(adr)
-    {
-            case 0:     return "ebx";
-            case 1:     return "ecx";
-            case 2:     return "edx";
-            case 3:     return "esi";
-            case 4:     return "edi";
-    }
-}
-
-const enum Registers Adr2EnumReg(int adr)
-{
-    switch(adr)
-    {
-        case 0:     return WHAT_REG_EBX;
-        case 1:     return WHAT_REG_ECX;
-        case 2:     return WHAT_REG_EDX;
-        case 3:     return WHAT_REG_ESI;
-        case 4:     return WHAT_REG_EDI;
-    }
-
-}
-
-const char * Reg2Str(int reg, int xtnd)
-{
-    if (xtnd)
-    {
-        for (int i = 0; i < REG_ARRAY_SIZE; i++)
-            if (RegArray[i].reg_xtnd == reg) return RegArray[i].reg_str;
-    }
-
-    for (int i = 0; i < REG_ARRAY_SIZE; i++)
-        if (RegArray[i].reg == reg) return RegArray[i].reg_str;
-}
-
-const char * GetVarName(Node * root)
-{
-    switch((int) NodeValue(root))
-    {
-        case 'a': return "AX";
-        case 'b': return "BX";
-        case 'c': return "CX";
-        case 'x': return "DX";
-        case 'y': return "FX";
-        default : return "RX";
-    }
-    return "RX";
-}
-
-int GetVarAdr(Node * root, Name * names)
-{
-    PARSER_LOG("Getting Var Address");
-    for(int i = 0; i < 1024; i++)
-    {
-        if (!(names[i].name)) return -1;
-        if (!strcmp(NodeName(root), names[i].name) && names[i].type == VAR) return names[i].address;
-    }
-
-    return -1;
-}
-
-Name * GetFuncAdr(Node * root, Name * names)
-{
-    PARSER_LOG("Getting Func Address");
-    for(int i = 0; i < 1024; i++)
-    {
-        PARSER_LOG("NodeName(root) = %s, names[i].name = %s", NodeName(root), names[i].name);
-        if (!(names[i].name)) {PARSER_LOG("Returning NULL at i = %d", i); return NULL;}
-        if (!strcmp(NodeName(root), names[i].name) && (names[i].type == FUNC_INTER_DEF || names[i].type == VAR)) return &(names[i]);
-    }
-
-    PARSER_LOG("Returning NULL");
-    return NULL;
-}
-
-int _count_param(Node * root)
-{
-    if (NodeType(root) == VAR) return 0;
-    int i = 0;
-    Node * dummy = root;
-    while (dummy->left)
-    {
-        i++;
-        dummy = dummy->left;
-    }
-    return i;
-}
-
-int _var_table(Node * root, Name * names, const char * func_name)
-{
-    if (NodeType(root) == VAR && NodeType(root) == FUNC_INTER_CALL && NodeType(root) == FUNC_INTER_DEF)
-    {
-        int is_new = 1;
-        for (int i = 0; names[i].name; i++)
-        {
-            if (!strcmp(names[i].name, NodeName(root)))
-            {
-                is_new = 0;
-                break;
-            }
-        }
-        if (is_new)
-        {
-            names[ADR_COUNT].name = NodeName(root);
-            names[ADR_COUNT].address = ADR_COUNT?(names[ADR_COUNT - 1].address_end + 1) : ADR_COUNT;
-            names[ADR_COUNT].param = _count_param(root);
-            names[ADR_COUNT].address_end = names[ADR_COUNT].address + names[ADR_COUNT].param;
-            names[ADR_COUNT].type = VAR;
-            names[ADR_COUNT].func_name = func_name;
-            ADR_COUNT++;
-        }
-    }
-    if (root->left)
-        {
-            if (NodeType(root) == FUNC_INTER_DEF) func_name = NodeName(root);
-            _var_table(root->left, names, func_name);
-        }
-    if (root->right)
-            {
-            if (NodeType(root) == OPER && (int) NodeValue(root) == DEF) func_name = NodeName(root);
-            _var_table(root->right, names, func_name);
-        }
-    return 0;
-}
-
-int _func_table(Node * root, Name * names)
-{
-    if (NodeType(root) == OPER && NodeValue(root) == DEF)
-    {
-        int is_new = 1;
-        for (int i = 0; names[i].name; i++)
-        {
-            if (!strcmp(names[i].name, NodeName(root->left)))
-            {
-                is_new = 0;
-                break;
-            }
-        }
-        if (is_new)
-        {
-            names[ADR_COUNT].name = NodeName(root->left);
-            names[ADR_COUNT].address = ADR_COUNT;
-            names[ADR_COUNT].type = FUNC_INTER_DEF;
-            names[ADR_COUNT].param = _count_param(root->left);
-            names[ADR_COUNT].address_end = names[ADR_COUNT].address + names[ADR_COUNT].param;
-            ADR_COUNT++;
-        }
-    }
-    if (root->left) _func_table(root->left, names);
-    if (root->right)_func_table(root->right, names);
-    return 0;
-}
-
-Name * CreateVarTable(Node * root)
-{
-    Name * names = calloc(1024, sizeof(Name));
-    _var_table(root, names, "");
-    return names;
-}
-
-Name * CreateFuncTable(Node * root)
-{
-    Name * funcs = calloc(1024, sizeof(Name));
-    _func_table(root, funcs);
-    return funcs;
-}
+#include "what_lang/hashtable_errors.h"
 
 int InitFuncParam(Node * root, Htable ** name_tab, NameTableCtx ** ctx)
 {
@@ -212,7 +36,7 @@ int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
     {
         PARSER_LOG("Got VAR with name %s (stack_offset = %d)", NodeName(root), ctx->stack_offset);
         Name name = {.func_name = ctx->func_name, .name = NodeName(root), .type = VAR, .stack_offset = (ctx->stack_offset++)};
-        HtableNameInsert(name_tab, &name);
+        if (HtableNameInsert(name_tab, &name) == HTABLE_REPEAT) ctx->stack_offset--;
     }
 
     else if (NodeType(root) == FUNC_EXT)
@@ -278,39 +102,6 @@ int _find_func_start(Name * names, const char * func_name)
 
 }
 
-int _find_func_end(Name * names, const char * func_name)
-{
-    int end = -1;
-        for (int i = 0; names[i].name; i++)
-    {
-        if (!strcmp(names[i].func_name, func_name)) end = end > names[i].address ? end : names[i].address;
-    }
-    return end;
-}
-
-int DefineFuncTable(Name ** func, Name ** names)
-{
-    if (!*func)  return WHAT_NULLPOINTER_ERROR;
-    if (!*names) return WHAT_NULLPOINTER_ERROR;
-
-    for (int i = 0; (*names)[i].name; i++)
-    {
-        for(int j = 0; (*func)[j].name; j++)
-        {
-            if (!strcmp((*names)[i].name, (*func)[j].name))
-            {
-                PARSER_LOG("FOUND FUNC %s", (*func)[j].name);
-                (*names)[i].name =  (*func)[j].name;
-                (*names)[i].param = (*func)[j].param;
-                (*names)[i].type =  (*func)[j].type;
-                (*names)[i].address     = _find_func_start  (*names, (*names)[i].name);
-                (*names)[i].address_end = _find_func_end    (*names, (*names)[i].name);
-                break;
-            }
-        }
-    }
-}
-
 char CmpByte(enum operations oper_enum)
 {
     PARSER_LOG("%d in CmpByte", oper_enum);
@@ -352,17 +143,17 @@ int isArithOper(enum operations oper_enum)
     return oper_enum == '+' || oper_enum == '-' || oper_enum == '/' || oper_enum == '*' || oper_enum == '=' ;
 }
 
-void BinCmpOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count)
+void BinCmpOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     int nodeVal = (int) NodeValue(root);
-    _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, *if_count, *while_count);
-    _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, *if_count, *while_count);
-    EMIT_COMPARSION(buf, file, tab, CmpByte(nodeVal), CmpStr(nodeVal), if_count, while_count, if_cond, while_cond);
+    _create_bin(buf, tab, root->left,  ctx);
+    _create_bin(buf, tab, root->right, ctx);
+    EMIT_COMPARSION(buf, tab, nodeVal, ctx);
     return;
 
 }
 
-void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int * if_count, int * while_count)
+void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     int nodeVal = (int) NodeValue(root);
     PARSER_LOG("calling BinArithOper with NodeValue %c %d", nodeVal, nodeVal);
@@ -371,29 +162,29 @@ void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * 
     {
         PARSER_LOG("BinArithOper in '=' condition");
         _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, *if_count, *while_count);
-        POPREG(buf, file, Adr2EnumReg(GetVarAdr(root->left, names)));
+        POPREG(buf, file, Offset2EnumReg(GetVarOffset(root->left, names)));
         return;
     }
 
 
-    _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, *if_count, *while_count);
-    _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, *if_count, *while_count);
+    _create_bin(buf, tab, root->left,  ctx);
+    _create_bin(buf, tab, root->right, ctx);
 
     if (nodeVal == '+')
     {
 
-        POP_XTEND_REG(buf, file, WHAT_REG_R14);
-        POP_XTEND_REG(buf, file, WHAT_REG_R15);
-        ADD_REG_REG(buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+        POP_XTEND_REG (buf, file, WHAT_REG_R14);
+        POP_XTEND_REG (buf, file, WHAT_REG_R15);
+        ADD_REG_REG   (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
         PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
         return;
     }
 
     else if (nodeVal == '-')
     {
-        POP_XTEND_REG(buf, file, WHAT_REG_R14);
-        POP_XTEND_REG(buf, file, WHAT_REG_R15);
-        SUB_REG_REG(buf, file, WHAT_REG_R15, WHAT_REG_R14, WHAT_XTEND_XTEND);
+        POP_XTEND_REG (buf, file, WHAT_REG_R14);
+        POP_XTEND_REG (buf, file, WHAT_REG_R15);
+        SUB_REG_REG   (buf, file, WHAT_REG_R15, WHAT_REG_R14, WHAT_XTEND_XTEND);
         PUSH_XTEND_REG(buf, file, WHAT_REG_R15);
         return;
     }
@@ -402,9 +193,9 @@ void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * 
     {
 
         POP_XTEND_REG(buf, file, WHAT_REG_R14);
-        POPREG(buf, file, WHAT_REG_EAX);
+        POPREG       (buf, file, WHAT_REG_EAX);
         MUL_XTEND_REG(buf, file, WHAT_REG_R14);
-        PUSHREG(buf, file, WHAT_REG_EAX);
+        PUSHREG      (buf, file, WHAT_REG_EAX);
         return;
     }
 
@@ -413,15 +204,15 @@ void BinArithOper(char ** buf, Htable ** tab, Name * names, Node * root, FILE * 
     {
 
         POP_XTEND_REG(buf, file, WHAT_REG_R14);
-        POPREG(buf, file, WHAT_REG_EAX);
+        POPREG       (buf, file, WHAT_REG_EAX);
         DIV_XTEND_REG(buf, file, WHAT_REG_R14);
-        PUSHREG(buf, file, WHAT_REG_EAX);
+        PUSHREG      (buf, file, WHAT_REG_EAX);
         return;
     }
 
 }
 
-int BinIf(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+int BinIf(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     PARSER_LOG("PROCESSING IF");
     int local_if = IF_COUNT;
@@ -477,7 +268,7 @@ int BinIf(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, in
 
 }
 
-int BinWhile(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     PARSER_LOG("PROCESSING WHILE");
     int local_while = WHILE_COUNT;
@@ -538,7 +329,7 @@ int BinWhile(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file,
     return WHAT_SUCCESS;
 }
 
-int BinFunc(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count)
+int BinFunc(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     PARSER_LOG("CALLED BIN_FUNC");
     int nodeVal = (int) NodeValue(root);
@@ -546,7 +337,7 @@ int BinFunc(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, 
 
     if (nodeVal == PRINT)
     {
-        _create_bin(buf, tab, names, root->left, file, if_cond, while_cond, if_count, while_count);
+        _create_bin(buf, tab, ctx, root->left);
         EMIT_PRINT(buf, file);
     }
 
@@ -556,6 +347,56 @@ int BinFunc(char ** buf, Htable ** tab, Name * names, Node * root, FILE * file, 
     }
 
     return WHAT_SUCCESS;
+}
+
+
+const char * Offset2StrReg(int adr, int xtnd)
+{
+    if (xtnd)
+    {
+        for (int i = 0; i < REG_ARRAY_SIZE; i++)
+        {
+            if (RegArray[i].reg_xtnd == adr) return RegArray[i].reg_str;
+        }
+    }
+
+    switch(adr)
+    {
+            case 0:     return "ebx";
+            case 1:     return "ecx";
+            case 2:     return "edx";
+            case 3:     return "esi";
+            case 4:     return "edi";
+    }
+}
+
+const enum Registers Offset2EnumReg(int adr)
+{
+    switch(adr)
+    {
+        case 0:     return WHAT_REG_EBX;
+        case 1:     return WHAT_REG_ECX;
+        case 2:     return WHAT_REG_EDX;
+        case 3:     return WHAT_REG_ESI;
+        case 4:     return WHAT_REG_EDI;
+    }
+
+}
+
+int GetVarOffset(Node * root, Htable * names)
+{
+    Name root_name = {.name = NodeName(root), .type = NodeType(root), .func_name = }
+}
+const char * EnumReg2Str(int reg, int xtnd)
+{
+    if (xtnd)
+    {
+        for (int i = 0; i < REG_ARRAY_SIZE; i++)
+            if (RegArray[i].reg_xtnd == reg) return RegArray[i].reg_str;
+    }
+
+    for (int i = 0; i < REG_ARRAY_SIZE; i++)
+        if (RegArray[i].reg == reg) return RegArray[i].reg_str;
 }
 
 
