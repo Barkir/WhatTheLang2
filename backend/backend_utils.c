@@ -19,6 +19,8 @@
 #include "what_lang/errors.h"
 #include "what_lang/hashtable_errors.h"
 
+const int DEFAULT_REG_NUMBER = 5;
+
 int InitFuncParam(Node * root, Htable ** name_tab, NameTableCtx ** ctx)
 {
     Name param_name = {.name = NodeName(root), .type = VAR, .func_name = (*ctx)->func_name, .stack_offset = ((*ctx)->stack_offset++)};
@@ -92,15 +94,6 @@ Htable * CreateNameTable(Node * root)
     return name_tab;
 }
 
-int _find_func_start(Name * names, const char * func_name)
-{
-    for (int i = 0; names[i].name; i++)
-    {
-        if (!strcmp(names[i].func_name, func_name)) return names[i].address;
-    }
-    return -1;
-
-}
 
 char CmpByte(enum operations oper_enum)
 {
@@ -161,8 +154,8 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     if (nodeVal == '=')
     {
         PARSER_LOG("BinArithOper in '=' condition");
-        _create_bin(buf, tab, names, root->right, file, if_cond, while_cond, *if_count, *while_count);
-        POPREG(buf, file, Offset2EnumReg(GetVarOffset(root->left, names)));
+        _create_bin(buf, tab, root->right, ctx);
+        POPREG(buf, Offset2EnumReg(GetVarOffset(root->left, ctx)), ctx);
         return;
     }
 
@@ -173,29 +166,29 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     if (nodeVal == '+')
     {
 
-        POP_XTEND_REG (buf, file, WHAT_REG_R14);
-        POP_XTEND_REG (buf, file, WHAT_REG_R15);
-        ADD_REG_REG   (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
-        PUSH_XTEND_REG(buf, file, WHAT_REG_R14);
+        POP_XTEND_REG (buf, WHAT_REG_R14, ctx);
+        POP_XTEND_REG (buf, WHAT_REG_R15, ctx);
+        ADD_REG_REG   (buf, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx);
+        PUSH_XTEND_REG(buf, WHAT_REG_R14, ctx);
         return;
     }
 
     else if (nodeVal == '-')
     {
-        POP_XTEND_REG (buf, file, WHAT_REG_R14);
-        POP_XTEND_REG (buf, file, WHAT_REG_R15);
-        SUB_REG_REG   (buf, file, WHAT_REG_R15, WHAT_REG_R14, WHAT_XTEND_XTEND);
-        PUSH_XTEND_REG(buf, file, WHAT_REG_R15);
+        POP_XTEND_REG (buf, WHAT_REG_R14, ctx);
+        POP_XTEND_REG (buf, WHAT_REG_R15, ctx);
+        SUB_REG_REG   (buf, WHAT_REG_R15, WHAT_REG_R14, WHAT_XTEND_XTEND, ctx);
+        PUSH_XTEND_REG(buf, WHAT_REG_R15, ctx);
         return;
     }
 
     else if (nodeVal == '*')
     {
 
-        POP_XTEND_REG(buf, file, WHAT_REG_R14);
-        POPREG       (buf, file, WHAT_REG_EAX);
-        MUL_XTEND_REG(buf, file, WHAT_REG_R14);
-        PUSHREG      (buf, file, WHAT_REG_EAX);
+        POP_XTEND_REG(buf, WHAT_REG_R14, ctx);
+        POPREG       (buf, WHAT_REG_EAX, ctx);
+        MUL_XTEND_REG(buf, WHAT_REG_R14, ctx);
+        PUSHREG      (buf, WHAT_REG_EAX, ctx);
         return;
     }
 
@@ -203,10 +196,10 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     else if (nodeVal == '/')
     {
 
-        POP_XTEND_REG(buf, file, WHAT_REG_R14);
-        POPREG       (buf, file, WHAT_REG_EAX);
-        DIV_XTEND_REG(buf, file, WHAT_REG_R14);
-        PUSHREG      (buf, file, WHAT_REG_EAX);
+        POP_XTEND_REG(buf, WHAT_REG_R14, ctx);
+        POPREG       (buf, WHAT_REG_EAX, ctx);
+        DIV_XTEND_REG(buf, WHAT_REG_R14, ctx);
+        PUSHREG      (buf, WHAT_REG_EAX, ctx);
         return;
     }
 
@@ -216,14 +209,17 @@ int BinIf(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     PARSER_LOG("PROCESSING IF");
     int local_if = IF_COUNT;
-    if_count = IF_COUNT;
+    ctx->if_count = IF_COUNT;
     IF_COUNT++;
 
     Name locals_if = {};
     locals_if.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
     if (!locals_if.local_func_name) return WHAT_MEMALLOC_ERROR;
 
-    _create_bin(buf, tab, names, root->left, file, 1, 0, if_count, while_count);
+    ctx->if_cond    = 1;
+    ctx->while_cond = 0;
+
+    _create_bin(buf, tab, root->left, ctx);
     PARSER_LOG("PROCESSED IF BLOCK...");
 
     sprintf(locals_if.local_func_name, "IF%d", local_if);
@@ -231,32 +227,35 @@ int BinIf(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     if (label) *label->offset = (int8_t) (*buf - (label->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
-    fprintf(file, "IF%d:\n", if_count);
+    fprintf(ctx->file, "IF%d:\n", ctx->if_count);
 
-    PUSHIMM32(buf, file, 0);
+    PUSHIMM32(buf, 0, ctx);
 
-    POP_XTEND_REG   (buf, file, WHAT_REG_R15);
-    POP_XTEND_REG   (buf, file, WHAT_REG_R14);
-    PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
-    PUSH_XTEND_REG  (buf, file, WHAT_REG_R15);
+    POP_XTEND_REG   (buf, WHAT_REG_R15, ctx);
+    POP_XTEND_REG   (buf, WHAT_REG_R14, ctx);
+    PUSH_XTEND_REG  (buf, WHAT_REG_R14, ctx);
+    PUSH_XTEND_REG  (buf, WHAT_REG_R15, ctx);
 
-    CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+    CMP_REG_REG     (buf, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx);
 
-    fprintf(file, "jne COND%d\n", if_count);
+    fprintf(ctx->file, "jne COND%d\n", ctx->if_count);
     EMIT_JMP(buf, JNE_BYTE, 0);
     char * cond = *buf - 1;
 
-    fprintf(file, "jmp IF_END%d\n", if_count);
+    fprintf(ctx->file, "jmp IF_END%d\n", ctx->if_count);
     EMIT_JMP(buf, JMP_BYTE, 0);
     char * if_end = *buf - 1;
 
-    fprintf(file, "COND%d:\n", if_count);
+    fprintf(ctx->file, "COND%d:\n", ctx->if_count);
     *cond = *buf - (cond + 1);
 
-    if_count++;
-    _create_bin(buf, tab, names, root->right, file, 1, 0, if_count, while_count);
+    ctx->if_count++;
+    ctx->if_cond = 1;
+    ctx->while_cond = 0;
 
-    fprintf(file, "IF_END%d:\n", local_if);
+    _create_bin(buf, tab, root->right, ctx);
+
+    fprintf(ctx->file, "IF_END%d:\n", local_if);
     *if_end = *buf - (if_end + 1);
 
     sprintf(locals_if.local_func_name, "IF_END%d", local_if);
@@ -272,17 +271,19 @@ int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     PARSER_LOG("PROCESSING WHILE");
     int local_while = WHILE_COUNT;
-    while_count = WHILE_COUNT;
+    ctx->while_count = WHILE_COUNT;
     WHILE_COUNT++;
 
     Name locals_while = {};
     locals_while.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
     if (!locals_while.local_func_name) return WHAT_MEMALLOC_ERROR;
 
-    fprintf(file, "WHILE%d:\n", while_count);
+    fprintf(ctx->file, "WHILE%d:\n", ctx->while_count);
     char * while_ptr = *buf;
 
-    _create_bin(buf, tab, names, root->left, file, 0, 1, if_count, while_count);
+    ctx->if_cond = 0;
+    ctx->while_cond = 1;
+    _create_bin(buf, tab, root->left, ctx);
     PARSER_LOG("PROCESSED WHILE BLOCK");
 
     sprintf(locals_while.local_func_name, "WHILE_FALSE%d", local_while);
@@ -290,41 +291,44 @@ int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
-    fprintf(file, "WHILE_FALSE%d:\n", while_count);
+    fprintf(ctx->file, "WHILE_FALSE%d:\n", ctx->while_count);
 
-    PUSHIMM32(buf, file, 0);
+    PUSHIMM32(buf, 0, ctx);
 
-    POP_XTEND_REG   (buf, file, WHAT_REG_R15);
-    POP_XTEND_REG   (buf, file, WHAT_REG_R14);
-    PUSH_XTEND_REG  (buf, file, WHAT_REG_R14);
-    PUSH_XTEND_REG  (buf, file, WHAT_REG_R15);
+    POP_XTEND_REG   (buf, WHAT_REG_R15, ctx);
+    POP_XTEND_REG   (buf, WHAT_REG_R14, ctx);
+    PUSH_XTEND_REG  (buf, WHAT_REG_R14, ctx);
+    PUSH_XTEND_REG  (buf, WHAT_REG_R15, ctx);
 
-    CMP_REG_REG     (buf, file, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+    CMP_REG_REG     (buf, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx);
 
-    fprintf(file, "je WHILE_END%d\n", while_count);
+    fprintf(ctx->file, "je WHILE_END%d\n", ctx->while_count);
     EMIT_JMP(buf,JE_BYTE, 0);
     char * while_end_ptr = *buf - 1;
 
-    fprintf(file, "WHILE_TRUE%d:\n", while_count);
+    fprintf(ctx->file, "WHILE_TRUE%d:\n", ctx->while_count);
 
     sprintf(locals_while.local_func_name, "WHILE_TRUE%d", local_while);
     label_while = HtableLabelFind(*tab, &locals_while);
     if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
-    _create_bin(buf, tab, names, root->right, file, 0, 1, if_count, while_count);
 
-    fprintf(file, "jmp WHILE%d\n", local_while);
+    ctx->if_cond = 0;
+    ctx->while_cond = 1;
+    _create_bin(buf, tab, root->right, ctx);
+
+    fprintf(ctx->file, "jmp WHILE%d\n", local_while);
     EMIT_JMP(buf, JMP_BYTE, 0);
     (*buf)--;
     **buf = (while_ptr - 1) - *buf;
     (*buf)++;
 
-    fprintf(file, "WHILE_END%d:\n", local_while);
+    fprintf(ctx->file, "WHILE_END%d:\n", local_while);
     EMIT_JMP(buf, JMP_BYTE, 0);
     *while_end_ptr = *buf - (while_end_ptr + 1);
 
-    fprintf(file, ";---------------------------\n\n");
+    fprintf(ctx->file, ";---------------------------\n\n");
 
     return WHAT_SUCCESS;
 }
@@ -337,13 +341,13 @@ int BinFunc(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
     if (nodeVal == PRINT)
     {
-        _create_bin(buf, tab, ctx, root->left);
-        EMIT_PRINT(buf, file);
+        _create_bin(buf, tab, root->left, ctx);
+        EMIT_PRINT(buf, ctx);
     }
 
     else if (nodeVal == INPUT)
     {
-        EMIT_INPUT(buf, file);
+        EMIT_INPUT(buf, ctx);
     }
 
     return WHAT_SUCCESS;
@@ -372,7 +376,7 @@ const char * Offset2StrReg(int adr, int xtnd)
 
 const enum Registers Offset2EnumReg(int adr)
 {
-    switch(adr)
+    switch(adr % DEFAULT_REG_NUMBER)
     {
         case 0:     return WHAT_REG_EBX;
         case 1:     return WHAT_REG_ECX;
@@ -383,9 +387,10 @@ const enum Registers Offset2EnumReg(int adr)
 
 }
 
-int GetVarOffset(Node * root, Htable * names)
+int GetVarOffset(Node * root, BinCtx * ctx)
 {
-    Name root_name = {.name = NodeName(root), .type = NodeType(root), .func_name = }
+    Name root_name = {.name = NodeName(root), .type = NodeType(root)};
+    return HtableNameFind(ctx->names, &root_name)->stack_offset;
 }
 const char * EnumReg2Str(int reg, int xtnd)
 {

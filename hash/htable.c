@@ -185,7 +185,7 @@ Name * HtableNameFind(Htable * tab, Name * name)
     for (List * lst = tab->table[bin]; lst; lst = lst->nxt)
     {
         PARSER_LOG("finding in list %p", lst);
-        if (!strcmp(lst->name->name, name->name)) return lst->name;
+        if (!strcmp(lst->name->name, name->name) && lst->name->type == name->type) return lst->name;
     }
 
     return NULL;

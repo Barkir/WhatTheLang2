@@ -1,20 +1,6 @@
 #ifndef BACKEND_H
 #define BACKEND_H
 
-const static size_t LABEL_SIZE = 32;
-const static size_t ELF_HEADER_SIZE = 64;
-
-int CreateAsm(Tree * tree, const char * filename);
-
-int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-int _create_bin(char ** buf, Htable ** tab, Htable * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-
-int _def_bin(char ** buf, Htable ** tab, Htable * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
-
-static int IF_COUNT = 0;
-static int WHILE_COUNT = 0;
-static int ADR_COUNT = 0;
-
 enum Registers
 {
     WHAT_REG_EAX = 0x00,
@@ -46,8 +32,39 @@ enum RunModes
     WHAT_BIN_MODE
 };
 
+enum RegModes
+{
+    WHAT_REG_REG,
+    WHAT_XTEND_REG,
+    WHAT_REG_XTEND,
+    WHAT_XTEND_XTEND,
+    WHAT_REG_VAL,
+    WHAT_XTEND_VAL
+
+};
+
+typedef struct _bin_ctx
+{
+    Htable * names;
+    FILE * file;
+    int if_cond;
+    int while_cond;
+    int if_count;
+    int while_count;
+
+} BinCtx;
+
+const static size_t LABEL_SIZE = 32;
+const static size_t ELF_HEADER_SIZE = 64;
+
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode);
 
+int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
+int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
 
+
+
+int CreateAsm(Tree * tree, const char * filename);
+int _create_asm(Name * names, Node * root, FILE * file, int if_cond, int while_cond, int if_count, int while_count);
 
 #endif

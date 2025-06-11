@@ -16,9 +16,9 @@
 #include "what_lang/errors.h"           // Errors and loggers
 
 #include "what_lang/emit_constants.h"   // Emitters Constants
+#include "what_lang/backend.h"          // Backend Header
 #include "what_lang/emitters.h"         // Emitters Functions
 
-#include "what_lang/backend.h"          // Backend Header
 #include "what_lang/backend_utils.h"    // Backend Utils Header
 
 #include "what_lang/nasm2elf.h"         // what the hell is that?
@@ -54,10 +54,12 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     Htable * tab = NULL;
     HtableInit(&tab, HTABLE_BINS);
 
-//     fprintf(fp, "%s", NASM_TOP);
-    _create_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
-//     fprintf(fp, "%s", NASM_BTM);
-//     EMIT_EXIT(&buf);
+    fprintf(fp, "%s", NASM_TOP);
+
+    BinCtx ctx = {.file = fp, .names = names};
+    _create_bin(&buf, &tab, tree->root, &ctx);
+    fprintf(fp, "%s", NASM_BTM);
+    EMIT_EXIT(&buf);
 // //
 // //     PARSER_LOG("Bin created, in buf %10s", buf_ptr);
 // //
@@ -92,7 +94,7 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     if (NodeType(root) == NUM)
     {
         PARSER_LOG("PUSHING IMM32");
-        PUSHIMM32(buf, file, (int) NodeValue(root));
+        PUSHIMM32(buf, (int) NodeValue(root), ctx);
     }
 
     else if (NodeType(root) == FUNC_INTER_CALL)
@@ -140,20 +142,20 @@ int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         Node * param = root;
         int i = 0;
 
-        fprintf(file, "%s:\n", NodeName(root->left));
-        fprintf(file, "; pushing return address to stack\n");
-        fprintf(file, "pop r14\n");
-        fprintf(file, "mov [r13], r14\n");
-        fprintf(file, "add r13, 8\n");
+        fprintf(ctx->file, "%s:\n", NodeName(root->left));
+        fprintf(ctx->file, "; pushing return address to stack\n");
+        fprintf(ctx->file, "pop r14\n");
+        fprintf(ctx->file, "mov [r13], r14\n");
+        fprintf(ctx->file, "add r13, 8\n");
 
         _create_bin(buf, tab, root->right, ctx);
 
-        fprintf(file, "; popping return address to stack\n");
-        fprintf(file, "sub r13, 8\n");
-        fprintf(file, "mov r14, [r13]\n");
-        fprintf(file, "push r14\n");
+        fprintf(ctx->file, "; popping return address to stack\n");
+        fprintf(ctx->file, "sub r13, 8\n");
+        fprintf(ctx->file, "mov r14, [r13]\n");
+        fprintf(ctx->file, "push r14\n");
 
-        fprintf(file, "ret\n");
+        fprintf(ctx->file, "ret\n");
     }
     if (root->left)  _def_bin(buf, tab, root->left,  ctx);
     if (root->right) _def_bin(buf, tab, root->right, ctx);

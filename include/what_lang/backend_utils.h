@@ -1,6 +1,10 @@
 #ifndef BACKEND_UTILS_H
 #define BACKEND_UTILS_H
 
+static int IF_COUNT = 0;
+static int WHILE_COUNT = 0;
+static int ADR_COUNT = 0;
+
 const static char * GLOBAL_FUNC_NAME = "GLOBAL_FUNC";
 
 const enum Registers Offset2EnumReg(int adr);
@@ -14,7 +18,7 @@ Name * CreateFuncTable(Node * root);
 Htable * CreateNameTable(Node * root);
 
 const char * GetVarName(Node * root);
-int GetVarOffset(Node * root, Htable * names);
+int GetVarOffset(Node * root, BinCtx * ctx);
 
 
 // Compare functions (used in BinCmpOper, etc.)
@@ -65,17 +69,6 @@ typedef struct _nametable_ctx
     int stack_offset;
 
 } NameTableCtx;
-
-typedef struct _bin_ctx
-{
-    Htable * names;
-    FILE * file;
-    int if_cond;
-    int while_cond;
-    int if_count;
-    int while_count;
-
-} BinCtx;
 
 #define OPER_ARRAY_SIZE 6
 #define REG_ARRAY_SIZE  16
