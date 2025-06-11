@@ -38,12 +38,14 @@ static const char *     NASM_TOP =  "%include \"iolib/iolib.asm\"   \n"
                                     "section .text                  \n"
                                     "global _start                  \n"
                                     "_start:                        \n"
-                                    "mov r13, stack4calls           \n";
+                                    "mov r13, stack4calls           \n"
+                                    "mov r12, array4var             \n";
 
 static const char *     NASM_BTM =  "mov rax, 60                    \n"
                                     "syscall                        \n"
                                     "section .data                  \n"
                                     "stack4calls times 128 * 8 db 0 \n"
+                                    "array4var   times 16 * 4  db 0 \n"
                                     "section .text                  \n";
 
 typedef struct _cmp_oper

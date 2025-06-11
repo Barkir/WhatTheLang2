@@ -138,9 +138,11 @@ int isArithOper(enum operations oper_enum)
 
 void BinCmpOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
+    PARSER_LOG("Calling BinCmpOper...");
     int nodeVal = (int) NodeValue(root);
     _create_bin(buf, tab, root->left,  ctx);
     _create_bin(buf, tab, root->right, ctx);
+    PARSER_LOG("Calling EMIT_COMPARSION, if_count = %d, while_count = %d", ctx->if_count, ctx->while_count);
     EMIT_COMPARSION(buf, tab, nodeVal, ctx);
     return;
 
@@ -156,6 +158,11 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         PARSER_LOG("BinArithOper in '=' condition");
         _create_bin(buf, tab, root->right, ctx);
         POPREG(buf, Offset2EnumReg(GetVarOffset(root->left, ctx)), ctx);
+        fprintf(ctx->file, "push r12        \n");
+        fprintf(ctx->file, "add r12, %d * 8 \n", GetVarOffset(root->left, ctx));
+        fprintf(ctx->file, "mov [r12], %s   \n", Offset2StrReg(GetVarOffset(root->left, ctx), 0));
+        fprintf(ctx->file, "pop r12         \n");
+
         return;
     }
 
@@ -208,7 +215,7 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 int BinIf(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     PARSER_LOG("PROCESSING IF");
-    int local_if = IF_COUNT;
+    int local_if  = IF_COUNT;
     ctx->if_count = IF_COUNT;
     IF_COUNT++;
 
@@ -220,7 +227,7 @@ int BinIf(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     ctx->while_cond = 0;
 
     _create_bin(buf, tab, root->left, ctx);
-    PARSER_LOG("PROCESSED IF BLOCK...");
+    PARSER_LOG("PROCESSED IF BLOCK... if_count = %d", ctx->if_count);
 
     sprintf(locals_if.local_func_name, "IF%d", local_if);
     Name * label = HtableLabelFind(*tab, &locals_if);
@@ -356,6 +363,7 @@ int BinFunc(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
 const char * Offset2StrReg(int adr, int xtnd)
 {
+    PARSER_LOG("Calling Offset2StrReg");
     if (xtnd)
     {
         for (int i = 0; i < REG_ARRAY_SIZE; i++)
@@ -364,13 +372,13 @@ const char * Offset2StrReg(int adr, int xtnd)
         }
     }
 
-    switch(adr)
+    switch(adr % DEFAULT_REG_NUMBER)
     {
-            case 0:     return "ebx";
-            case 1:     return "ecx";
-            case 2:     return "edx";
-            case 3:     return "esi";
-            case 4:     return "edi";
+            case 0:     return "rbx";
+            case 1:     return "rcx";
+            case 2:     return "rdx";
+            case 3:     return "rsi";
+            case 4:     return "rdi";
     }
 }
 

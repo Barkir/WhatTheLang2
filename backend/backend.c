@@ -66,7 +66,7 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
 // //     if (mode == WHAT_DEBUG_MODE)
 // //     {
 // //         HtableDump(tab);
-// //     }
+//        }
 //
 //
 //     _def_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
@@ -106,10 +106,11 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     }
     else if (NodeType(root) == VAR)
     {
-        // ###########################################
-        // DANGER ZONE!!! UB!!! REFACTORING!!!
-        // ###########################################
-
+        fprintf(ctx->file, "push r12            \n");
+        fprintf(ctx->file, "add r12, %d * 8     \n", GetVarOffset(root, ctx));
+        fprintf(ctx->file, "mov %s, [r12]  \n", Offset2StrReg(GetVarOffset(root, ctx), 0));
+        fprintf(ctx->file, "pop r12             \n");
+        fprintf(ctx->file, "push %s             \n", Offset2StrReg(GetVarOffset(root, ctx), 0));
     }
     else if (NodeType(root) == OPER)
     {

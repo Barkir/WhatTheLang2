@@ -94,7 +94,10 @@ void MUL_XTEND_REG(char ** buf, uint8_t reg, BinCtx * ctx)
 
 void DIVREG(char ** buf, uint8_t reg, BinCtx * ctx)
 {
-    fprintf(ctx->file, "div %s\n", EnumReg2Str(reg, 0));
+    fprintf(ctx->file, "push rdx    \n");
+    fprintf(ctx->file, "xor rdx, rdx\n");
+    fprintf(ctx->file, "div %s      \n", EnumReg2Str(reg, 0));
+    fprintf(ctx->file, "pop rdx     \n");
     **buf = 0xf7;
     (*buf)++;
     **buf = DIVREG_BYTE + reg;
@@ -103,7 +106,11 @@ void DIVREG(char ** buf, uint8_t reg, BinCtx * ctx)
 
 void DIV_XTEND_REG(char ** buf, uint8_t reg, BinCtx * ctx)
 {
-    fprintf(ctx->file, "div %s\n", EnumReg2Str(reg, 1));
+
+    fprintf(ctx->file, "push rdx    \n");
+    fprintf(ctx->file, "xor rdx, rdx\n");
+    fprintf(ctx->file, "div %s      \n", EnumReg2Str(reg, 1));
+    fprintf(ctx->file, "pop rdx     \n");
     **buf = XTEND_OPER_BYTE;
     (*buf)++;
     **buf = 0xf7;
@@ -336,6 +343,7 @@ void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
     PUSH_XTEND_REG  (buf,  WHAT_REG_R15, ctx);
     CMP_REG_REG     (buf,  WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx);
 
+    PARSER_LOG("if_count = %d, while_count = %d", ctx->if_count, ctx->while_count);
     if (ctx->if_cond)
     {
         fprintf(ctx->file, "%s SUB_COND%d\n", cond_jmp, ctx->if_count);
@@ -387,7 +395,7 @@ void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
         fprintf(ctx->file, "jmp IF%d\n", ctx->if_count);
         EMIT_JMP(buf, JMP_BYTE, 0);
 
-        sprintf(locals.local_func_name, "IF%d", ctx->if_count++);
+        sprintf(locals.local_func_name, "IF%d", ctx->if_count);
         locals.offset = *buf - 1;
         HtableLabelInsert(tab, &locals);
     }
@@ -397,7 +405,7 @@ void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
         fprintf(ctx->file, "jmp WHILE_TRUE%d\n", ctx->while_count);
         EMIT_JMP(buf, JMP_BYTE, 0);
 
-        sprintf(locals.local_func_name, "WHILE_TRUE%d", ctx->while_count++);
+        sprintf(locals.local_func_name, "WHILE_TRUE%d", ctx->while_count);
         locals.offset = *buf - 1;
         HtableLabelInsert(tab, &locals);
     }

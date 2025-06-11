@@ -79,7 +79,7 @@ static TokenMap TokenArray[TOKEN_ARRAY_SIZE] =
     {.token_enum = '*'    , .token_str = "*"    , .graphviz_str = "*"       },
     {.token_enum = '/'    , .token_str = "/"    , .graphviz_str = "//"      },
     {.token_enum = '^'    , .token_str = "^"    , .graphviz_str = "^"       },
-    {.token_enum = '='    , .token_str = "="    , .graphviz_str = "=="      },
+    {.token_enum = '='    , .token_str = "="    , .graphviz_str = "="      },
     {.token_enum = '('    , .token_str = "("    , .graphviz_str = "("       },
     {.token_enum = ')'    , .token_str = ")"    , .graphviz_str = ")"       },
     {.token_enum = '{'    , .token_str = "{"    , .graphviz_str = "{"       },

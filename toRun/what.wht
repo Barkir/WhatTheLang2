@@ -1,16 +1,9 @@
-factorial(10);
-a = 20;
-b = 30;
-bpbpb = 334643;
-
-
-def factorial(param)
+a = input(0);
+p = 1;
+while(a > 0)
 {
-    while (param > 0)
-    {
-        p = p * param;
-        param = param - 1;
-    }
-
-    print(p);
+    p = p * a;
+    a = a -1;
 }
+
+print(p);
