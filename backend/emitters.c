@@ -159,17 +159,95 @@ void CMP_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, Bi
 
 }
 
-void ADD_REG_VAL(char ** buf, uint8_t reg, field_t val, enum RegModes mode, BinCtx * ctx)
+void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, enum RegModes mem_mode, BinCtx * ctx)
 {
-    int add_value = (int) val;
+    switch(mode)
+    {
+        case WHAT_REG_REG:
+                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
+                                else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
+                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
+
+                                PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 0));
+                                **buf = REG_REG_BYTE;
+                                (*buf)++;
+                                break;
+
+        case WHAT_REG_XTEND:
+
+                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
+                                else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
+                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
+                                PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 1));
+                                **buf = REG_XTEND_BYTE;
+                                (*buf)++;
+                                break;
+
+        case WHAT_XTEND_REG:
+
+                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
+                                else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
+                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
+
+                                PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 0));
+                                **buf = XTEND_REG_BYTE;
+                                (*buf)++;
+                                break;
+
+        case WHAT_XTEND_XTEND:
+
+                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
+                                else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
+                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
+
+                                PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 1));
+                                **buf = XTEND_XTEND_BYTE;
+                                (*buf)++;
+                                break;
+    }
+
+    if (mode == WHAT_NOMEM)
+    {
+        **buf = MOV_REG_BYTE;
+        (*buf)++;
+
+        uint8_t mod = 0b11;
+        uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
+        **buf = modrm;
+        (*buf)++;
+    }
+    else if (mode == WHAT_MEM1)
+    {
+
+        **buf = MOV_REG_BYTE;
+
+        uint8_t mod = 0b00;
+        uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
+        **buf = modrm;
+        (*buf)++;
+    }
+    else if (mode == WHAT_MEM2)
+    {
+        **buf = MOV_MEM_BYTE;
+
+        uint8_t mod = 0b00;
+        uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
+        **buf = modrm;
+        (*buf)++;
+    }
+
+}
+
+void ADD_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx * ctx)
+{
 
     if (mode == WHAT_REG_VAL) {PARSER_LOG("ADDING VALUE %d to reg %d %s", val, reg, EnumReg2Str(reg, 0));}
     else                      {PARSER_LOG("ADDING VALUE %d to reg %d %s", val, reg, EnumReg2Str(reg, 1));}
 
     uint8_t fbyte = (mode == WHAT_REG_VAL) ? OPER_BYTE : XTEND_OPER_BYTE;
 
-    if (fbyte == OPER_BYTE) fprintf(ctx->file, "add %s, %d\n", EnumReg2Str(reg, 0), add_value);
-    else                    fprintf(ctx->file, "add %s, %d\n", EnumReg2Str(reg, 1), add_value);
+    if (fbyte == OPER_BYTE) fprintf(ctx->file, "add %s, %d\n", EnumReg2Str(reg, 0), val);
+    else                    fprintf(ctx->file, "add %s, %d\n", EnumReg2Str(reg, 1), val);
 
     **buf = fbyte;
     PARSER_LOG("OPCODE %x", **buf);
@@ -194,7 +272,7 @@ void ADD_REG_VAL(char ** buf, uint8_t reg, field_t val, enum RegModes mode, BinC
         (*buf)++;
     }
 
-    memcpy(*buf, &add_value, sizeof(int));
+    memcpy(*buf, &val, sizeof(int));
     (*buf) += sizeof(int);
 }
 

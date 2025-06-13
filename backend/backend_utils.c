@@ -177,11 +177,11 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     {
         PARSER_LOG("BinArithOper in '=' condition");
         _create_bin(buf, tab, root->right, ctx);
-        // POPREG(buf, Offset2EnumReg(GetVarOffset(root->left, ctx)), ctx);
 
 
         if (!strcmp(GetVarFuncName(root->left, ctx), GLOBAL_FUNC_NAME))
         {
+            POPREG(buf, Offset2EnumReg(GetVarOffset(root->left, ctx)), ctx);
             fprintf(ctx->file, "push r12        \n");
             fprintf(ctx->file, "add r12, %d * 8 \n", GetVarOffset(root->left, ctx));
             fprintf(ctx->file, "mov [r12], %s   \n", Offset2StrReg(GetVarOffset(root->left, ctx), 0));
@@ -369,7 +369,7 @@ int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     return WHAT_SUCCESS;
 }
 
-int BinFunc(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+int BinFuncExt(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     PARSER_LOG("CALLED BIN_FUNC");
     int nodeVal = (int) NodeValue(root);
@@ -388,6 +388,60 @@ int BinFunc(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
     return WHAT_SUCCESS;
 }
+
+// int BinNumInterCall(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+// {
+//     PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
+//     PUSHREG(buf, WHAT_REG_EAX, ctx);
+//     ADD_REG_VAL(buf, WHAT_REG_R12, param_array[param]->stack_offset, WHAT_XTEND_VAL, ctx);
+//     fprintf(ctx->file, "mov rax, %d         \n", (int) NodeValue(left));
+//     fprintf(ctx->file, "mov [r12], rax      \n");
+//     fprintf(ctx->file, "pop rax             \n");
+//     fprintf(ctx->file, "pop r12             \n");
+//     PUSHIMM32(buf, (int) NodeValue(left), ctx);
+// }
+
+// int BinFuncInterCall(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+// {
+//
+//         PARSER_LOG("FUNC INTER_CALL");
+//
+//         Name func = {.name = NodeName(root), .type=FUNC_INTER_DEF};
+//         Name ** param_array = HtableNameFind(ctx->names, &func)->name_array;
+//
+//         int param = 0;
+//         for (Node * left = root->left; left; left = left->left, param++)
+//         {
+//             if (NodeType(left) == NUM)
+//             {
+//                 fprintf(ctx->file, "push r12            \n");
+//                 fprintf(ctx->file, "push rax            \n");
+//                 fprintf(ctx->file, "add r12, %d * 8     \n", param_array[param]->stack_offset);
+//                 fprintf(ctx->file, "mov rax, %d         \n", (int) NodeValue(left));
+//                 fprintf(ctx->file, "mov [r12], rax      \n");
+//                 fprintf(ctx->file, "pop rax             \n");
+//                 fprintf(ctx->file, "pop r12             \n");
+//                 PUSHIMM32(buf, (int) NodeValue(left), ctx);
+//             }
+//             else if (NodeType(left) == VAR)
+//             {
+//                 if (!strcmp(NodeName(root), ctx->func_name)) fprintf(ctx->file, "push %s \n", Offset2StrReg(param, 0));
+//                 else
+//                 {
+//                     fprintf(ctx->file, "push r12            \n");
+//                     fprintf(ctx->file, "add r12, %d * 8     \n", GetVarOffset(left, ctx));
+//                     fprintf(ctx->file, "mov %s, [r12]       \n", Offset2StrReg(param, 0));
+//                     fprintf(ctx->file, "pop r12             \n");
+//                     fprintf(ctx->file, "push %s             \n", Offset2StrReg(param, 0));
+//                 }
+//             }
+//             PARSER_LOG("param = %d %s", param, param_array[param]->name);
+//             fprintf(ctx->file, "pop %s\n", Offset2StrReg(param_array[param]->param, 0));
+//         }
+//
+//         fprintf(ctx->file, "call %s\n", NodeName(root));
+//         ctx->func_name = NodeName(root);
+// }
 
 
 const char * Offset2StrReg(int adr, int xtnd)

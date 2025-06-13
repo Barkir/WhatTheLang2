@@ -27,4 +27,9 @@ const static char REG_XTEND_BYTE        = 0x4c;
 const static char XTEND_XTEND_BYTE      = 0x4d;
 const static char CMP_REG_BYTE          = 0x39;
 
+const static char MOV_REG_BYTE          = 0x89;
+const static char MOV_MEM_BYTE          = 0x8b;
+
+
+
 #endif

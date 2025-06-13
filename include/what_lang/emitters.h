@@ -13,7 +13,7 @@ void DIVREG         (char ** buf, uint8_t reg, BinCtx * ctx);
 void DIV_XTEND_REG  (char ** buf, uint8_t reg, BinCtx * ctx);
 
 void CMP_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
-void ADD_REG_VAL(char ** buf, uint8_t reg, field_t val,   enum RegModes mode, BinCtx * ctx);
+void ADD_REG_VAL(char ** buf, uint8_t reg,  int val,      enum RegModes mode, BinCtx * ctx);
 void ADD_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
 void SUB_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
 void EMIT_JMP(char ** buf, char jmp, char offset);

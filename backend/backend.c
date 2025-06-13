@@ -56,7 +56,7 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
 
     fprintf(fp, "%s", NASM_TOP);
 
-    BinCtx ctx = {.file = fp, .names = names};
+    BinCtx ctx = {.file = fp, .names = names, .func_name = GLOBAL_FUNC_NAME};
     _create_bin(&buf, &tab, tree->root, &ctx);
     fprintf(fp, "%s", NASM_BTM);
     EMIT_EXIT(&buf);
@@ -123,7 +123,10 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
             }
             else if (NodeType(left) == VAR)
             {
-                if (!strcmp(NodeName(root), ctx->func_name)) fprintf(ctx->file, "push %s \n", Offset2StrReg(param, 0));
+                if (!strcmp(NodeName(root), ctx->func_name))
+                {
+                    fprintf(ctx->file, "push %s \n", Offset2StrReg(param, 0));
+                }
                 else
                 {
                     fprintf(ctx->file, "push r12            \n");
@@ -168,7 +171,7 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         else if (nodeVal == IF)         BinIf       (buf, tab, root, ctx);
         else if (nodeVal == WHILE)      BinWhile    (buf, tab, root, ctx);
     }
-    else if (NodeType(root) == FUNC_EXT) BinFunc(buf, tab, root, ctx);
+    else if (NodeType(root) == FUNC_EXT) BinFuncExt(buf, tab, root, ctx);
     else if ((int) NodeValue(root) == ';')
     {
         _create_bin(buf, tab, root->left,  ctx);

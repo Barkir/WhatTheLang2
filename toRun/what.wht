@@ -1,4 +1,5 @@
-factorial(10, 1);
+b = 5 + 7;
+factorial(b, 1);
 
 def factorial(a, p)
 {

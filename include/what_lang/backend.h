@@ -39,8 +39,11 @@ enum RegModes
     WHAT_REG_XTEND,
     WHAT_XTEND_XTEND,
     WHAT_REG_VAL,
-    WHAT_XTEND_VAL
+    WHAT_XTEND_VAL,
 
+    WHAT_NOMEM,
+    WHAT_MEM1,
+    WHAT_MEM2
 };
 
 typedef struct _bin_ctx
