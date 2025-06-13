@@ -21,13 +21,32 @@
 
 const int DEFAULT_REG_NUMBER = 5;
 
-int InitFuncParam(Node * root, Htable ** name_tab, NameTableCtx ** ctx)
+int NameArrayAddElem(Name * name, Name * elem)
+{
+    PARSER_LOG("Adding param to function with name %s", name->name);
+    Name ** array = name->name_array;
+    PARSER_LOG("name_array = %p", array);
+    for (int i = 0; i < DEFAULT_NAME_ARRAY_SIZE; i++)
+    {
+        if (!array[i])
+        {
+            array[i] = elem;
+            array[i]->param = i;
+            PARSER_LOG("Added name %s to place %p", array[i]->name, array);
+            return WHAT_SUCCESS;
+        }
+    }
+    return WHAT_SUCCESS;
+}
+
+int InitFuncParam(Node * root, Htable ** name_tab, Name * function, NameTableCtx ** ctx)
 {
     Name param_name = {.name = NodeName(root), .type = VAR, .func_name = (*ctx)->func_name, .stack_offset = ((*ctx)->stack_offset++)};
     PARSER_LOG("Param name = %s, function_name = %s, offset = %d", param_name.name, param_name.func_name, param_name.stack_offset);
 
     HtableNameInsert(name_tab, &param_name);
-    if (root->left) InitFuncParam(root->left, name_tab, ctx);
+    NameArrayAddElem(function, HtableNameFind(*name_tab, &param_name));
+    if (root->left) InitFuncParam(root->left, name_tab, function, ctx);
 
     return WHAT_SUCCESS;
 }
@@ -64,9 +83,10 @@ int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 
         name.name_array = calloc(DEFAULT_NAME_ARRAY_SIZE, sizeof(Name*));
         if (!name.name_array) return WHAT_MEMALLOC_ERROR;
+        PARSER_LOG("created name_array %p", name.name_array);
 
         PARSER_LOG("Intializing parameters of function %s", NodeName(root));
-        InitFuncParam(root->left, name_tab, &ctx);
+        InitFuncParam(root->left, name_tab, &name, &ctx);
 
         HtableNameInsert(name_tab, &name);
         PARSER_LOG("Inserted definition of function %s in hash table", NodeName(root));
@@ -157,11 +177,20 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     {
         PARSER_LOG("BinArithOper in '=' condition");
         _create_bin(buf, tab, root->right, ctx);
-        POPREG(buf, Offset2EnumReg(GetVarOffset(root->left, ctx)), ctx);
-        fprintf(ctx->file, "push r12        \n");
-        fprintf(ctx->file, "add r12, %d * 8 \n", GetVarOffset(root->left, ctx));
-        fprintf(ctx->file, "mov [r12], %s   \n", Offset2StrReg(GetVarOffset(root->left, ctx), 0));
-        fprintf(ctx->file, "pop r12         \n");
+        // POPREG(buf, Offset2EnumReg(GetVarOffset(root->left, ctx)), ctx);
+
+
+        if (!strcmp(GetVarFuncName(root->left, ctx), GLOBAL_FUNC_NAME))
+        {
+            fprintf(ctx->file, "push r12        \n");
+            fprintf(ctx->file, "add r12, %d * 8 \n", GetVarOffset(root->left, ctx));
+            fprintf(ctx->file, "mov [r12], %s   \n", Offset2StrReg(GetVarOffset(root->left, ctx), 0));
+            fprintf(ctx->file, "pop r12         \n");
+        }
+        else
+        {
+            fprintf(ctx->file, "pop %s          \n", Offset2StrReg(GetVarParam(root->left, ctx), 0));
+        }
 
         return;
     }
@@ -395,10 +424,22 @@ const enum Registers Offset2EnumReg(int adr)
 
 }
 
+const char * GetVarFuncName(Node * root, BinCtx * ctx)
+{
+    Name root_name = {.name = NodeName(root), .type  = NodeType(root)};
+    return HtableNameFind(ctx->names, &root_name)->func_name;
+}
+
 int GetVarOffset(Node * root, BinCtx * ctx)
 {
     Name root_name = {.name = NodeName(root), .type = NodeType(root)};
     return HtableNameFind(ctx->names, &root_name)->stack_offset;
+}
+
+int GetVarParam(Node * root, BinCtx * ctx)
+{
+    Name root_name = {.name = NodeName(root), .type = NodeType(root)};
+    return HtableNameFind(ctx->names, &root_name)->param;
 }
 const char * EnumReg2Str(int reg, int xtnd)
 {

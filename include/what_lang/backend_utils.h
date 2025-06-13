@@ -18,7 +18,9 @@ Name * CreateFuncTable(Node * root);
 Htable * CreateNameTable(Node * root);
 
 const char * GetVarName(Node * root);
+int GetVarParam(Node * root, BinCtx * ctx);
 int GetVarOffset(Node * root, BinCtx * ctx);
+const char * GetVarFuncName(Node * root, BinCtx * ctx);
 
 
 // Compare functions (used in BinCmpOper, etc.)
@@ -47,6 +49,18 @@ static const char *     NASM_BTM =  "mov rax, 60                    \n"
                                     "stack4calls times 128 * 8 db 0 \n"
                                     "array4var   times 16 * 4  db 0 \n"
                                     "section .text                  \n";
+
+static const char * RET_PUSH_STR =  "; pushing return address to stack  \n"
+                                    "pop r14                            \n"
+                                    "mov [r13], r14                     \n"
+                                    "add r13, 8                         \n";
+
+
+static const char * RET_POP_STR =   "; popping return address to stack  \n"
+                                    "sub r13, 8                         \n"
+                                    "mov r14, [r13]                     \n"
+                                    "push r14                           \n"
+                                    "ret                                \n";
 
 typedef struct _cmp_oper
 {

@@ -52,6 +52,8 @@ typedef struct _bin_ctx
     int if_count;
     int while_count;
 
+    const char * func_name;
+
 } BinCtx;
 
 const static size_t LABEL_SIZE = 32;

@@ -1,7 +1,7 @@
 #ifndef NAMETABLE_H
 #define NAMETABLE_H
 
-const static size_t DEFAULT_NAME_ARRAY_SIZE = 10;
+const static size_t DEFAULT_NAME_ARRAY_SIZE = 32;
 
 typedef struct _name
 {
@@ -20,6 +20,7 @@ typedef struct _name
     int param;
 
     int stack_offset;
+
 
     struct _name ** name_array;            // Used to contain variables
 

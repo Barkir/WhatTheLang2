@@ -1,9 +1,12 @@
-a = input(0);
-p = 1;
-while(a > 0)
-{
-    p = p * a;
-    a = a -1;
-}
+factorial(10, 1);
 
-print(p);
+def factorial(a, p)
+{
+    if (a > 1)
+    {
+        p = p * a;
+        a = a - 1;
+        if (a == 1) print(p);
+        factorial(a, p);
+    }
+}

@@ -33,10 +33,16 @@ _IOLIB_INPUT:
 ;----------------------------------|
 ; Input: number in rax             |
 ; Output:                          |
-; Destr:                           |
+; Destr: rcx, rsi, rdx             |
 ;----------------------------------|
 
 _IOLIB_OUTPUT:
+        push rcx
+        push rsi
+        push rdx
+        push rbx
+        push rdi
+
         mov rsi, num_buf
         mov rdi, buf
 
@@ -50,6 +56,12 @@ _IOLIB_OUTPUT:
         mov rax, sys_write
         syscall
 
+
+        pop rdi
+        pop rbx
+        pop rdx
+        pop rsi
+        pop rcx
         ret
 
 ;-----------------------------------|

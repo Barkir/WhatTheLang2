@@ -41,8 +41,8 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     }
 
     Htable * names = CreateNameTable(tree->root);
-    PARSER_LOG("Created NameTable");
     HtableDump(names);
+    PARSER_LOG("Created NameTable");
     TreeDump(tree, "dump");
 
     char * buf = (char*) calloc(DEF_SIZE * 8, 1);
@@ -60,25 +60,28 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     _create_bin(&buf, &tab, tree->root, &ctx);
     fprintf(fp, "%s", NASM_BTM);
     EMIT_EXIT(&buf);
-// //
-// //     PARSER_LOG("Bin created, in buf %10s", buf_ptr);
-// //
-// //     if (mode == WHAT_DEBUG_MODE)
-// //     {
-// //         HtableDump(tab);
-//        }
-//
-//
-//     _def_bin(&buf, &tab, names, tree->root, fp, 0, 0, 0, 0);
-//
-//     PARSER_LOG("Writing buf to file");
-//     size_t err_chk = 0;
-//     assert((err_chk = fwrite(buf_ptr, sizeof(char), DEF_SIZE * 8, bin)) == DEF_SIZE * 8);
-//
-//     free(buf_ptr);
-//     free(names);
-//     fclose(fp);
-//     fclose(bin);
+
+
+
+    PARSER_LOG("Bin created, in buf %10s", buf_ptr);
+
+    if (mode == WHAT_DEBUG_MODE)
+    {
+        HtableDump(tab);
+    }
+
+
+    _def_bin(&buf, &tab, tree->root, &ctx);
+    HtableDump(names);
+
+    PARSER_LOG("Writing buf to file");
+    size_t err_chk = 0;
+    assert((err_chk = fwrite(buf_ptr, sizeof(char), DEF_SIZE * 8, bin)) == DEF_SIZE * 8);
+
+    free(buf_ptr);
+    free(names);
+    fclose(fp);
+    fclose(bin);
 
     return WHAT_SUCCESS;
 }
@@ -99,18 +102,58 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
     else if (NodeType(root) == FUNC_INTER_CALL)
     {
-        // ###########################################
-        // DANGER ZONE!!! UB!!! REFACTORING!!!
-        // ###########################################
+        PARSER_LOG("FUNC INTER_CALL");
 
+        Name func = {.name = NodeName(root), .type=FUNC_INTER_DEF};
+        Name ** param_array = HtableNameFind(ctx->names, &func)->name_array;
+
+        int param = 0;
+        for (Node * left = root->left; left; left = left->left, param++)
+        {
+            if (NodeType(left) == NUM)
+            {
+                fprintf(ctx->file, "push r12            \n");
+                fprintf(ctx->file, "push rax            \n");
+                fprintf(ctx->file, "add r12, %d * 8     \n", param_array[param]->stack_offset);
+                fprintf(ctx->file, "mov rax, %d         \n", (int) NodeValue(left));
+                fprintf(ctx->file, "mov [r12], rax      \n");
+                fprintf(ctx->file, "pop rax             \n");
+                fprintf(ctx->file, "pop r12             \n");
+                PUSHIMM32(buf, (int) NodeValue(left), ctx);
+            }
+            else if (NodeType(left) == VAR)
+            {
+                if (!strcmp(NodeName(root), ctx->func_name)) fprintf(ctx->file, "push %s \n", Offset2StrReg(param, 0));
+                else
+                {
+                    fprintf(ctx->file, "push r12            \n");
+                    fprintf(ctx->file, "add r12, %d * 8     \n", GetVarOffset(left, ctx));
+                    fprintf(ctx->file, "mov %s, [r12]       \n", Offset2StrReg(param, 0));
+                    fprintf(ctx->file, "pop r12             \n");
+                    fprintf(ctx->file, "push %s             \n", Offset2StrReg(param, 0));
+                }
+            }
+            PARSER_LOG("param = %d %s", param, param_array[param]->name);
+            fprintf(ctx->file, "pop %s\n", Offset2StrReg(param_array[param]->param, 0));
+        }
+
+        fprintf(ctx->file, "call %s\n", NodeName(root));
+        ctx->func_name = NodeName(root);
     }
     else if (NodeType(root) == VAR)
     {
-        fprintf(ctx->file, "push r12            \n");
-        fprintf(ctx->file, "add r12, %d * 8     \n", GetVarOffset(root, ctx));
-        fprintf(ctx->file, "mov %s, [r12]  \n", Offset2StrReg(GetVarOffset(root, ctx), 0));
-        fprintf(ctx->file, "pop r12             \n");
-        fprintf(ctx->file, "push %s             \n", Offset2StrReg(GetVarOffset(root, ctx), 0));
+        if (!strcmp(GetVarFuncName(root, ctx), GLOBAL_FUNC_NAME))
+        {
+            fprintf(ctx->file, "push r12            \n");
+            fprintf(ctx->file, "add r12, %d * 8     \n", GetVarOffset(root, ctx));
+            fprintf(ctx->file, "mov %s, [r12]       \n", Offset2StrReg(GetVarOffset(root, ctx), 0));
+            fprintf(ctx->file, "pop r12             \n");
+            fprintf(ctx->file, "push %s             \n", Offset2StrReg(GetVarOffset(root, ctx), 0));
+        }
+        else
+        {
+            fprintf(ctx->file, "push %s             \n", Offset2StrReg(GetVarParam(root, ctx), 0));
+        }
     }
     else if (NodeType(root) == OPER)
     {
@@ -140,23 +183,13 @@ int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     PARSER_LOG("DEF_ASM...");
     if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
     {
-        Node * param = root;
-        int i = 0;
 
         fprintf(ctx->file, "%s:\n", NodeName(root->left));
-        fprintf(ctx->file, "; pushing return address to stack\n");
-        fprintf(ctx->file, "pop r14\n");
-        fprintf(ctx->file, "mov [r13], r14\n");
-        fprintf(ctx->file, "add r13, 8\n");
+        fprintf(ctx->file, "%s", RET_PUSH_STR);
 
         _create_bin(buf, tab, root->right, ctx);
 
-        fprintf(ctx->file, "; popping return address to stack\n");
-        fprintf(ctx->file, "sub r13, 8\n");
-        fprintf(ctx->file, "mov r14, [r13]\n");
-        fprintf(ctx->file, "push r14\n");
-
-        fprintf(ctx->file, "ret\n");
+        fprintf(ctx->file, "%s", RET_POP_STR);
     }
     if (root->left)  _def_bin(buf, tab, root->left,  ctx);
     if (root->right) _def_bin(buf, tab, root->right, ctx);

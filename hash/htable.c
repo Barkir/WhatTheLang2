@@ -17,6 +17,8 @@
 #include "what_lang/crc32.h"
 #include "what_lang/errors.h"
 
+const char * GLOBAL_FUNC_NAME_H = "GLOBAL_FUNC";
+
 
 int HtableInit(Htable ** tab, size_t bins)
 {
@@ -204,10 +206,18 @@ int HtableNameInsert(Htable ** tab, Name * name)
     for (List * lst = (*tab)->table[ind]; lst; lst=lst->nxt)
     {
         PARSER_LOG("inserting to list %p with name %s, type %d", lst, lst->name->name, lst->name->type);
-        if (!strcmp(lst->name->name, name->name) && !(strcmp(lst->name->func_name, name->func_name)) && (lst->name->type == name->type))
+        if (!strcmp(lst->name->name, name->name) && (lst->name->type == name->type))
         {
-            PARSER_LOG("ALREADY THERE!");
-            return HTABLE_REPEAT;
+            if (!(strcmp(lst->name->func_name, GLOBAL_FUNC_NAME_H)))
+            {
+                PARSER_LOG("GLOBAL VARIABLE WITH SAME NAME. STANDART CONSIDERS IT AS A GLOBAL VARIABLE");
+                return HTABLE_REPEAT;
+            }
+            else if (!(strcmp(lst->name->func_name, name->func_name)))
+            {
+                PARSER_LOG("LOCAL VARIABLE IN FUNCTION. ALREADY EXISTS");
+                return HTABLE_REPEAT;
+            }
         }
     }
 
@@ -218,10 +228,11 @@ int HtableNameInsert(Htable ** tab, Name * name)
     n->name = (Name*) calloc(1, sizeof(Name));
     if (!n->name) return HTABLE_MEMALLOC_ERROR;
 
-    n->name->name       = strdup(name->name);
-    n->name->func_name  = strdup(name->func_name);
-    n->name->type       = name->type;
-    n->name->stack_offset = name->stack_offset;
+    n->name->name           = strdup(name->name);
+    n->name->func_name      = strdup(name->func_name);
+    n->name->type           = name->type;
+    n->name->stack_offset   = name->stack_offset;
+    n->name->name_array     = name->name_array;
 
     PARSER_LOG("Added new element to bin...");
 
@@ -262,8 +273,18 @@ int HtableDump(Htable * tab)
         fprintf(file, "[BIN %d]", bins);
         fprintf(file, "----------------------------------\n");
         for (List * lst = tab->table[bins]; lst; lst=lst->nxt)
-        if (lst->name) fprintf(file, "\t type = %d, name = %s stack_offset = %d, param = %d\n", lst->name->type, lst->name->name, lst->name->stack_offset, lst->name->param);
-        fprintf(file, "----------------------------------\n");
+        {
+            if (lst->name) fprintf(file, "\t type = %d, name = %s stack_offset = %d, param = %d, func_name = %s\n", lst->name->type, lst->name->name, lst->name->stack_offset, lst->name->param, lst->name->func_name);
+            if (lst->name->name_array)
+            {
+                fprintf(file, "\t NameArray = {");
+                for (int i = 0; lst->name->name_array[i]; i++)
+                    fprintf(file, "%s ", lst->name->name_array[i]->name);
+
+                fprintf(file, "}\n");
+            }
+            fprintf(file, "----------------------------------\n");
+        }
     }
 
     return HTABLE_SUCCESS;
