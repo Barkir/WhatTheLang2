@@ -159,8 +159,48 @@ void CMP_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, Bi
 
 }
 
+void MOVABS_XTEND(char ** buf, uint8_t reg, int64_t val, BinCtx * ctx)
+{
+    fprintf(ctx->file, "movabs %s, %ld\n", EnumReg2Str(reg, 1));
+    **buf = XTEND_REG_BYTE;
+    (*buf)++;
+    **buf = MOV_REG_VAL_BYTE + reg;
+    (*buf)++;
+
+    memcpy(*buf, &val, sizeof(int64_t));
+    (*buf) += sizeof(int64_t);
+}
+
+void MOV_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx * ctx)
+{
+    switch(mode)
+    {
+        case WHAT_REG_VAL:      fprintf(ctx->file, "mov %s, %d\n", EnumReg2Str(reg, 0));
+                                **buf = MOV_REG_VAL_BYTE + reg;
+                                (*buf)++;
+                                break;
+
+        case WHAT_XTEND_VAL:    fprintf(ctx->file, "mov %s, %d\n", EnumReg2Str(reg, 1));
+                                **buf = ADDITIONAL_REG_BYTE;
+                                (*buf)++;
+                                **buf = MOV_REG_VAL_BYTE + reg;
+                                (*buf)++;
+                                break;
+    }
+
+    memcpy(*buf, &val, sizeof(int));
+    (*buf) += sizeof(int);
+}
+
 void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, enum RegModes mem_mode, BinCtx * ctx)
 {
+
+    uint8_t rex = 0x40; // Base REX prefix
+
+    // Set REX bits if using extended registers
+    if (mode == WHAT_REG_XTEND || mode == WHAT_XTEND_XTEND) rex |= 0x44; // REX.W + REX.R
+    if (mode == WHAT_XTEND_REG || mode == WHAT_XTEND_XTEND) rex |= 0x41; // REX.W + REX.B
+
     switch(mode)
     {
         case WHAT_REG_REG:
@@ -206,34 +246,56 @@ void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, en
                                 break;
     }
 
-    if (mode == WHAT_NOMEM)
+    if (mem_mode == WHAT_NOMEM)
     {
         **buf = MOV_REG_BYTE;
         (*buf)++;
 
-        uint8_t mod = 0b11;
-        uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
+        uint8_t mod = 0b11000000;
+        uint8_t modrm = mod | ((reg2 & 7) << 3) | (reg1 & 7);
         **buf = modrm;
         (*buf)++;
     }
-    else if (mode == WHAT_MEM1)
+    else if (mem_mode == WHAT_MEM1)
     {
 
         **buf = MOV_REG_BYTE;
-
-        uint8_t mod = 0b00;
-        uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
-        **buf = modrm;
         (*buf)++;
+
+        uint8_t mod = 0b00000000;
+        if ((reg1 & 7) == 4) {
+            uint8_t modrm = mod | ((reg2 & 7) << 3) | 0b100;
+            **buf = modrm;
+            (*buf)++;
+
+            uint8_t sib = (reg1 & 7) | ((reg1 & 7) << 3);
+            **buf = sib;
+            (*buf)++;
+        } else {
+            uint8_t modrm = mod | ((reg2 & 7) << 3) | (reg1 & 7);
+            **buf = modrm;
+            (*buf)++;
+        }
     }
-    else if (mode == WHAT_MEM2)
+    else if (mem_mode == WHAT_MEM2)
     {
         **buf = MOV_MEM_BYTE;
-
-        uint8_t mod = 0b00;
-        uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
-        **buf = modrm;
         (*buf)++;
+
+        uint8_t mod = 0b00000000;
+        if ((reg2 & 7) == 4) {
+            uint8_t modrm = mod | ((reg1 & 7) << 3) | 0b100;
+            **buf = modrm;
+            (*buf)++;
+
+            uint8_t sib = (reg2 & 7) | ((reg2 & 7) << 3);
+            **buf = sib;
+            (*buf)++;
+        } else {
+            uint8_t modrm = mod | ((reg1 & 7) << 3) | (reg2 & 7);
+            **buf = modrm;
+            (*buf)++;
+        }
     }
 
 }
@@ -374,6 +436,9 @@ void EMIT_EXIT(char ** buf)
     **buf = 0x05;
     (*buf)++;
 }
+
+// Emit (ctx, "\xb8\x3c", "mov rax, 0x%02x", 0x3c);
+// Emit (ctx, "\x0f\x05", "syscall");
 
 void EMIT_PRINT(char ** buf, BinCtx * ctx)
 {

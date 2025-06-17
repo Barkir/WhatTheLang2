@@ -1,18 +1,4 @@
-def function(a, b, c)
-{
-    print(b);
-    print(c);
-    print(a);
-}
-
-def other(f, d, e)
-{
-    print(f);
-    print(d);
-    print(e);
-}
-
-other(20, 1, 3);
-function(30, 40, 50);
+a = 5;
+print(a);
 
 

@@ -6,21 +6,15 @@
 #include <assert.h>
 
 #include "what_lang/nametable.h"
-
 #include "what_lang/list.h"             // List Structure
 #include "what_lang/htable.h"           // Hash Table (includes list)
-
 #include "what_lang/tree.h"             // Binary Tree Structure
 #include "what_lang/parser.h"           // Included for operations enum (bad)
-
 #include "what_lang/errors.h"           // Errors and loggers
-
 #include "what_lang/emit_constants.h"   // Emitters Constants
 #include "what_lang/backend.h"          // Backend Header
 #include "what_lang/emitters.h"         // Emitters Functions
-
 #include "what_lang/backend_utils.h"    // Backend Utils Header
-
 #include "what_lang/nasm2elf.h"         // what the hell is that?
 
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode)
@@ -45,7 +39,7 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     PARSER_LOG("Created NameTable");
     TreeDump(tree, "dump");
 
-    char * buf = (char*) calloc(DEF_SIZE * 8, 1);
+    char * buf = (char*) calloc(DEF_SIZE * 12, 1);
     if (!buf) return WHAT_MEMALLOC_ERROR;
     char * buf_ptr = buf;
 
@@ -57,9 +51,16 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     fprintf(fp, "%s", NASM_TOP);
 
     BinCtx ctx = {.file = fp, .names = names, .func_name = GLOBAL_FUNC_NAME};
+    MOVABS_XTEND(&buf, WHAT_REG_R13, 0x402000, &ctx);
+    MOVABS_XTEND(&buf, WHAT_REG_R12, 0x402000, &ctx);
     _create_bin(&buf, &tab, tree->root, &ctx);
     fprintf(fp, "%s", NASM_BTM);
     EMIT_EXIT(&buf);
+
+    FILE * RAW_IOLIB = fopen("iolib/iolib.o", "rb");
+    size_t sz = FileSize(RAW_IOLIB);
+    PARSER_LOG("sz = %ld", sz);
+
 
 
 
@@ -76,12 +77,12 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
 
     PARSER_LOG("Writing buf to file");
     size_t err_chk = 0;
-    assert((err_chk = fwrite(buf_ptr, sizeof(char), DEF_SIZE * 8, bin)) == DEF_SIZE * 8);
-
+    assert((err_chk = fwrite(buf_ptr, sizeof(char), DEF_SIZE * 12, bin)) == DEF_SIZE * 12);
     free(buf_ptr);
     free(names);
     fclose(fp);
     fclose(bin);
+    fclose(RAW_IOLIB);
 
     return WHAT_SUCCESS;
 }
@@ -112,32 +113,32 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         {
             if (NodeType(left) == NUM)
             {
-                fprintf(ctx->file, "push r12            \n");
-                fprintf(ctx->file, "push rax            \n");
-                fprintf(ctx->file, "add r12, %d * 8     \n", param_array[param]->stack_offset);
-                fprintf(ctx->file, "mov rax, %d         \n", (int) NodeValue(left));
-                fprintf(ctx->file, "mov [r12], rax      \n");
-                fprintf(ctx->file, "pop rax             \n");
-                fprintf(ctx->file, "pop r12             \n");
+                PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
+                PUSHREG(buf, WHAT_REG_EAX, ctx);
+                ADD_REG_VAL(buf, WHAT_REG_R12, param_array[param]->stack_offset * 8, WHAT_XTEND_VAL, ctx);
+                MOV_REG_VAL(buf, WHAT_REG_EAX, (int) NodeValue(left), WHAT_REG_VAL, ctx);
+                MOV_REG_REG(buf, WHAT_REG_R12, WHAT_REG_EAX, WHAT_XTEND_REG, WHAT_MEM1, ctx);
+                POPREG(buf, WHAT_REG_EAX, ctx);
+                POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
                 PUSHIMM32(buf, (int) NodeValue(left), ctx);
             }
             else if (NodeType(left) == VAR)
             {
                 if (!strcmp(NodeName(root), ctx->func_name))
                 {
-                    fprintf(ctx->file, "push %s \n", Offset2StrReg(param, 0));
+                    PUSHREG(buf, Offset2EnumReg(param), ctx);
                 }
                 else
                 {
-                    fprintf(ctx->file, "push r12            \n");
-                    fprintf(ctx->file, "add r12, %d * 8     \n", GetVarOffset(left, ctx));
-                    fprintf(ctx->file, "mov %s, [r12]       \n", Offset2StrReg(param, 0));
-                    fprintf(ctx->file, "pop r12             \n");
-                    fprintf(ctx->file, "push %s             \n", Offset2StrReg(param, 0));
+                    PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
+                    ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(left, ctx) * 8, WHAT_XTEND_VAL, ctx);
+                    MOV_REG_REG(buf, Offset2EnumReg(param), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2, ctx);
+                    POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
+                    PUSHREG(buf, Offset2EnumReg(param), ctx);
                 }
             }
             PARSER_LOG("param = %d %s", param, param_array[param]->name);
-            fprintf(ctx->file, "pop %s\n", Offset2StrReg(param_array[param]->param, 0));
+            POPREG(buf, Offset2EnumReg(param_array[param]->param), ctx);
         }
 
         fprintf(ctx->file, "call %s\n", NodeName(root));
@@ -147,15 +148,15 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     {
         if (!strcmp(GetVarFuncName(root, ctx), GLOBAL_FUNC_NAME))
         {
-            fprintf(ctx->file, "push r12            \n");
-            fprintf(ctx->file, "add r12, %d * 8     \n", GetVarOffset(root, ctx));
-            fprintf(ctx->file, "mov %s, [r12]       \n", Offset2StrReg(GetVarOffset(root, ctx), 0));
-            fprintf(ctx->file, "pop r12             \n");
-            fprintf(ctx->file, "push %s             \n", Offset2StrReg(GetVarOffset(root, ctx), 0));
+            PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
+            ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(root, ctx) * 8, WHAT_XTEND_VAL, ctx);
+            MOV_REG_REG(buf, Offset2EnumReg(GetVarOffset(root, ctx)), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2, ctx);
+            POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
+            PUSHREG(buf, Offset2EnumReg(GetVarOffset(root, ctx)), ctx);
         }
         else
         {
-            fprintf(ctx->file, "push %s             \n", Offset2StrReg(GetVarParam(root, ctx), 0));
+            PUSHREG(buf, Offset2EnumReg(GetVarParam(root, ctx)), ctx);
         }
     }
     else if (NodeType(root) == OPER)

@@ -8,6 +8,8 @@
 %define success 0
 
 section .text
+bits 64
+
 
 ;-----------------------------------|
 ; Input:    number in rsi           |

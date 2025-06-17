@@ -53,24 +53,37 @@ void GenerateElfHeader(char ** buf)
     header.e_flags                  = 0;
     header.e_ehsize                 = sizeof(Elf64_Ehdr);
     header.e_phentsize              = sizeof(Elf64_Phdr);
-    header.e_phnum                  = 1;                        // one program header
+    header.e_phnum                  = 1;                        // program and data section
     header.e_shentsize              = 0;
     header.e_shnum                  = 0;
     header.e_shstrndx               = SHN_UNDEF;
 
-    Elf64_Phdr phdr = {};
+    Elf64_Phdr phdr_code = {};
 
-    phdr.p_type                     = PT_LOAD;
-    phdr.p_offset                   = 0x0;
-    phdr.p_vaddr                    = 0x400000;
-    phdr.p_paddr                    = 0x400000;
-    phdr.p_filesz                   = 1024 * 8;
-    phdr.p_memsz                    = 1024 * 8;
-    phdr.p_flags                    = PF_R | PF_X;              // read + execute mode
-    phdr.p_align                    = 0x1000;
+    phdr_code.p_type                     = PT_LOAD;
+    phdr_code.p_offset                   = 0x0;
+    phdr_code.p_vaddr                    = 0x400000;
+    phdr_code.p_paddr                    = 0x400000;
+    phdr_code.p_filesz                   = 1024 * 8;
+    phdr_code.p_memsz                    = 1024 * 8;
+    phdr_code.p_flags                    = PF_R | PF_X;              // read + execute mode
+    phdr_code.p_align                    = 0x1000;
+
+    Elf64_Phdr phdr_data = {};
+
+    phdr_data.p_type                     = PT_LOAD;
+    phdr_data.p_offset                   = 0x2000;
+    phdr_data.p_vaddr                    = 0x402000;
+    phdr_data.p_paddr                    = 0x402000;
+    phdr_data.p_filesz                   = 1024 * 4;
+    phdr_data.p_memsz                    = 1024 * 4;
+    phdr_data.p_flags                    = PF_R | PF_W;              // read + write
+    phdr_data.p_align                    = 0x1000;
+
 
     memcpy(*buf, &header, sizeof(Elf64_Ehdr));
-    memcpy(*buf + sizeof(Elf64_Ehdr), &phdr, sizeof(Elf64_Phdr));
+    memcpy(*buf + sizeof(Elf64_Ehdr), &phdr_code, sizeof(Elf64_Phdr));
+    memcpy(*buf + sizeof(Elf64_Ehdr) + sizeof(Elf64_Phdr), &phdr_data, sizeof(Elf64_Phdr));
     (*buf) += BUF_OFFSET;
 }
 

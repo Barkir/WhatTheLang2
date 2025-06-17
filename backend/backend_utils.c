@@ -182,14 +182,14 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         if (!strcmp(GetVarFuncName(root->left, ctx), GLOBAL_FUNC_NAME))
         {
             POPREG(buf, Offset2EnumReg(GetVarOffset(root->left, ctx)), ctx);
-            fprintf(ctx->file, "push r12        \n");
-            fprintf(ctx->file, "add r12, %d * 8 \n", GetVarOffset(root->left, ctx));
-            fprintf(ctx->file, "mov [r12], %s   \n", Offset2StrReg(GetVarOffset(root->left, ctx), 0));
-            fprintf(ctx->file, "pop r12         \n");
+            PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
+            ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(root->left, ctx) * 8, WHAT_XTEND_VAL, ctx);
+            MOV_REG_REG(buf, WHAT_REG_R12, Offset2EnumReg(GetVarOffset(root->left, ctx)), WHAT_XTEND_REG, WHAT_MEM1, ctx);
+            POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
         }
         else
         {
-            fprintf(ctx->file, "pop %s          \n", Offset2StrReg(GetVarParam(root->left, ctx), 0));
+            POPREG(buf, Offset2EnumReg(GetVarParam(root->left, ctx)), ctx   );
         }
 
         return;

@@ -16,6 +16,10 @@ void CMP_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, Bi
 void ADD_REG_VAL(char ** buf, uint8_t reg,  int val,      enum RegModes mode, BinCtx * ctx);
 void ADD_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
 void SUB_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
+void MOV_REG_VAL(char ** buf, uint8_t reg,  int val,      enum RegModes mode, BinCtx * ctx);
+void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, enum RegModes mem_mode, BinCtx * ctx);
+void MOVABS_XTEND(char ** buf, uint8_t reg, int64_t val, BinCtx * ctx);
+
 void EMIT_JMP(char ** buf, char jmp, char offset);
 void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx);
 void EMIT_PRINT(char ** buf, BinCtx * ctx);

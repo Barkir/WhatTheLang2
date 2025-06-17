@@ -30,6 +30,8 @@ const static char CMP_REG_BYTE          = 0x39;
 const static char MOV_REG_BYTE          = 0x89;
 const static char MOV_MEM_BYTE          = 0x8b;
 
+const static char MOV_REG_VAL_BYTE      = 0xb8;
+
 
 
 #endif
