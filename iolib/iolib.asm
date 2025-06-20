@@ -2,6 +2,9 @@
 %define sys_read 0
 %define sys_write 1
 
+%define num_buf 0x402500
+%define buf     0x402600
+
 %define stdin 0
 %define stdout 1
 
@@ -219,11 +222,11 @@ _IOLIB_STR2DEC:
         ret
 
 
-section .data
+; section .data
 
 
-
-num_buf times   256 db 0
-buf     times   256 db 0
-alphabet db     '0123456789ABCDEF'
-number db 0, "156", 0
+;
+; num_buf times   256 db 0
+; buf     times   256 db 0
+; alphabet db     '0123456789ABCDEF'
+; number db 0, "156", 0

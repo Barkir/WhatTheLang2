@@ -5,6 +5,13 @@ static int IF_COUNT = 0;
 static int WHILE_COUNT = 0;
 static int ADR_COUNT = 0;
 
+
+#define _CREATE_BIN_WHILE                       \
+    ctx->if_cond = 0;                           \
+    ctx->while_cond = 1;                        \
+    _create_bin(buf, tab, root->left, ctx)      \
+
+
 const static char * GLOBAL_FUNC_NAME = "GLOBAL_FUNC";
 
 const enum Registers Offset2EnumReg(int adr);

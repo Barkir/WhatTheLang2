@@ -161,7 +161,7 @@ void CMP_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, Bi
 
 void MOVABS_XTEND(char ** buf, uint8_t reg, int64_t val, BinCtx * ctx)
 {
-    fprintf(ctx->file, "movabs %s, %ld\n", EnumReg2Str(reg, 1));
+    // fprintf(ctx->file, "movabs %s, %ld\n", EnumReg2Str(reg, 1));
     **buf = XTEND_REG_BYTE;
     (*buf)++;
     **buf = MOV_REG_VAL_BYTE + reg;
@@ -195,12 +195,6 @@ void MOV_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx *
 void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, enum RegModes mem_mode, BinCtx * ctx)
 {
 
-    uint8_t rex = 0x40; // Base REX prefix
-
-    // Set REX bits if using extended registers
-    if (mode == WHAT_REG_XTEND || mode == WHAT_XTEND_XTEND) rex |= 0x44; // REX.W + REX.R
-    if (mode == WHAT_XTEND_REG || mode == WHAT_XTEND_XTEND) rex |= 0x41; // REX.W + REX.B
-
     switch(mode)
     {
         case WHAT_REG_REG:
@@ -227,7 +221,7 @@ void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, en
 
                                 if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
                                 else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
-                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
+                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
 
                                 PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 0));
                                 **buf = XTEND_REG_BYTE;
@@ -425,6 +419,16 @@ void EMIT_JMP(char ** buf, char jmp, char offset)
     (*buf)++;
 }
 
+void EMIT_LONG_JMP(char ** buf, int offset)
+{
+
+    PARSER_LOG("OFFSET %x, %d", offset, offset);
+    **buf = 0xe9;
+    (*buf)++;
+    memcpy(*buf, &offset, sizeof(int));
+    (*buf) += sizeof(int);
+}
+
 void EMIT_EXIT(char ** buf)
 {
     **buf = 0xb8;
@@ -445,8 +449,13 @@ void EMIT_PRINT(char ** buf, BinCtx * ctx)
     PARSER_LOG("emitting print...");
 
     POPREG(buf, WHAT_REG_EAX, ctx);
+    **buf = CALL_DIRECT_BYTE;
+    (*buf)++;
     fprintf(ctx->file, "call _IOLIB_OUTPUT   \n");
 
+    int32_t adr = (ctx->buf_ptr + 0x1527) - (*buf + 4);
+    memcpy(*buf, &adr, sizeof(int32_t));
+    (*buf) += sizeof(int32_t);
 
 }
 
@@ -455,6 +464,10 @@ void EMIT_INPUT(char ** buf, BinCtx * ctx)
     PARSER_LOG("emitting input...");
     fprintf(ctx->file, "call _IOLIB_INPUT    \n");
     PUSHREG(buf, WHAT_REG_EAX, ctx);
+
+    int32_t adr = (ctx->buf_ptr + 0x1500) - (*buf + 4);
+    memcpy(*buf, &adr, sizeof(int32_t));
+    (*buf) += sizeof(int32_t);
 }
 
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!
@@ -470,8 +483,7 @@ void CALL_DIRECT(char ** buf, int adr, const char * name, BinCtx * ctx)
     (*buf) += sizeof(int);
 }
 
-
-void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
+void EMIT_COMPARSION_WHILE(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
 {
     char * offset         = NULL;
     const char * cond_jmp = CmpStr (nodeVal);
@@ -480,77 +492,83 @@ void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
     Name locals = {};
     locals.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
 
-    POP_XTEND_REG   (buf,  WHAT_REG_R15, ctx);
-    POP_XTEND_REG   (buf,  WHAT_REG_R14, ctx);
-    PUSH_XTEND_REG  (buf,  WHAT_REG_R14, ctx);
-    PUSH_XTEND_REG  (buf,  WHAT_REG_R15, ctx);
-    CMP_REG_REG     (buf,  WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx);
+    USE_CMP;
+
+    fprintf(ctx->file, "%s SUB_COND%d\n", cond_jmp, ctx->while_count);
+    EMIT_JMP(buf, oper, 0);
+
+    offset = *buf - 1;
+
+    PUSHIMM32(buf, 0, ctx);
+    fprintf(ctx->file, "jmp WHILE_FALSE%d\n", ctx->while_count);
+    EMIT_JMP(buf, JMP_BYTE, 0);
+    sprintf(locals.local_func_name, "WHILE_FALSE%d", ctx->while_count);
+    locals.offset = *buf - 1;
+    HtableLabelInsert(tab, &locals);
+
+    fprintf(ctx->file, "SUB_COND%d:\n", ctx->while_count);
+    *offset = (int8_t)(*buf - (offset + 1));
+
+    PUSHIMM32(buf, 1, ctx);
+
+    fprintf(ctx->file, "jmp WHILE_TRUE%d\n", ctx->while_count);
+    EMIT_JMP(buf, JMP_BYTE, 0);
+
+    sprintf(locals.local_func_name, "WHILE_TRUE%d", ctx->while_count);
+    locals.offset = *buf - 1;
+    HtableLabelInsert(tab, &locals);
+}
+
+void EMIT_COMPARSION_IF(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
+{
+
+    char * offset         = NULL;
+    const char * cond_jmp = CmpStr (nodeVal);
+    char oper             = CmpByte(nodeVal);
+
+    Name locals = {};
+    locals.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
+
+    USE_CMP;
 
     PARSER_LOG("if_count = %d, while_count = %d", ctx->if_count, ctx->while_count);
-    if (ctx->if_cond)
-    {
-        fprintf(ctx->file, "%s SUB_COND%d\n", cond_jmp, ctx->if_count);
-        EMIT_JMP(buf, oper, 0);
-    }
 
-    else if (ctx->while_cond)
-    {
-        fprintf(ctx->file, "%s SUB_COND%d\n", cond_jmp, ctx->while_count);
-        EMIT_JMP(buf, oper, 0);
-    }
+    fprintf(ctx->file, "%s SUB_COND%d\n", cond_jmp, ctx->if_count);
+    EMIT_JMP(buf, oper, 0);
 
     offset = *buf - 1;
 
     PUSHIMM32(buf, 0, ctx);
 
-    if (ctx->if_cond)
-    {
-        fprintf(ctx->file, "jmp IF_END%d\n", ctx->if_count);
-        EMIT_JMP(buf, JMP_BYTE, 0);
+    fprintf(ctx->file, "jmp IF_END%d\n", ctx->if_count);
+    EMIT_JMP(buf, JMP_BYTE, 0);
 
-        sprintf(locals.local_func_name, "IF_END%d", ctx->if_count);
-        locals.offset = *buf - 1;
+    sprintf(locals.local_func_name, "IF_END%d", ctx->if_count);
+    locals.offset = *buf - 1;
 
-        PARSER_LOG("Inserting local label %s with offset %p", locals.local_func_name, locals.offset);
-        HtableLabelInsert(tab, &locals);
+    PARSER_LOG("Inserting local label %s with offset %p", locals.local_func_name, locals.offset);
+    HtableLabelInsert(tab, &locals);
 
-    }
 
-    else if (ctx->while_cond)
-    {
-        fprintf(ctx->file, "jmp WHILE_FALSE%d\n", ctx->while_count);
-        EMIT_JMP(buf, JMP_BYTE, 0);
-
-        sprintf(locals.local_func_name, "WHILE_FALSE%d", ctx->while_count);
-        locals.offset = *buf - 1;
-        HtableLabelInsert(tab, &locals);
-    }
-
-    if          (ctx->if_cond)    fprintf(ctx->file, "SUB_COND%d:\n",    ctx->if_count);
-    else if     (ctx->while_cond) fprintf(ctx->file, "SUB_COND%d:\n", ctx->while_count);
+    fprintf(ctx->file, "SUB_COND%d:\n",    ctx->if_count);
     *offset = (int8_t)(*buf - (offset + 1));
 
     PUSHIMM32(buf, 1, ctx);
 
-    if (ctx->if_cond)
-    {
-        PARSER_LOG("Inserting IF%d", ctx->if_count);
-        fprintf(ctx->file, "jmp IF%d\n", ctx->if_count);
-        EMIT_JMP(buf, JMP_BYTE, 0);
 
-        sprintf(locals.local_func_name, "IF%d", ctx->if_count);
-        locals.offset = *buf - 1;
-        HtableLabelInsert(tab, &locals);
-    }
+    PARSER_LOG("Inserting IF%d", ctx->if_count);
+    fprintf(ctx->file, "jmp IF%d\n", ctx->if_count);
+    EMIT_JMP(buf, JMP_BYTE, 0);
 
-    else if (ctx->while_cond)
-    {
-        fprintf(ctx->file, "jmp WHILE_TRUE%d\n", ctx->while_count);
-        EMIT_JMP(buf, JMP_BYTE, 0);
+    sprintf(locals.local_func_name, "IF%d", ctx->if_count);
+    locals.offset = *buf - 1;
+    HtableLabelInsert(tab, &locals);
+}
 
-        sprintf(locals.local_func_name, "WHILE_TRUE%d", ctx->while_count);
-        locals.offset = *buf - 1;
-        HtableLabelInsert(tab, &locals);
-    }
+
+void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
+{
+    if      (ctx->if_cond)      EMIT_COMPARSION_IF   (buf, tab, nodeVal, ctx);
+    else if (ctx->while_cond)   EMIT_COMPARSION_WHILE(buf, tab, nodeVal, ctx);
 }
 

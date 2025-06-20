@@ -189,7 +189,7 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         }
         else
         {
-            POPREG(buf, Offset2EnumReg(GetVarParam(root->left, ctx)), ctx   );
+            POPREG(buf, Offset2EnumReg(GetVarParam(root->left, ctx)), ctx);
         }
 
         return;
@@ -315,7 +315,8 @@ int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     if (!locals_while.local_func_name) return WHAT_MEMALLOC_ERROR;
 
     fprintf(ctx->file, "WHILE%d:\n", ctx->while_count);
-    char * while_ptr = *buf;
+    const char * while_ptr = *buf;
+    PARSER_LOG("while_ptr = %p", while_ptr);
 
     ctx->if_cond = 0;
     ctx->while_cond = 1;
@@ -355,16 +356,15 @@ int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     _create_bin(buf, tab, root->right, ctx);
 
     fprintf(ctx->file, "jmp WHILE%d\n", local_while);
-    EMIT_JMP(buf, JMP_BYTE, 0);
-    (*buf)--;
-    **buf = (while_ptr - 1) - *buf;
-    (*buf)++;
+    EMIT_LONG_JMP(buf, (int)((while_ptr - 5) - *buf));
 
     fprintf(ctx->file, "WHILE_END%d:\n", local_while);
-    EMIT_JMP(buf, JMP_BYTE, 0);
+
     *while_end_ptr = *buf - (while_end_ptr + 1);
 
     fprintf(ctx->file, ";---------------------------\n\n");
+    PARSER_LOG("%x %x %x %x %x %x [%x] %x %x %x %x", *(while_ptr - 6), *(while_ptr - 5), *(while_ptr - 4), *(while_ptr - 3), *(while_ptr - 2), *(while_ptr - 1) , *while_ptr, *(while_ptr + 1), *(while_ptr + 2), *(while_ptr + 3), *(while_ptr + 4));
+    PARSER_LOG("while_ptr = %p", while_ptr);
 
     return WHAT_SUCCESS;
 }

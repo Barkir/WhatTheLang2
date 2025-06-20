@@ -53,7 +53,7 @@ void GenerateElfHeader(char ** buf)
     header.e_flags                  = 0;
     header.e_ehsize                 = sizeof(Elf64_Ehdr);
     header.e_phentsize              = sizeof(Elf64_Phdr);
-    header.e_phnum                  = 1;                        // program and data section
+    header.e_phnum                  = 2;                        // program and data section
     header.e_shentsize              = 0;
     header.e_shnum                  = 0;
     header.e_shstrndx               = SHN_UNDEF;

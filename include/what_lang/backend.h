@@ -55,6 +55,8 @@ typedef struct _bin_ctx
     int if_count;
     int while_count;
 
+    char * buf_ptr;
+
     const char * func_name;
 
 } BinCtx;

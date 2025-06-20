@@ -26,9 +26,18 @@ void EMIT_PRINT(char ** buf, BinCtx * ctx);
 void EMIT_INPUT(char ** buf, BinCtx * ctx);
 void EMIT_EXIT(char ** buf);
 
+void EMIT_LONG_JMP(char ** buf, int offset);
+
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!
 // В CALL_DIRECT кладем абсолютный адрес
 
 void CALL_DIRECT    (char ** buf, int adr, const char * name, BinCtx * ctx);
+
+#define USE_CMP                                                                 \
+    POP_XTEND_REG   (buf,  WHAT_REG_R15, ctx);                                  \
+    POP_XTEND_REG   (buf,  WHAT_REG_R14, ctx);                                  \
+    PUSH_XTEND_REG  (buf,  WHAT_REG_R14, ctx);                                  \
+    PUSH_XTEND_REG  (buf,  WHAT_REG_R15, ctx);                                  \
+    CMP_REG_REG     (buf,  WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx)   \
 
 #endif
