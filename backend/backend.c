@@ -151,19 +151,24 @@ int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     PARSER_LOG("DEF_ASM...");
     if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
     {
-        char ** func_adr = GetFuncAdrArr(root->left, ctx);
-        for (int i = 0; func_adr[i]; i++)
-        {
-            int adr = *buf - func_adr[i] - 4;
-            PARSER_LOG("adr = %d", adr);
-            memcpy(func_adr[i], &adr, sizeof(int));
-        }
+        const char * func_start = *buf;
 
         EMIT_FUNC_STACK_PUSH(buf, root, ctx);
 
         _create_bin(buf, tab, root->right, ctx);
 
         EMIT_FUNC_STACK_RET(buf, root, ctx);
+
+
+        char ** func_adr = GetFuncAdrArr(root->left, ctx);
+        PARSER_LOG("adr_array = %p", func_adr)
+        int cap          = GetFuncAdrArrCap(root->left, ctx);
+        for (int i = 0; i < cap; i++)
+        {
+            int adr = func_start    - func_adr[i] - 4;
+            PARSER_LOG("adr = %d, i = %d, func_adr[%d] = %p, cap = %d", adr, i, i, func_adr[i], cap);
+            memcpy(func_adr[i], &adr, sizeof(int));
+        }
     }
     if (root->left)  _def_bin(buf, tab, root->left,  ctx);
     if (root->right) _def_bin(buf, tab, root->right, ctx);

@@ -392,10 +392,13 @@ int AddFuncAdr(char ** buf, Node * root, BinCtx * ctx)
     Name * found_func = HtableNameFind(ctx->names, &func);
     for (int i = 0; i < 32; i++)
     {
+        PARSER_LOG("found_func = %p, adr_array = %p", found_func, found_func->adr_array);
         if (!found_func->adr_array[i])
         {
             found_func->adr_array[i] = *buf;
-            PARSER_LOG("adr_array[i] = %p", found_func->adr_array[i]);
+            PARSER_LOG("adr_array[%d] = %p", i, found_func->adr_array[i]);
+            found_func->adr_array_cap++;
+            PARSER_LOG("cap = %d", found_func->adr_array_cap);
             return WHAT_SUCCESS;
         }
     }
@@ -452,6 +455,12 @@ char ** GetFuncAdrArr(Node * root, BinCtx * ctx)
 {
     Name root_name = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     return HtableNameFind(ctx->names, &root_name)->adr_array;
+}
+
+int GetFuncAdrArrCap(Node * root, BinCtx * ctx)
+{
+    Name root_name = {.name = NodeName(root), .type = FUNC_INTER_DEF};
+    return HtableNameFind(ctx->names, &root_name)->adr_array_cap;
 }
 
 int GetVarOffset(Node * root, BinCtx * ctx)

@@ -31,6 +31,7 @@ int GetVarOffset(Node * root, BinCtx * ctx);
 const char * GetVarFuncName(Node * root, BinCtx * ctx);
 char ** GetFuncAdrArr(Node * root, BinCtx * ctx);
 Name ** GetFuncNameArray(Node * root, BinCtx * ctx);
+int GetFuncAdrArrCap(Node * root, BinCtx * ctx);
 
 // Compare functions (used in BinCmpOper, etc.)
 int             isCmpOper   (enum operations oper_enum);

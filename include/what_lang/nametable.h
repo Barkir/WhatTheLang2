@@ -22,6 +22,7 @@ typedef struct _name
     int stack_offset;
 
     char ** adr_array;
+    int adr_array_cap;
 
     struct _name ** name_array;            // Used to contain variables
 
