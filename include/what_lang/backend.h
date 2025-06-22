@@ -49,11 +49,13 @@ enum RegModes
 typedef struct _bin_ctx
 {
     Htable * names;
+    FuncInfo ** calls;
     FILE * file;
     int if_cond;
     int while_cond;
     int if_count;
     int while_count;
+
 
     char * buf_ptr;
 

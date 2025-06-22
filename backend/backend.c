@@ -11,7 +11,7 @@
 #include "what_lang/tree.h"             // Binary Tree Structure
 #include "what_lang/parser.h"           // Included for operations enum (bad)
 #include "what_lang/errors.h"           // Errors and loggers
-#include "what_lang/emit_constants.h"   // Emitters Constants
+#include "what_lang/emit_constants.h"   //  ters Constants
 #include "what_lang/backend.h"          // Backend Header
 #include "what_lang/emitters.h"         // Emitters Functions
 #include "what_lang/backend_utils.h"    // Backend Utils Header
@@ -52,6 +52,7 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     fprintf(fp, "%s", NASM_TOP);
 
     BinCtx ctx = {.file = fp, .names = names, .func_name = GLOBAL_FUNC_NAME, .buf_ptr=buf_ptr};
+
     MOVABS_XTEND(&buf, WHAT_REG_R13, 0x402000, &ctx);
     MOVABS_XTEND(&buf, WHAT_REG_R12, 0x402100, &ctx);
     _create_bin(&buf, &tab, tree->root, &ctx);
@@ -107,60 +108,31 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     else if (NodeType(root) == FUNC_INTER_CALL)
     {
         PARSER_LOG("FUNC INTER_CALL");
-
-        Name func = {.name = NodeName(root), .type=FUNC_INTER_DEF};
-        Name ** param_array = HtableNameFind(ctx->names, &func)->name_array;
+        Name ** param_array = GetFuncNameArray(root, ctx);
 
         int param = 0;
         for (Node * left = root->left; left; left = left->left, param++)
         {
             if (NodeType(left) == NUM)
             {
-                PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
-                PUSHREG(buf, WHAT_REG_EAX, ctx);
-                ADD_REG_VAL(buf, WHAT_REG_R12, param_array[param]->stack_offset * 8, WHAT_XTEND_VAL, ctx);
-                MOV_REG_VAL(buf, WHAT_REG_EAX, (int) NodeValue(left), WHAT_REG_VAL, ctx);
-                MOV_REG_REG(buf, WHAT_REG_R12, WHAT_REG_EAX, WHAT_XTEND_REG, WHAT_MEM1, ctx);
-                POPREG(buf, WHAT_REG_EAX, ctx);
-                POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
-                PUSHIMM32(buf, (int) NodeValue(left), ctx);
+                EMIT_NUM_PARAM(buf, left, param_array, param, ctx);
             }
             else if (NodeType(left) == VAR)
             {
-                if (!strcmp(NodeName(root), ctx->func_name))
-                {
-                    PUSHREG(buf, Offset2EnumReg(param), ctx);
-                }
-                else
-                {
-                    PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
-                    ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(left, ctx) * 8, WHAT_XTEND_VAL, ctx);
-                    MOV_REG_REG(buf, Offset2EnumReg(param), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2, ctx);
-                    POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
-                    PUSHREG(buf, Offset2EnumReg(param), ctx);
-                }
+                if (!strcmp(NodeName(root), ctx->func_name)) PUSHREG(buf, Offset2EnumReg(param), ctx);
+                else                                         EMIT_VAR_PARAM(buf, left, param, ctx);
             }
+
             PARSER_LOG("param = %d %s", param, param_array[param]->name);
             POPREG(buf, Offset2EnumReg(param_array[param]->param), ctx);
         }
-
-        fprintf(ctx->file, "call %s\n", NodeName(root));
+        CALL_DIRECT(buf, root, ctx);
         ctx->func_name = NodeName(root);
     }
     else if (NodeType(root) == VAR)
     {
-        if (!strcmp(GetVarFuncName(root, ctx), GLOBAL_FUNC_NAME))
-        {
-            PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
-            ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(root, ctx) * 8, WHAT_XTEND_VAL, ctx);
-            MOV_REG_REG(buf, Offset2EnumReg(GetVarOffset(root, ctx)), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2, ctx);
-            POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
-            PUSHREG(buf, Offset2EnumReg(GetVarOffset(root, ctx)), ctx);
-        }
-        else
-        {
-            PUSHREG(buf, Offset2EnumReg(GetVarParam(root, ctx)), ctx);
-        }
+        if (!strcmp(GetVarFuncName(root, ctx), GLOBAL_FUNC_NAME)) EMIT_VAR(buf, root, ctx);
+        else PUSHREG(buf, Offset2EnumReg(GetVarParam(root, ctx)), ctx);
     }
     else if (NodeType(root) == OPER)
     {
@@ -190,18 +162,25 @@ int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     PARSER_LOG("DEF_ASM...");
     if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
     {
+        char ** func_adr = GetFuncAdrArr(root->left, ctx);
+        for (int i = 0; func_adr[i]; i++)
+        {
+            int adr = *buf - func_adr[i] - 4;
+            PARSER_LOG("adr = %d", adr);
+            memcpy(func_adr[i], &adr, sizeof(int));
+        }
 
-        fprintf(ctx->file, "%s:\n", NodeName(root->left));
-        fprintf(ctx->file, "%s", RET_PUSH_STR);
+        EMIT_FUNC_STACK_PUSH(buf, root, ctx);
 
         _create_bin(buf, tab, root->right, ctx);
 
-        fprintf(ctx->file, "%s", RET_POP_STR);
+        EMIT_FUNC_STACK_RET(buf, root, ctx);
     }
     if (root->left)  _def_bin(buf, tab, root->left,  ctx);
     if (root->right) _def_bin(buf, tab, root->right, ctx);
     return 1;
 }
+
 
 
 

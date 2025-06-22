@@ -389,6 +389,21 @@ int BinFuncExt(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     return WHAT_SUCCESS;
 }
 
+int AddFuncAdr(char ** buf, Node * root, BinCtx * ctx)
+{
+    Name func = {.name = NodeName(root), .type = FUNC_INTER_DEF};
+    Name * found_func = HtableNameFind(ctx->names, &func);
+    for (int i = 0; i < 32; i++)
+    {
+        if (!found_func->adr_array[i])
+        {
+            found_func->adr_array[i] = *buf;
+            PARSER_LOG("adr_array[i] = %p", found_func->adr_array[i]);
+            return WHAT_SUCCESS;
+        }
+    }
+}
+
 // int BinNumInterCall(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 // {
 //     PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
@@ -484,6 +499,12 @@ const char * GetVarFuncName(Node * root, BinCtx * ctx)
     return HtableNameFind(ctx->names, &root_name)->func_name;
 }
 
+char ** GetFuncAdrArr(Node * root, BinCtx * ctx)
+{
+    Name root_name = {.name = NodeName(root), .type = FUNC_INTER_DEF};
+    return HtableNameFind(ctx->names, &root_name)->adr_array;
+}
+
 int GetVarOffset(Node * root, BinCtx * ctx)
 {
     Name root_name = {.name = NodeName(root), .type = NodeType(root)};
@@ -505,6 +526,12 @@ const char * EnumReg2Str(int reg, int xtnd)
 
     for (int i = 0; i < REG_ARRAY_SIZE; i++)
         if (RegArray[i].reg == reg) return RegArray[i].reg_str;
+}
+
+Name ** GetFuncNameArray(Node * root, BinCtx * ctx)
+{
+    Name func = {.name = NodeName(root), .type=FUNC_INTER_DEF};
+    return HtableNameFind(ctx->names, &func)->name_array;
 }
 
 

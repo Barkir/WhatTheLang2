@@ -28,7 +28,8 @@ const char * GetVarName(Node * root);
 int GetVarParam(Node * root, BinCtx * ctx);
 int GetVarOffset(Node * root, BinCtx * ctx);
 const char * GetVarFuncName(Node * root, BinCtx * ctx);
-
+char ** GetFuncAdrArr(Node * root, BinCtx * ctx);
+Name ** GetFuncNameArray(Node * root, BinCtx * ctx);
 
 // Compare functions (used in BinCmpOper, etc.)
 int             isCmpOper   (enum operations oper_enum);
@@ -42,6 +43,9 @@ void            BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * c
 int             BinWhile    (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
 int             BinIf       (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
 int             BinFuncExt     (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
+
+
+int AddFuncAdr(char ** buf, Node * root, BinCtx * ctx);
 
 static const char *     NASM_TOP =  "%include \"iolib/iolib.asm\"   \n"
                                     "section .text                  \n"

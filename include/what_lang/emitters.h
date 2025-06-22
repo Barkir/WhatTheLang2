@@ -14,6 +14,8 @@ void DIV_XTEND_REG  (char ** buf, uint8_t reg, BinCtx * ctx);
 
 void CMP_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
 void ADD_REG_VAL(char ** buf, uint8_t reg,  int val,      enum RegModes mode, BinCtx * ctx);
+void SUB_REG_VAL(char ** buf, uint8_t reg, int val,       enum RegModes mode, BinCtx * ctx);
+
 void ADD_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
 void SUB_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
 void MOV_REG_VAL(char ** buf, uint8_t reg,  int val,      enum RegModes mode, BinCtx * ctx);
@@ -28,10 +30,18 @@ void EMIT_EXIT(char ** buf);
 
 void EMIT_LONG_JMP(char ** buf, int offset);
 
+
+void EMIT_VAR(char ** buf, Node * root, BinCtx * ctx);
+void EMIT_NUM_PARAM(char ** buf, Node * root, Name ** param_array, int param, BinCtx * ctx);
+void EMIT_VAR_PARAM(char ** buf, Node * root, int param, BinCtx * ctx);
+
+void EMIT_FUNC_STACK_PUSH(char ** buf, Node * root, BinCtx * ctx);
+void EMIT_FUNC_STACK_RET(char ** buf, Node * root, BinCtx * ctx);
+
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!
 // В CALL_DIRECT кладем абсолютный адрес
 
-void CALL_DIRECT    (char ** buf, int adr, const char * name, BinCtx * ctx);
+void CALL_DIRECT    (char ** buf, Node * root, BinCtx * ctx);
 
 #define USE_CMP                                                                 \
     POP_XTEND_REG   (buf,  WHAT_REG_R15, ctx);                                  \

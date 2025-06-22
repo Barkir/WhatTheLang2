@@ -233,6 +233,7 @@ int HtableNameInsert(Htable ** tab, Name * name)
     n->name->type           = name->type;
     n->name->stack_offset   = name->stack_offset;
     n->name->name_array     = name->name_array;
+    n->name->adr_array      = calloc(32, sizeof(char*));
 
     PARSER_LOG("Added new element to bin...");
 

@@ -17,6 +17,16 @@
 #include "what_lang/emitters.h"
 #include "what_lang/errors.h"
 
+void EMIT(char ** buf, const char * binary, const char * command, BinCtx * ctx)
+{
+    fprintf(ctx->file, "%s\n", command);
+    for (int i = 0; i < strlen(binary); i++)
+    {
+        **buf = binary[i];
+        (*buf)++;
+    }
+}
+
 void PUSHIMM32(char ** buf, field_t value, BinCtx * ctx)
 {
     int val = (int) value;
@@ -175,12 +185,12 @@ void MOV_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx *
 {
     switch(mode)
     {
-        case WHAT_REG_VAL:      fprintf(ctx->file, "mov %s, %d\n", EnumReg2Str(reg, 0));
+        case WHAT_REG_VAL:      fprintf(ctx->file, "mov %s, %d\n", EnumReg2Str(reg, 0), val);
                                 **buf = MOV_REG_VAL_BYTE + reg;
                                 (*buf)++;
                                 break;
 
-        case WHAT_XTEND_VAL:    fprintf(ctx->file, "mov %s, %d\n", EnumReg2Str(reg, 1));
+        case WHAT_XTEND_VAL:    fprintf(ctx->file, "mov %s, %d\n", EnumReg2Str(reg, 1), val);
                                 **buf = ADDITIONAL_REG_BYTE;
                                 (*buf)++;
                                 **buf = MOV_REG_VAL_BYTE + reg;
@@ -252,20 +262,23 @@ void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, en
     }
     else if (mem_mode == WHAT_MEM1)
     {
-
         **buf = MOV_REG_BYTE;
         (*buf)++;
 
         uint8_t mod = 0b00000000;
-        if ((reg1 & 7) == 4) {
+        if ((reg1 & 7) == 4 || (reg1 & 7) == 5 || reg1 >= 8)
+        {
+
             uint8_t modrm = mod | ((reg2 & 7) << 3) | 0b100;
             **buf = modrm;
             (*buf)++;
 
-            uint8_t sib = (reg1 & 7) | ((reg1 & 7) << 3);
+            uint8_t sib = (0 << 6) | (4 << 3) | (reg1 & 7);
             **buf = sib;
             (*buf)++;
-        } else {
+        }
+        else
+        {
             uint8_t modrm = mod | ((reg2 & 7) << 3) | (reg1 & 7);
             **buf = modrm;
             (*buf)++;
@@ -320,6 +333,44 @@ void ADD_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx *
     else
     {
         uint8_t modrm = (0xc0) | (0 << 3) | (reg & 7);
+        **buf = ADD_REG_VAL_BYTE;
+        PARSER_LOG("OPCODE %x", fbyte);
+        (*buf)++;
+        **buf = modrm;
+        PARSER_LOG("OPCODE %x", fbyte);
+        (*buf)++;
+    }
+
+    memcpy(*buf, &val, sizeof(int));
+    (*buf) += sizeof(int);
+}
+
+void SUB_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx * ctx)
+{
+
+    if (mode == WHAT_REG_VAL) {PARSER_LOG("SUBTRACTING VALUE %d to reg %d %s", val, reg, EnumReg2Str(reg, 0));}
+    else                      {PARSER_LOG("SUBTRACTING VALUE %d to reg %d %s", val, reg, EnumReg2Str(reg, 1));}
+
+    uint8_t fbyte = (mode == WHAT_REG_VAL) ? OPER_BYTE : XTEND_OPER_BYTE;
+
+    if (fbyte == OPER_BYTE) fprintf(ctx->file, "sub %s, %d\n", EnumReg2Str(reg, 0), val);
+    else                    fprintf(ctx->file, "sub %s, %d\n", EnumReg2Str(reg, 1), val);
+
+    **buf = fbyte;
+    PARSER_LOG("OPCODE %x", **buf);
+    (*buf)++;
+
+
+    if (reg == WHAT_REG_EAX)
+    {
+        **buf = 0x2d;
+        PARSER_LOG("OPCODE %x", fbyte);
+        (*buf)++;
+    }
+
+    else
+    {
+        uint8_t modrm = (0xc0) | (5 << 3) | (reg & 7);
         **buf = ADD_REG_VAL_BYTE;
         PARSER_LOG("OPCODE %x", fbyte);
         (*buf)++;
@@ -473,13 +524,15 @@ void EMIT_INPUT(char ** buf, BinCtx * ctx)
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!
 // В CALL_DIRECT кладем абсолютный адрес
 
-void CALL_DIRECT(char ** buf, int adr, const char * name, BinCtx * ctx)
+void CALL_DIRECT(char ** buf, Node * root, BinCtx * ctx)
 {
-    PARSER_LOG("DIRECT_CALL of function with name %s...", name);
-    fprintf(ctx->file, "call %s\n", name);
+    PARSER_LOG("DIRECT_CALL of function with name %s...", NodeName(root));
+    fprintf(ctx->file, "call %s\n", NodeName(root));
     **buf = CALL_DIRECT_BYTE;
     (*buf)++;
-    memcpy(*buf, ((*buf)-adr), sizeof(int));
+
+    AddFuncAdr(buf, root, ctx);
+
     (*buf) += sizeof(int);
 }
 
@@ -565,10 +618,69 @@ void EMIT_COMPARSION_IF(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
     HtableLabelInsert(tab, &locals);
 }
 
+void EMIT_VAR(char ** buf, Node * root, BinCtx * ctx)
+{
+    PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
+    ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(root, ctx) * 8, WHAT_XTEND_VAL, ctx);
+    MOV_REG_REG(buf, Offset2EnumReg(GetVarOffset(root, ctx)), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2, ctx);
+    POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
+    PUSHREG(buf, Offset2EnumReg(GetVarOffset(root, ctx)), ctx);
+}
+
+void EMIT_NUM_PARAM(char ** buf, Node * root, Name ** param_array, int param, BinCtx * ctx)
+{
+    PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
+    PUSHREG(buf, WHAT_REG_EAX, ctx);
+    ADD_REG_VAL(buf, WHAT_REG_R12, param_array[param]->stack_offset * 8, WHAT_XTEND_VAL, ctx);
+    MOV_REG_VAL(buf, WHAT_REG_EAX, (int) NodeValue(root), WHAT_REG_VAL, ctx);
+    MOV_REG_REG(buf, WHAT_REG_R12, WHAT_REG_EAX, WHAT_XTEND_REG, WHAT_MEM1, ctx);
+    POPREG(buf, WHAT_REG_EAX, ctx);
+    POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
+    PUSHIMM32(buf, (int) NodeValue(root), ctx);
+}
+
+void EMIT_VAR_PARAM(char ** buf, Node * root, int param, BinCtx * ctx)
+{
+    PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
+    ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(root, ctx) * 8, WHAT_XTEND_VAL, ctx);
+    MOV_REG_REG(buf, Offset2EnumReg(param), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2, ctx);
+    POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
+    PUSHREG(buf, Offset2EnumReg(param), ctx);
+}
 
 void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
 {
     if      (ctx->if_cond)      EMIT_COMPARSION_IF   (buf, tab, nodeVal, ctx);
     else if (ctx->while_cond)   EMIT_COMPARSION_WHILE(buf, tab, nodeVal, ctx);
+}
+
+void EMIT_RET(char ** buf, BinCtx * ctx)
+{
+    fprintf(ctx->file, "ret\n");
+    **buf = 0xc3;
+    (*buf)++;
+}
+
+void EMIT_FUNC_STACK_PUSH(char ** buf, Node * root, BinCtx * ctx)
+{
+    fprintf(ctx->file, "%s:\n", NodeName(root->left));
+
+    EMIT(buf, "\x41\x5e", "pop r14", ctx);
+    EMIT(buf, "\x4d\x89\x75\0", "mov [r13], r14", ctx);
+    (*buf)++;
+    EMIT(buf, "\x49\x83\xc5\x08", "add r13, 8", ctx);
+
+}
+
+
+void EMIT_FUNC_STACK_RET(char ** buf, Node * root, BinCtx * ctx)
+{
+
+    EMIT(buf, "\x49\x83\xed\x08", "sub r13, 8", ctx);
+    EMIT(buf, "\x4d\x8b\x75\0", "mov r14, [r13]", ctx);
+    (*buf)++;
+    EMIT(buf, "\x41\x56", "push r14", ctx);
+    EMIT(buf, "\xc3", "ret", ctx);
+
 }
 

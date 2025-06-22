@@ -21,10 +21,18 @@ typedef struct _name
 
     int stack_offset;
 
+    char ** adr_array;
 
     struct _name ** name_array;            // Used to contain variables
 
 } Name;
+
+typedef struct FuncInfo {
+    const char *func_name;   // Имя функции (ноды)
+    char **offsets;          // Массив адресов (смещений в буфере)
+    size_t offsets_count;     // Количество элементов в offsets
+    size_t offsets_capacity; // Выделенная память под offsets
+} FuncInfo;
 
 int InsertName(Name * names, Name name);
 int EqualNames(Name name1, Name name2);

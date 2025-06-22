@@ -1,11 +1,16 @@
-a = 6;
+b = 5;
 p = 1;
-if (a > 1)
+factorial(b);
+
+def factorial(a)
 {
-    p = p * a;
-    a = a - 1;
+    while (a > 1)
+    {
+        p = p * a;
+        a = a - 1;
+        print(p);
+    }
 
+    print(p);
 }
-
-print(p);
 
