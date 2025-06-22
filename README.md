@@ -5,65 +5,87 @@ AUTHOR: BARKIR
 MIPT DREC 2025
 ```
 
-## Preamble
-- [Syntax](#used)
-- [// TODO](#to-do)
-- [Binary Translator](#im-back-bches)
-
-## Used
-- [My Assembler](https://github.com/Barkir/SPU-Processor)
-
-## Syntax and how to use
-
 Clone repo using this command
 ```
 git clone https://github.com/Barkir/WhatTheLang2
 ```
 
-- Language has math operations (+, -, >, < etc.), conditioins (if, while).
-- Also you can create functions with param (code example in toRun folder)
-- Create variables
-  ```
-  a = 20;
-  b = 30;
-  ```
-  - Use conditions or while
-    ```
-    if (a == 20)
-    {
-      print(a + 30);
-      a = 700;
-    }
+# Preamble
+- [Syntax](#syntax)
+- [Name Table](#nametable-structure)
+- [Binary Translator](#binary-translation-backend)
+- [Measurements](#measurements)
+- [References](#references)
 
-    while (b < 20)
-    {
-      print(b);
-      b = b - 1;
-    }
-    ```
+# Language Syntax
 
 
-- This is how you can create functions
+| **Feature**       | **Syntax Example**                  |
+|-------------------|-------------------------------------|
+| **Variables**     | `a = 20; b = 30;`                   |
+| **Math Operations** | `a + b`, `a - b`, `a > b`, `a < b`|
+| **Conditions**    | `if (a == 20) { ... }`              |
+| **Loops**        | `while (b < 20) { ... }`             |
+| **Functions**     | `def func(a, b) { ... }`            |
+
+---
+
+### some examples
+
+#### **if-Statement**
 ```
-def function(a, b, c)
-{
-// your code here
+if (a == 20) {
+  print(a);
+  a = 700;
 }
 ```
 
-## To do
-- [] iolib linking
-- [] debug calls
+#### **while-Loop**
+```
+while (b < 20) {
+  print(b);
+  b = b - 1;
+}
+```
+
+---
+
+### Function Declaration
+```
+def function(a, b, c) {
+  // Function body
+}
+```
+- use keyword `def`.
+- pass parameters in parentheses.
+
+---
+
+# NameTable Structure
+
+`CreateNameTable` function creates a nametable (haha funny).
+
+| Variable       | External Function                                                                                                                | Internal Function Definition                                                          | Internal Function Call   |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------ |
+| Variable Type | External function (**print**, **input**) | Internal function declaration which starts with keyword _def_. | Internal function call |
+|                | print, input                                                                                                                     | def factorial(a)                                                                      | factorial(10)            |
 
 
-## Source
-Spasibo dedu za Huawei
-efefeefe
+### Variable
 
-# IM BACK B%%CHES
+Translator passes through AST and inserts a variable into nametable
+
+| Variable Name | Variable function name  | Register            |
+| -------------- | ------------------- | ------------------ |
+|a, b, c   | factorial, main | rax, rbx, rcx |
 
 
-# Binary Translator
+### External function
+There are 2 external functions in my language. All of them are called from standard language library (__iolib.asm__)
+
+---
+
+# Binary Translation (backend)
 - Now let's do some real stuff (elff)
 
 Let's see what we have now.
@@ -83,13 +105,13 @@ Our compiler should do the same.
 
 ## Writing libraries
 Starting with our own **IO library** written in **NASM64**.
-We need to write to calls - **input** and **output**
+There are two functions we will write - **input** and **output**
 They're similar to the ones we use in [purintf](https://github.com/Barkir/Purintf). Although WhatTheLang uses float numbers, let's write all the calls for *integers* at first. It is just easier and faster at this stage.
 
 ## ELF-file structure
 Simple elf-file consists of:
 1. Header
-2. Binary code
+2. Data
 
 To read elf-file we can use ```readelf```
 
@@ -115,21 +137,9 @@ Next byte is for version number and it is always ```01```
 You can learn more about elf-file header structure [here](https://mcuoneclipse.com/2018/01/27/converting-a-raw-binary-file-into-an-elf-dwarf-file-for-loading-and-debugging/) or just see the [code](/backend/nasm2elf.c)
 
 
-## OPCODES
+## Opcodes
 
 All the opcodes of binary instructions I use are available [here](/include/what_lang/emit_constants.h)
-
-#### MOV
-
-In my translation I use 3 types of mov's
-1. mov reg, number
-2. mov reg, reg
-3. mov [reg], reg
-4. mov reg, [reg]
-
-| Operation | Opcode |
-|-----------|--------|
-| ```mov reg, val``` | ```{B8+reg_code}{val}```
 
 
 ##### REGISTER SEQUENCE CODE TABLE
@@ -162,9 +172,9 @@ When we use mov in value-mode with r11, r12, r13, r14, r15 we add 41 as prefix
 
 | Type | Opcode |
 |------|--------|
-| register | 0x50 |
-| imm32 | 0x68 |
-| imm8  | 0x6a |
+| `register` | `0x50` |
+| `imm32` | `0x68` |
+| `imm8`  | `0x6a` |
 
 Imm32 push will be used for values. It is a 5-byte operation (1 byte for opcode and 4 bytes for imm32 value)
 
@@ -211,7 +221,7 @@ uint8_t modrm = (0xc0) | (0 << 3) | (reg & 7);
 ```
 You can see the whole code of this function [here](/backend/emitters.c) (same logic for cmp and sub)
 
-#### JUUUUMPS
+#### JUMPS
 For translating jumps I use local variables and hash table to count the offset
 
 The algorithm how to calculate offset:
@@ -234,7 +244,7 @@ This is how our elf file looks like in r2
 The translation algorithm is not well-optimized because of stack architecture we used in our VM implementation.
 
 
-## Measurements
+# Measurements
 Let's count the boost percent relative to VM mode.
 Using ```hyperfine``` utility to do it.
 
@@ -244,6 +254,24 @@ Using ```hyperfine``` utility to do it.
 |------------------|-------------------|
 |  215.8 ms ±  49.0 ms    [User: 214.3 ms, System: 1.3 ms] | 201.2 ms … 423.4 ms |
   517.2 µs ± 197.6 µs    [User: 292.1 µs, System: 403.3 µs] | 40.2 µs … 851.7 µs |
+
+Boost is about **300-500x**.
+
+
+## References
+
+### Here's my previous projects I used here
+- [SPU](https://github.com/Barkir/SPU-Processor)
+- [HashTable](https://github.com/Barkir/HashTable)
+
+### Elf-files
+- [Elf-file generation (1)](https://habr.com/ru/articles/543622/)
+- [Elf-file generation (2)](https://habr.com/ru/articles/480642/)
+- [Elf-file structure](https://mcuoneclipse.com/2018/01/27/converting-a-raw-binary-file-into-an-elf-dwarf-file-for-loading-and-debugging/)
+
+
+## P.S.
+SPASIBO DEDU ZA KURS
 
 
 

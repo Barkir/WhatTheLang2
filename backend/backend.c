@@ -165,7 +165,7 @@ int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         int cap          = GetFuncAdrArrCap(root->left, ctx);
         for (int i = 0; i < cap; i++)
         {
-            int adr = func_start    - func_adr[i] - 4;
+            int adr = func_start - func_adr[i] - 4;
             PARSER_LOG("adr = %d, i = %d, func_adr[%d] = %p, cap = %d", adr, i, i, func_adr[i], cap);
             memcpy(func_adr[i], &adr, sizeof(int));
         }
