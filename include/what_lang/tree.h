@@ -48,7 +48,6 @@ typedef struct _tree
 
 } Tree;
 
-static int tree_create_node (Tree * t, Node ** node, const void * pair);
 int _tree_parse             (Tree* tree, Node ** node, const char ** string);
 Tree * _tree_dump_func      (Tree * tree, Node ** node, FILE * Out);
 Node * _insert_tree         (Tree * t, Node ** root, const void * pair);

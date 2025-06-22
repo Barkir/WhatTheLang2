@@ -26,10 +26,12 @@ void EMIT_JMP(char ** buf, char jmp, char offset);
 void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx);
 void EMIT_PRINT(char ** buf, BinCtx * ctx);
 void EMIT_INPUT(char ** buf, BinCtx * ctx);
-void EMIT_EXIT(char ** buf);
 
 void EMIT_LONG_JMP(char ** buf, int offset);
 
+
+void EMIT_NASM_TOP(char ** buf, BinCtx * ctx);
+void EMIT_NASM_BTM(char ** buf, BinCtx * ctx);
 
 void EMIT_VAR(char ** buf, Node * root, BinCtx * ctx);
 void EMIT_NUM_PARAM(char ** buf, Node * root, Name ** param_array, int param, BinCtx * ctx);

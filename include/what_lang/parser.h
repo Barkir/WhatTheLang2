@@ -3,7 +3,8 @@
 
 #include "what_lang/tree.h"
 
-static int DEF_SIZE = 1024;
+const static int DEF_SIZE =     1024;
+const static int BUF_DEF_SIZE = 1024 * 12;
 
 enum colors
 {

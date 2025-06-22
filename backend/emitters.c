@@ -480,20 +480,21 @@ void EMIT_LONG_JMP(char ** buf, int offset)
     (*buf) += sizeof(int);
 }
 
-void EMIT_EXIT(char ** buf)
+void EMIT_NASM_BTM(char ** buf, BinCtx * ctx)
 {
-    **buf = 0xb8;
-    (*buf)++;
-    **buf = 0x3c;
-    (*buf) += sizeof(int);
-    **buf = 0x0f;
-    (*buf)++;
-    **buf = 0x05;
-    (*buf)++;
+
+    MOV_REG_VAL(buf, WHAT_REG_EAX, 0x3c, WHAT_REG_VAL, ctx);
+    EMIT(buf, "\x0f\x05", "syscall", ctx);
+    fprintf(ctx->file, "%s", NASM_BTM);
 }
 
-// Emit (ctx, "\xb8\x3c", "mov rax, 0x%02x", 0x3c);
-// Emit (ctx, "\x0f\x05", "syscall");
+void EMIT_NASM_TOP(char ** buf, BinCtx * ctx)
+{
+    fprintf(ctx->file, "%s", NASM_TOP);
+    MOVABS_XTEND(buf, WHAT_REG_R13, 0x402000, ctx);
+    MOVABS_XTEND(buf, WHAT_REG_R12, 0x402100, ctx);
+}
+
 
 void EMIT_PRINT(char ** buf, BinCtx * ctx)
 {
@@ -514,11 +515,15 @@ void EMIT_INPUT(char ** buf, BinCtx * ctx)
 {
     PARSER_LOG("emitting input...");
     fprintf(ctx->file, "call _IOLIB_INPUT    \n");
-    PUSHREG(buf, WHAT_REG_EAX, ctx);
-
+    **buf = CALL_DIRECT_BYTE;
+    (*buf)++;
     int32_t adr = (ctx->buf_ptr + 0x1500) - (*buf + 4);
     memcpy(*buf, &adr, sizeof(int32_t));
     (*buf) += sizeof(int32_t);
+
+    PUSHREG(buf, WHAT_REG_EAX, ctx);
+
+
 }
 
 // ACHTUNG!!! WARNING!!! ACHTUNG!!!

@@ -19,8 +19,6 @@
 #include "what_lang/errors.h"
 #include "what_lang/hashtable_errors.h"
 
-const int DEFAULT_REG_NUMBER = 5;
-
 int NameArrayAddElem(Name * name, Name * elem)
 {
     PARSER_LOG("Adding param to function with name %s", name->name);
@@ -194,7 +192,6 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
         return;
     }
-
 
     _create_bin(buf, tab, root->left,  ctx);
     _create_bin(buf, tab, root->right, ctx);
@@ -402,62 +399,9 @@ int AddFuncAdr(char ** buf, Node * root, BinCtx * ctx)
             return WHAT_SUCCESS;
         }
     }
+
+    return WHAT_NOTFOUND_ERROR;
 }
-
-// int BinNumInterCall(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
-// {
-//     PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
-//     PUSHREG(buf, WHAT_REG_EAX, ctx);
-//     ADD_REG_VAL(buf, WHAT_REG_R12, param_array[param]->stack_offset, WHAT_XTEND_VAL, ctx);
-//     fprintf(ctx->file, "mov rax, %d         \n", (int) NodeValue(left));
-//     fprintf(ctx->file, "mov [r12], rax      \n");
-//     fprintf(ctx->file, "pop rax             \n");
-//     fprintf(ctx->file, "pop r12             \n");
-//     PUSHIMM32(buf, (int) NodeValue(left), ctx);
-// }
-
-// int BinFuncInterCall(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
-// {
-//
-//         PARSER_LOG("FUNC INTER_CALL");
-//
-//         Name func = {.name = NodeName(root), .type=FUNC_INTER_DEF};
-//         Name ** param_array = HtableNameFind(ctx->names, &func)->name_array;
-//
-//         int param = 0;
-//         for (Node * left = root->left; left; left = left->left, param++)
-//         {
-//             if (NodeType(left) == NUM)
-//             {
-//                 fprintf(ctx->file, "push r12            \n");
-//                 fprintf(ctx->file, "push rax            \n");
-//                 fprintf(ctx->file, "add r12, %d * 8     \n", param_array[param]->stack_offset);
-//                 fprintf(ctx->file, "mov rax, %d         \n", (int) NodeValue(left));
-//                 fprintf(ctx->file, "mov [r12], rax      \n");
-//                 fprintf(ctx->file, "pop rax             \n");
-//                 fprintf(ctx->file, "pop r12             \n");
-//                 PUSHIMM32(buf, (int) NodeValue(left), ctx);
-//             }
-//             else if (NodeType(left) == VAR)
-//             {
-//                 if (!strcmp(NodeName(root), ctx->func_name)) fprintf(ctx->file, "push %s \n", Offset2StrReg(param, 0));
-//                 else
-//                 {
-//                     fprintf(ctx->file, "push r12            \n");
-//                     fprintf(ctx->file, "add r12, %d * 8     \n", GetVarOffset(left, ctx));
-//                     fprintf(ctx->file, "mov %s, [r12]       \n", Offset2StrReg(param, 0));
-//                     fprintf(ctx->file, "pop r12             \n");
-//                     fprintf(ctx->file, "push %s             \n", Offset2StrReg(param, 0));
-//                 }
-//             }
-//             PARSER_LOG("param = %d %s", param, param_array[param]->name);
-//             fprintf(ctx->file, "pop %s\n", Offset2StrReg(param_array[param]->param, 0));
-//         }
-//
-//         fprintf(ctx->file, "call %s\n", NodeName(root));
-//         ctx->func_name = NodeName(root);
-// }
-
 
 const char * Offset2StrReg(int adr, int xtnd)
 {
@@ -478,6 +422,8 @@ const char * Offset2StrReg(int adr, int xtnd)
             case 3:     return "rsi";
             case 4:     return "rdi";
     }
+
+    return NULL;
 }
 
 const enum Registers Offset2EnumReg(int adr)
@@ -489,7 +435,10 @@ const enum Registers Offset2EnumReg(int adr)
         case 2:     return WHAT_REG_EDX;
         case 3:     return WHAT_REG_ESI;
         case 4:     return WHAT_REG_EDI;
+        default:    return WHAT_REG_UNK;
     }
+
+    return WHAT_REG_UNK;
 
 }
 
@@ -526,6 +475,8 @@ const char * EnumReg2Str(int reg, int xtnd)
 
     for (int i = 0; i < REG_ARRAY_SIZE; i++)
         if (RegArray[i].reg == reg) return RegArray[i].reg_str;
+
+    return NULL;
 }
 
 Name ** GetFuncNameArray(Node * root, BinCtx * ctx)

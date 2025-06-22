@@ -37,7 +37,7 @@ int HtableOptInsert(Htable * tab, const char * string);
 
 int HtableDestroy(Htable * tab);
 
-int HtableDump(Htable * tab);
+int HtableDump(Htable * tab, const char * filename);
 float HashLoadFactor(Htable * tab);
 
 static inline int strcmp_asm(const char * el1, const char * el2)

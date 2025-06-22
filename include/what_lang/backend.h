@@ -11,6 +11,7 @@ enum Registers
     WHAT_REG_EBP = 0x05,
     WHAT_REG_ESI = 0x06,
     WHAT_REG_EDI = 0x07,
+    WHAT_REG_UNK = -1
 };
 
 enum AdditionalRegisters
@@ -56,15 +57,19 @@ typedef struct _bin_ctx
     int if_count;
     int while_count;
 
-
     char * buf_ptr;
 
     const char * func_name;
 
 } BinCtx;
 
-const static size_t LABEL_SIZE = 32;
+const static size_t LABEL_SIZE      = 32;
 const static size_t ELF_HEADER_SIZE = 64;
+const static size_t IOLIB_OFFSET      = 0x1500;
+
+const static char * TREEDUMP_FNAME =      "dumpshit/dump";
+const static char * HTABLE_NAMES_FNAME  = "dumpshit/htab_log_names.dmp" ;
+const static char * HTABLE_LOCALS_FNAME = "dumpshit/htab_log_locals.dmp";
 
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode);
 

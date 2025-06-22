@@ -35,53 +35,45 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
     }
 
     Htable * names = CreateNameTable(tree->root);
-    HtableDump(names);
     PARSER_LOG("Created NameTable");
-    TreeDump(tree, "dump");
 
-    char * buf = (char*) calloc(DEF_SIZE * 12, 1);
+    char * buf = (char*) calloc(BUF_DEF_SIZE, 1);
     if (!buf) return WHAT_MEMALLOC_ERROR;
     char * buf_ptr = buf;
-    PARSER_LOG("buf_ptr = %p");
 
     GenerateElfHeader(&buf);
 
     Htable * tab = NULL;
     HtableInit(&tab, HTABLE_BINS);
 
-    fprintf(fp, "%s", NASM_TOP);
+    BinCtx ctx =
+    {
+        .file = fp,
+        .names = names,
+        .func_name = GLOBAL_FUNC_NAME,
+        .buf_ptr=buf_ptr
+    };
 
-    BinCtx ctx = {.file = fp, .names = names, .func_name = GLOBAL_FUNC_NAME, .buf_ptr=buf_ptr};
-
-    MOVABS_XTEND(&buf, WHAT_REG_R13, 0x402000, &ctx);
-    MOVABS_XTEND(&buf, WHAT_REG_R12, 0x402100, &ctx);
+    EMIT_NASM_TOP(&buf, &ctx);
     _create_bin(&buf, &tab, tree->root, &ctx);
-    fprintf(fp, "%s", NASM_BTM);
-    EMIT_EXIT(&buf);
+    EMIT_NASM_BTM(&buf, &ctx);
+
+    _def_bin(&buf, &tab, tree->root, &ctx);
 
     FILE * RAW_IOLIB = fopen("iolib/iolib.o", "rb");
     size_t sz = FileSize(RAW_IOLIB);
-    PARSER_LOG("sz = %ld", sz);
+    fread(buf_ptr + IOLIB_OFFSET, sizeof(char), sz, RAW_IOLIB);
 
-
-
-
-    PARSER_LOG("Bin created, in buf %10s", buf_ptr);
+    if (fwrite(buf_ptr, sizeof(char), BUF_DEF_SIZE, bin) != BUF_DEF_SIZE)
+        return WHAT_FILEWRITE_ERROR;
 
     if (mode == WHAT_DEBUG_MODE)
     {
-        HtableDump(tab);
+        TreeDump  (tree,  TREEDUMP_FNAME);
+        HtableDump(tab,   HTABLE_LOCALS_FNAME);
+        HtableDump(names, HTABLE_NAMES_FNAME);
     }
 
-
-    _def_bin(&buf, &tab, tree->root, &ctx);
-    HtableDump(names);
-
-    fread(buf_ptr + 0x1500, sizeof(char), sz, RAW_IOLIB);
-
-    PARSER_LOG("Writing buf to file");
-    size_t err_chk = 0;
-    assert((err_chk = fwrite(buf_ptr, sizeof(char), DEF_SIZE * 12, bin)) == DEF_SIZE * 12);
     free(buf_ptr);
     free(names);
     fclose(fp);
@@ -104,7 +96,6 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         PARSER_LOG("PUSHING IMM32");
         PUSHIMM32(buf, (int) NodeValue(root), ctx);
     }
-
     else if (NodeType(root) == FUNC_INTER_CALL)
     {
         PARSER_LOG("FUNC INTER_CALL");
@@ -137,8 +128,6 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     else if (NodeType(root) == OPER)
     {
         PARSER_LOG("PROCESSING OPER");
-        int local_if = 0;
-        int local_while = 0;
 
         int nodeVal = (int) NodeValue(root);
 

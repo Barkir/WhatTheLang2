@@ -4,6 +4,7 @@
 static int IF_COUNT = 0;
 static int WHILE_COUNT = 0;
 static int ADR_COUNT = 0;
+const static int DEFAULT_REG_NUMBER = 5;
 
 
 #define _CREATE_BIN_WHILE                       \
@@ -54,9 +55,7 @@ static const char *     NASM_TOP =  "%include \"iolib/iolib.asm\"   \n"
                                     "mov r13, stack4calls           \n"
                                     "mov r12, array4var             \n";
 
-static const char *     NASM_BTM =  "mov rax, 60                    \n"
-                                    "syscall                        \n"
-                                    "section .data                  \n"
+static const char *     NASM_BTM = "section .data                  \n"
                                     "stack4calls times 128 * 8 db 0 \n"
                                     "array4var   times 16 * 4  db 0 \n"
                                     "section .text                  \n";
@@ -92,7 +91,7 @@ typedef struct _what_reg
 typedef struct _nametable_ctx
 {
     Htable ** tab;
-    char * func_name;
+    const char * func_name;
     int stack_offset;
 
 } NameTableCtx;

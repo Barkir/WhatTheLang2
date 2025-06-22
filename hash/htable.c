@@ -261,9 +261,9 @@ int HtableNameInsert(Htable ** tab, Name * name)
 //     return HTABLE_NOT_FOUND;
 // }
 
-int HtableDump(Htable * tab)
+int HtableDump(Htable * tab, const char * filename)
 {
-    FILE * file = fopen("log.dmp", "w+");
+    FILE * file = fopen(filename, "w+");
     if (!file) return  HTABLE_FILE_OPEN_ERROR;
     fprintf(file, "<<<LOG FILE OF HASH TABLE>>>\n");
 

@@ -59,27 +59,4 @@ struct elf_hdr
     char e_shstrndx[2];
 };
 
-// TODO: elf.h constants
-
-static struct elf_hdr Header =
-{
-    .e_ident        =   {   0x7f, 'E', 'L', 'F',
-                            0x02, 0x01, 0x01, 0x00,
-                            0x00, 0x00, 0x00, 0x00,
-                            0x00, 0x00, 0x00, 0x00      },
-    .e_type         =   {   0x02, 0x00                  },
-    .e_machine      =   {   0x3e, 0x00                  },
-    .e_version      =   {   0x01, 0x00, 0x00, 0x00      },
-    .e_entry        =   {   0x00, 0x10, 0x40, 0x00      },
-    .e_phoff        =   {   0x34, 0x00, 0x00, 0x00      },
-    .e_shoff        =   {   0x00, 0x00, 0x00, 0x00      },
-    .e_flags        =   {   0x00, 0x00, 0x00, 0x00      },
-    .e_ehsize       =   {   0x34, 0x00                  },
-    .e_phnum        =   {   0x02, 0x00                  },
-    .e_shentsize    =   {   0x00, 0x00                  },
-    .e_shnum        =   {   0x00, 0x00                  },
-    .e_shstrndx     =   {   0x00, 0x00                  }
-
-};
-
 #endif
