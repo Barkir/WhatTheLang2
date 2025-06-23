@@ -1,4 +1,4 @@
-# WhatTheLang (basically just python copy)
+# WhatTheLang (AOT-compiler with python-alike syntax)
 ```
 AUTHOR: BARKIR
 
@@ -12,6 +12,7 @@ git clone https://github.com/Barkir/WhatTheLang2
 
 # Preamble
 - [Syntax](#syntax)
+- [Frontend]()
 - [Name Table](#nametable-structure)
 - [Binary Translator](#binary-translation-backend)
 - [Measurements](#measurements)
@@ -60,6 +61,19 @@ def function(a, b, c) {
 - pass parameters in parentheses.
 
 ---
+
+# Frontend
+Compiler's frontend part can be associated with this chain.
+
+**text** -> **tokenizer** -> **parser** -> **AST**
+
+I use _recursive descent_ parser in compiler.  You can read more about it [here](https://en.wikipedia.org/wiki/Recursive_descent_parser).
+
+<<[parser code](./frontend/parser.c)>>, <<[tokenizer code](./frontend/tokenizer.c)>>
+
+Parser turns tokens into [AST-Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree).
+
+<<[tree structure code](./frontend/tree.c)>>
 
 # NameTable Structure
 
@@ -263,6 +277,10 @@ Boost is about **300-500x**.
 ### Here's my previous projects I used here
 - [SPU](https://github.com/Barkir/SPU-Processor)
 - [HashTable](https://github.com/Barkir/HashTable)
+
+### Parsing
+- [Recursive descent parser wiki](https://en.wikipedia.org/wiki/Recursive_descent_parser)
+- [AST-Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
 
 ### Elf-files
 - [Elf-file generation (1)](https://habr.com/ru/articles/543622/)
