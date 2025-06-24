@@ -32,3 +32,9 @@ extern const char *         HTABLE_NAMES_FNAME;
 extern const char *         HTABLE_LOCALS_FNAME;
 
 // -----------------------------------------------------------
+
+extern const int            PRINT_OFFSET;
+extern const int            INPUT_OFFSET;
+
+// -----------------------------------------------------------
+

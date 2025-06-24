@@ -14,198 +14,174 @@
 #include "what_lang/emitters.h"
 #include "what_lang/errors.h"
 
-#define EMIT(buf, binary, command, ctx)                 \
-    DO_EMIT((buf), (binary), (sizeof(binary) - 1), (command), (ctx))
+#define EMIT(ctx, binary, command)                                  \
+    DoEmit((ctx), (binary), (sizeof(binary) - 1), (command))
 
 
-void DO_EMIT(char ** buf, const char * binary, size_t buf_len, const char * command, BinCtx * ctx)
+void DoEmit(BinCtx * ctx, const char * binary, size_t buf_len, const char * command)
 {
     fprintf(ctx->file, "%s\n", command);
     for (int i = 0; i < buf_len; i++)
-    {
-        **buf = binary[i];
-        (*buf)++;
-    }
+        EmitByte(ctx, binary[i]);
 }
 
-void PUSHIMM32(char ** buf, field_t value, BinCtx * ctx)
+void EmitInt64(BinCtx * ctx, int64_t val)
+{
+    memcpy(ctx->buf, &val, sizeof(int64_t));
+    ctx->buf += sizeof(int64_t);
+}
+
+void EmitInt32(BinCtx * ctx, int val)
+{
+    memcpy(ctx->buf, &val, sizeof(int));
+    ctx->buf += sizeof(int);
+}
+
+void EmitByte(BinCtx * ctx, char byte)
+{
+    *(ctx->buf) = byte;
+    ctx->buf++;
+}
+
+void EmitPushImm32(BinCtx * ctx, field_t value)
 {
     int val = (int) value;
     fprintf(ctx->file, "push %d\n", val);
-    PARSER_LOG("PUSHING VALUE %d", val);
-    **buf = PUSHIMM32_BYTE;
-    PARSER_LOG("OPCODE %x", **buf);
-    (*buf)++;
-    memcpy(*buf, &val, sizeof(int));
-    (*buf) += sizeof(int);
+    EmitByte(ctx, PUSHIMM32_BYTE);
+    EmitInt32(ctx, val);
 }
 
-void PUSHREG(char ** buf, uint8_t reg, BinCtx * ctx)
+void EmitPushReg(BinCtx * ctx, uint8_t reg)
 {
     PARSER_LOG("PUSHING REG %d %s", reg, EnumReg2Str(reg, 0));
     fprintf(ctx->file, "push %s\n", EnumReg2Str(reg, 0));
-    **buf = PUSHREG_BYTE + reg;
-    PARSER_LOG("OPCODE %x + %x = %x", PUSHREG_BYTE, reg, **buf);
-    (*buf)++;
+    EmitByte(ctx, PUSHREG_BYTE + reg);
 }
 
-void PUSH_XTEND_REG(char ** buf, uint8_t reg, BinCtx * ctx)
+void EmitPushXtendReg(BinCtx * ctx, uint8_t reg)
 {
     PARSER_LOG("PUSHING REG %d %s", reg, EnumReg2Str(reg, 1));
     fprintf(ctx->file, "push %s\n", EnumReg2Str(reg, 1));
-    **buf = ADDITIONAL_REG_BYTE;
-    PARSER_LOG("OPCODE %x", **buf);
-    (*buf)++;
-    **buf = PUSHREG_BYTE + reg;
-    PARSER_LOG("OPCODE %x + %x = %x", PUSHREG_BYTE, reg, **buf);
-    (*buf)++;
+    EmitByte(ctx, ADDITIONAL_REG_BYTE);
+    EmitByte(ctx, PUSHREG_BYTE + reg);
 }
 
-void POPREG(char ** buf, uint8_t reg, BinCtx * ctx)
+void EmitPopReg(BinCtx * ctx, uint8_t reg)
 {
     PARSER_LOG("POPPING REG %d %s", reg, EnumReg2Str(reg, 0));
     fprintf(ctx->file, "pop %s\n", EnumReg2Str(reg, 0));
-    (**buf) = POP_BYTE + reg;
-    PARSER_LOG("OPCODE %x + %x = %x", POP_BYTE, reg, **buf);
-    (*buf)++;
+    EmitByte(ctx, POP_BYTE + reg);
 }
 
-void POP_XTEND_REG(char ** buf, uint8_t reg, BinCtx * ctx)
+void EmitPopXtendReg(BinCtx * ctx, uint8_t reg)
 {
     PARSER_LOG("POPPING REG %d %s", reg, EnumReg2Str(reg, 1));
     fprintf(ctx->file, "pop %s\n", EnumReg2Str(reg, 1));
-    **buf = ADDITIONAL_REG_BYTE;
-    PARSER_LOG("OPCODE %x", **buf);
-    (*buf)++;
-    **buf = POP_BYTE + reg;
-    PARSER_LOG("OPCODE %x + %x = %x", POP_BYTE, reg, **buf);
-    (*buf)++;
+    EmitByte(ctx, ADDITIONAL_REG_BYTE);
+    EmitByte(ctx, POP_BYTE + reg);
 }
 
-void MULREG(char ** buf, uint8_t reg, BinCtx * ctx)
+void EmitMulReg(BinCtx * ctx, uint8_t reg)
 {
     fprintf(ctx->file, "mul %s\n", EnumReg2Str(reg, 0));
-    **buf = 0xf7;
-    (*buf)++;
-    **buf = MULREG_BYTE + reg;
-    (*buf)++;
+    EmitByte(ctx, 0xf7);
+    EmitByte(ctx, MULREG_BYTE + reg);
 }
 
-void MUL_XTEND_REG(char ** buf, uint8_t reg, BinCtx * ctx)
+void EmitMulXtendReg(BinCtx * ctx, uint8_t reg)
 {
     fprintf(ctx->file, "mul %s\n", EnumReg2Str(reg, 1));
-    **buf = XTEND_OPER_BYTE;
-    (*buf)++;
-    **buf = 0xf7;
-    (*buf)++;
-    **buf = MULREG_BYTE + reg;
-    (*buf)++;
+    EmitByte(ctx, XTEND_OPER_BYTE);
+    EmitByte(ctx, 0xf7);
+    EmitByte(ctx, MULREG_BYTE + reg);
 }
 
 
-void DIVREG(char ** buf, uint8_t reg, BinCtx * ctx)
+void EmitDivReg(BinCtx * ctx, uint8_t reg)
 {
     fprintf(ctx->file, "push rdx    \n");
     fprintf(ctx->file, "xor rdx, rdx\n");
     fprintf(ctx->file, "div %s      \n", EnumReg2Str(reg, 0));
     fprintf(ctx->file, "pop rdx     \n");
-    **buf = 0xf7;
-    (*buf)++;
-    **buf = DIVREG_BYTE + reg;
-    (*buf)++;
+
+    EmitByte(ctx, 0xf7);
+    EmitByte(ctx, DIVREG_BYTE + reg);
 }
 
-void DIV_XTEND_REG(char ** buf, uint8_t reg, BinCtx * ctx)
+void EmitDivXtendReg(BinCtx * ctx, uint8_t reg)
 {
 
     fprintf(ctx->file, "push rdx    \n");
     fprintf(ctx->file, "xor rdx, rdx\n");
     fprintf(ctx->file, "div %s      \n", EnumReg2Str(reg, 1));
     fprintf(ctx->file, "pop rdx     \n");
-    **buf = XTEND_OPER_BYTE;
-    (*buf)++;
-    **buf = 0xf7;
-    (*buf)++;
-    **buf = DIVREG_BYTE + reg;
-    (*buf)++;
+
+    EmitByte(ctx, XTEND_OPER_BYTE);
+    EmitByte(ctx, 0xf7);
+    EmitByte(ctx, DIVREG_BYTE + reg);
 }
 
-void CMP_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx)
+void EmitCmpRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode)
 {
     switch(mode)
     {
         case WHAT_REG_REG:      fprintf(ctx->file, "cmp %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
                                 PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 0));
-                                **buf = REG_REG_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, REG_REG_BYTE);
                                 break;
 
         case WHAT_REG_XTEND:    fprintf(ctx->file, "cmp %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
                                 PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 1));
-                                **buf = REG_XTEND_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, REG_XTEND_BYTE);
                                 break;
 
         case WHAT_XTEND_REG:    fprintf(ctx->file, "cmp %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
                                 PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 0));
-                                **buf = XTEND_REG_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, XTEND_REG_BYTE);
                                 break;
 
         case WHAT_XTEND_XTEND:  fprintf(ctx->file, "cmp %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
                                 PARSER_LOG("COMPARING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 1));
-                                **buf = XTEND_XTEND_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, XTEND_XTEND_BYTE);
                                 break;
     }
 
-    **buf = CMP_REG_BYTE;
-    (*buf)++;
+    EmitByte(ctx, CMP_REG_BYTE);
 
     uint8_t mod = 0b11;
     uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
 
-    **buf = modrm;
-    (*buf)++;
-
+    EmitByte(ctx, modrm);
 }
 
-void MOVABS_XTEND(char ** buf, uint8_t reg, int64_t val, BinCtx * ctx)
+void EmitMovAbsXtend(BinCtx * ctx, uint8_t reg, int64_t val)
 {
     // fprintf(ctx->file, "movabs %s, %ld\n", EnumReg2Str(reg, 1));
-    **buf = XTEND_REG_BYTE;
-    (*buf)++;
-    **buf = MOV_REG_VAL_BYTE + reg;
-    (*buf)++;
+    EmitByte(ctx, XTEND_REG_BYTE);
+    EmitByte(ctx, MOV_REG_VAL_BYTE + reg);
 
-    memcpy(*buf, &val, sizeof(int64_t));
-    (*buf) += sizeof(int64_t);
+    EmitInt64(ctx, val);
 }
 
-void MOV_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx * ctx)
+void EmitMovRegVal(BinCtx * ctx, uint8_t reg, int val, enum RegModes mode)
 {
     switch(mode)
     {
         case WHAT_REG_VAL:      fprintf(ctx->file, "mov %s, %d\n", EnumReg2Str(reg, 0), val);
-                                **buf = MOV_REG_VAL_BYTE + reg;
-                                (*buf)++;
+                                EmitByte(ctx, MOV_REG_VAL_BYTE + reg);
                                 break;
 
         case WHAT_XTEND_VAL:    fprintf(ctx->file, "mov %s, %d\n", EnumReg2Str(reg, 1), val);
-                                **buf = ADDITIONAL_REG_BYTE;
-                                (*buf)++;
-                                **buf = MOV_REG_VAL_BYTE + reg;
-                                (*buf)++;
+                                EmitByte(ctx, ADDITIONAL_REG_BYTE);
+                                EmitByte(ctx, MOV_REG_VAL_BYTE + reg);
                                 break;
     }
 
-    memcpy(*buf, &val, sizeof(int));
-    (*buf) += sizeof(int);
+    EmitInt32(ctx, val);
 }
 
-void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, enum RegModes mem_mode, BinCtx * ctx)
+void EmitMovRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode, enum RegModes mem_mode)
 {
-
     switch(mode)
     {
         case WHAT_REG_REG:
@@ -214,8 +190,7 @@ void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, en
                                 else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
 
                                 PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 0));
-                                **buf = REG_REG_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, REG_REG_BYTE);
                                 break;
 
         case WHAT_REG_XTEND:
@@ -224,8 +199,7 @@ void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, en
                                 else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
                                 else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
                                 PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 1));
-                                **buf = REG_XTEND_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, REG_XTEND_BYTE);
                                 break;
 
         case WHAT_XTEND_REG:
@@ -235,8 +209,7 @@ void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, en
                                 else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
 
                                 PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 0));
-                                **buf = XTEND_REG_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, XTEND_REG_BYTE);
                                 break;
 
         case WHAT_XTEND_XTEND:
@@ -246,69 +219,62 @@ void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, en
                                 else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
 
                                 PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 1));
-                                **buf = XTEND_XTEND_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, XTEND_XTEND_BYTE);
                                 break;
     }
 
     if (mem_mode == WHAT_NOMEM)
     {
-        **buf = MOV_REG_BYTE;
-        (*buf)++;
+        EmitByte(ctx, MOV_REG_BYTE);
 
         uint8_t mod = 0b11000000;
         uint8_t modrm = mod | ((reg2 & 7) << 3) | (reg1 & 7);
-        **buf = modrm;
-        (*buf)++;
+
+        EmitByte(ctx, modrm);
     }
     else if (mem_mode == WHAT_MEM1)
     {
-        **buf = MOV_REG_BYTE;
-        (*buf)++;
+        EmitByte(ctx, MOV_REG_BYTE);
 
         uint8_t mod = 0b00000000;
         if ((reg1 & 7) == 4 || (reg1 & 7) == 5 || reg1 >= 8)
         {
 
             uint8_t modrm = mod | ((reg2 & 7) << 3) | 0b100;
-            **buf = modrm;
-            (*buf)++;
+            EmitByte(ctx, modrm);
 
             uint8_t sib = (0 << 6) | (4 << 3) | (reg1 & 7);
-            **buf = sib;
-            (*buf)++;
+            EmitByte(ctx, sib);
         }
         else
         {
             uint8_t modrm = mod | ((reg2 & 7) << 3) | (reg1 & 7);
-            **buf = modrm;
-            (*buf)++;
+            EmitByte(ctx, modrm);
         }
     }
     else if (mem_mode == WHAT_MEM2)
     {
-        **buf = MOV_MEM_BYTE;
-        (*buf)++;
+        EmitByte(ctx, MOV_MEM_BYTE);
 
         uint8_t mod = 0b00000000;
-        if ((reg2 & 7) == 4) {
+        if ((reg2 & 7) == 4)
+        {
             uint8_t modrm = mod | ((reg1 & 7) << 3) | 0b100;
-            **buf = modrm;
-            (*buf)++;
+            EmitByte(ctx, modrm);
 
             uint8_t sib = (reg2 & 7) | ((reg2 & 7) << 3);
-            **buf = sib;
-            (*buf)++;
-        } else {
+            EmitByte(ctx, sib);
+        }
+        else
+        {
             uint8_t modrm = mod | ((reg1 & 7) << 3) | (reg2 & 7);
-            **buf = modrm;
-            (*buf)++;
+            EmitByte(ctx, modrm);
         }
     }
 
 }
 
-void ADD_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx * ctx)
+void EmitAddRegVal(BinCtx * ctx, uint8_t reg, int val, enum RegModes mode)
 {
 
     if (mode == WHAT_REG_VAL) {PARSER_LOG("ADDING VALUE %d to reg %d %s", val, reg, EnumReg2Str(reg, 0));}
@@ -319,34 +285,22 @@ void ADD_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx *
     if (fbyte == OPER_BYTE) fprintf(ctx->file, "add %s, %d\n", EnumReg2Str(reg, 0), val);
     else                    fprintf(ctx->file, "add %s, %d\n", EnumReg2Str(reg, 1), val);
 
-    **buf = fbyte;
-    PARSER_LOG("OPCODE %x", **buf);
-    (*buf)++;
-
+    EmitByte(ctx, fbyte);
 
     if (reg == WHAT_REG_EAX)
-    {
-        **buf = 0x5;
-        PARSER_LOG("OPCODE %x", fbyte);
-        (*buf)++;
-    }
+        EmitByte(ctx, 0x5);
 
     else
     {
+        EmitByte(ctx, ADD_REG_VAL_BYTE);
         uint8_t modrm = (0xc0) | (0 << 3) | (reg & 7);
-        **buf = ADD_REG_VAL_BYTE;
-        PARSER_LOG("OPCODE %x", fbyte);
-        (*buf)++;
-        **buf = modrm;
-        PARSER_LOG("OPCODE %x", fbyte);
-        (*buf)++;
+        EmitByte(ctx, modrm);
     }
 
-    memcpy(*buf, &val, sizeof(int));
-    (*buf) += sizeof(int);
+    EmitInt32(ctx, val);
 }
 
-void SUB_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx * ctx)
+void EmitSubRegVal(BinCtx * ctx, uint8_t reg, int val, enum RegModes mode)
 {
 
     if (mode == WHAT_REG_VAL) {PARSER_LOG("SUBTRACTING VALUE %d to reg %d %s", val, reg, EnumReg2Str(reg, 0));}
@@ -357,192 +311,143 @@ void SUB_REG_VAL(char ** buf, uint8_t reg, int val, enum RegModes mode, BinCtx *
     if (fbyte == OPER_BYTE) fprintf(ctx->file, "sub %s, %d\n", EnumReg2Str(reg, 0), val);
     else                    fprintf(ctx->file, "sub %s, %d\n", EnumReg2Str(reg, 1), val);
 
-    **buf = fbyte;
-    PARSER_LOG("OPCODE %x", **buf);
-    (*buf)++;
-
+    EmitByte(ctx, fbyte);
 
     if (reg == WHAT_REG_EAX)
-    {
-        **buf = 0x2d;
-        PARSER_LOG("OPCODE %x", fbyte);
-        (*buf)++;
-    }
+        EmitByte(ctx, 0x2d);
 
     else
     {
+        EmitByte(ctx, ADD_REG_VAL_BYTE);
         uint8_t modrm = (0xc0) | (5 << 3) | (reg & 7);
-        **buf = ADD_REG_VAL_BYTE;
-        PARSER_LOG("OPCODE %x", fbyte);
-        (*buf)++;
-        **buf = modrm;
-        PARSER_LOG("OPCODE %x", fbyte);
-        (*buf)++;
+        EmitByte(ctx, modrm);
     }
 
-    memcpy(*buf, &val, sizeof(int));
-    (*buf) += sizeof(int);
+    EmitInt32(ctx, val);
 }
 
-void ADD_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx)
+void EmitAddRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode)
 {
     switch(mode)
     {
         case WHAT_REG_REG:      fprintf(ctx->file, "add %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
                                 PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 0));
-                                **buf = REG_REG_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, REG_REG_BYTE);
                                 break;
 
         case WHAT_REG_XTEND:    fprintf(ctx->file, "add %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
                                 PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 1));
-                                **buf = REG_XTEND_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, REG_XTEND_BYTE);
                                 break;
 
         case WHAT_XTEND_REG:    fprintf(ctx->file, "add %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
                                 PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 0));
-                                **buf = XTEND_REG_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, XTEND_REG_BYTE);
                                 break;
 
         case WHAT_XTEND_XTEND:  fprintf(ctx->file, "add %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
                                 PARSER_LOG("ADDING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 1));
-                                **buf = XTEND_XTEND_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, XTEND_XTEND_BYTE);
                                 break;
     }
 
-    **buf = ADD_REG_REG_BYTE;
-    PARSER_LOG("OPCODE %x", ADD_REG_REG_BYTE);
-    (*buf)++;
+    EmitByte(ctx, ADD_REG_REG_BYTE);
 
     uint8_t mod = 0b11;
     uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
 
-    **buf = modrm;
-    (*buf)++;
+    EmitByte(ctx, modrm);
 }
 
-void SUB_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx)
+void EmitSubRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode)
 {
 
     switch(mode)
     {
         case WHAT_REG_REG:      fprintf(ctx->file, "sub %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
-                                **buf = REG_REG_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, REG_REG_BYTE);
                                 break;
 
         case WHAT_REG_XTEND:    fprintf(ctx->file, "sub %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
-                                **buf = REG_XTEND_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, REG_XTEND_BYTE);
                                 break;
 
         case WHAT_XTEND_REG:    fprintf(ctx->file, "sub %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
-                                **buf = XTEND_REG_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, XTEND_REG_BYTE);
                                 break;
 
         case WHAT_XTEND_XTEND:  fprintf(ctx->file, "sub %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
-                                **buf = XTEND_XTEND_BYTE;
-                                (*buf)++;
+                                EmitByte(ctx, XTEND_XTEND_BYTE);
                                 break;
     }
 
-    **buf = SUB_REG_REG_BYTE;
-    (*buf)++;
+    EmitByte(ctx, SUB_REG_REG_BYTE);
 
     uint8_t mod = 0b11;
     uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
 
-    **buf = modrm;
-    (*buf)++;
+    EmitByte(ctx, modrm);
 }
 
 
-void EMIT_JMP(char ** buf, char jmp, char offset)
+void EmitJmp(BinCtx * ctx, char jmp, char offset)
 {
-    **buf = jmp;
-    PARSER_LOG("EMITTING JMP %x", **buf);
-    (*buf)++;
-    **buf = offset;
-    PARSER_LOG("OFFSET %x", offset);
-    (*buf)++;
+    EmitByte(ctx, jmp);
+    EmitByte(ctx, offset);
 }
 
-void EMIT_LONG_JMP(char ** buf, int offset)
+void EmitLongJmp(BinCtx * ctx, int offset)
 {
-
-    PARSER_LOG("OFFSET %x, %d", offset, offset);
-    **buf = 0xe9;
-    (*buf)++;
-    memcpy(*buf, &offset, sizeof(int));
-    (*buf) += sizeof(int);
+    EmitByte(ctx, 0xe9);
+    EmitInt32(ctx, offset);
 }
 
-void EMIT_NASM_BTM(char ** buf, BinCtx * ctx)
+void EmitBtm(BinCtx * ctx)
 {
-
-    MOV_REG_VAL(buf, WHAT_REG_EAX, 0x3c, WHAT_REG_VAL, ctx);
-    EMIT(buf, "\x0f\x05", "syscall", ctx);
+    EmitMovRegVal(ctx, WHAT_REG_EAX, 0x3c, WHAT_REG_VAL);
+    EMIT(ctx, "\x0f\x05", "syscall");
     fprintf(ctx->file, "%s", NASM_BTM);
 }
 
-void EMIT_NASM_TOP(char ** buf, BinCtx * ctx)
+void EmitTop(BinCtx * ctx)
 {
     fprintf(ctx->file, "%s", NASM_TOP);
-    MOVABS_XTEND(buf, WHAT_REG_R13, 0x402000, ctx);
-    MOVABS_XTEND(buf, WHAT_REG_R12, 0x402100, ctx);
+    EmitMovAbsXtend(ctx, WHAT_REG_R13, 0x402000);
+    EmitMovAbsXtend(ctx, WHAT_REG_R12, 0x402100);
 }
 
 
-void EMIT_PRINT(char ** buf, BinCtx * ctx)
+void EmitPrint(BinCtx * ctx)
 {
-    PARSER_LOG("emitting print...");
-
-    POPREG(buf, WHAT_REG_EAX, ctx);
-    **buf = CALL_DIRECT_BYTE;
-    (*buf)++;
+    EmitPopReg(ctx, WHAT_REG_EAX);
+    EmitByte(ctx, CALL_DIRECT_BYTE);
     fprintf(ctx->file, "call _IOLIB_OUTPUT   \n");
 
-    int32_t adr = (ctx->buf_ptr + 0x1527) - (*buf + 4);
-    memcpy(*buf, &adr, sizeof(int32_t));
-    (*buf) += sizeof(int32_t);
-
+    int32_t adr = (ctx->buf_ptr + PRINT_OFFSET) - (ctx->buf + 4);
+    EmitInt32(ctx, adr);
 }
 
-void EMIT_INPUT(char ** buf, BinCtx * ctx)
+void EmitInput(BinCtx * ctx)
 {
-    PARSER_LOG("emitting input...");
     fprintf(ctx->file, "call _IOLIB_INPUT    \n");
-    **buf = CALL_DIRECT_BYTE;
-    (*buf)++;
-    int32_t adr = (ctx->buf_ptr + 0x1500) - (*buf + 4);
-    memcpy(*buf, &adr, sizeof(int32_t));
-    (*buf) += sizeof(int32_t);
-
-    PUSHREG(buf, WHAT_REG_EAX, ctx);
+    EmitByte(ctx, CALL_DIRECT_BYTE);
+    int32_t adr = (ctx->buf_ptr + INPUT_OFFSET) - (ctx->buf + 4);
+    EmitInt32(ctx, adr);
+    EmitPushReg(ctx, WHAT_REG_EAX);
 
 
 }
 
-// ACHTUNG!!! WARNING!!! ACHTUNG!!!
-// В CALL_DIRECT кладем абсолютный адрес
-
-void CALL_DIRECT(char ** buf, Node * root, BinCtx * ctx)
+void CallDirect(BinCtx * ctx, Node * root)
 {
     PARSER_LOG("DIRECT_CALL of function with name %s...", NodeName(root));
     fprintf(ctx->file, "call %s\n", NodeName(root));
-    **buf = CALL_DIRECT_BYTE;
-    (*buf)++;
-
-    AddFuncAdr(buf, root, ctx);
-
-    (*buf) += sizeof(int);
+    EmitByte(ctx, CALL_DIRECT_BYTE);
+    AddFuncAdr(ctx, root);
+    EmitInt32(ctx, 0);
 }
 
-void EMIT_COMPARSION_WHILE(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
+void EmitComparsionWhile(BinCtx * ctx, Htable ** tab, int nodeVal)
 {
     char * offset         = NULL;
     const char * cond_jmp = CmpStr (nodeVal);
@@ -554,31 +459,31 @@ void EMIT_COMPARSION_WHILE(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx
     USE_CMP;
 
     fprintf(ctx->file, "%s SUB_COND%d\n", cond_jmp, ctx->while_count);
-    EMIT_JMP(buf, oper, 0);
+    EmitJmp(ctx, oper, 0);
 
-    offset = *buf - 1;
+    offset = ctx->buf - 1;
 
-    PUSHIMM32(buf, 0, ctx);
+    EmitPushImm32(ctx, 0);
     fprintf(ctx->file, "jmp WHILE_FALSE%d\n", ctx->while_count);
-    EMIT_JMP(buf, JMP_BYTE, 0);
+    EmitJmp(ctx, JMP_BYTE, 0);
     sprintf(locals.local_func_name, "WHILE_FALSE%d", ctx->while_count);
-    locals.offset = *buf - 1;
+    locals.offset = ctx->buf - 1;
     HtableLabelInsert(tab, &locals);
 
     fprintf(ctx->file, "SUB_COND%d:\n", ctx->while_count);
-    *offset = (int8_t)(*buf - (offset + 1));
+    *offset = (int8_t)(ctx->buf - (offset + 1));
 
-    PUSHIMM32(buf, 1, ctx);
+    EmitPushImm32(ctx, 1);
 
     fprintf(ctx->file, "jmp WHILE_TRUE%d\n", ctx->while_count);
-    EMIT_JMP(buf, JMP_BYTE, 0);
+    EmitJmp(ctx, JMP_BYTE, 0);
 
     sprintf(locals.local_func_name, "WHILE_TRUE%d", ctx->while_count);
-    locals.offset = *buf - 1;
+    locals.offset = ctx->buf - 1;
     HtableLabelInsert(tab, &locals);
 }
 
-void EMIT_COMPARSION_IF(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
+void EmitComparsionIf(BinCtx * ctx, Htable ** tab, int nodeVal)
 {
 
     char * offset         = NULL;
@@ -593,93 +498,93 @@ void EMIT_COMPARSION_IF(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
     PARSER_LOG("if_count = %d, while_count = %d", ctx->if_count, ctx->while_count);
 
     fprintf(ctx->file, "%s SUB_COND%d\n", cond_jmp, ctx->if_count);
-    EMIT_JMP(buf, oper, 0);
+    EmitJmp(ctx, oper, 0);
 
-    offset = *buf - 1;
+    offset = ctx->buf - 1;
 
-    PUSHIMM32(buf, 0, ctx);
+    EmitPushImm32(ctx, 0);
 
     fprintf(ctx->file, "jmp IF_END%d\n", ctx->if_count);
-    EMIT_JMP(buf, JMP_BYTE, 0);
+    EmitJmp(ctx, JMP_BYTE, 0);
 
     sprintf(locals.local_func_name, "IF_END%d", ctx->if_count);
-    locals.offset = *buf - 1;
+    locals.offset = ctx->buf - 1;
 
     PARSER_LOG("Inserting local label %s with offset %p", locals.local_func_name, locals.offset);
     HtableLabelInsert(tab, &locals);
 
 
     fprintf(ctx->file, "SUB_COND%d:\n",    ctx->if_count);
-    *offset = (int8_t)(*buf - (offset + 1));
+    *offset = (int8_t)(ctx->buf - (offset + 1));
 
-    PUSHIMM32(buf, 1, ctx);
+    EmitPushImm32(ctx, 1);
 
 
     PARSER_LOG("Inserting IF%d", ctx->if_count);
     fprintf(ctx->file, "jmp IF%d\n", ctx->if_count);
-    EMIT_JMP(buf, JMP_BYTE, 0);
+    EmitJmp(ctx, JMP_BYTE, 0);
 
     sprintf(locals.local_func_name, "IF%d", ctx->if_count);
-    locals.offset = *buf - 1;
+    locals.offset = ctx->buf - 1;
     HtableLabelInsert(tab, &locals);
 }
 
-void EMIT_VAR(char ** buf, Node * root, BinCtx * ctx)
+void EmitVar(BinCtx * ctx, Node * root)
 {
-    PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
-    ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(root, ctx) * 8, WHAT_XTEND_VAL, ctx);
-    MOV_REG_REG(buf, Offset2EnumReg(GetVarOffset(root, ctx)), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2, ctx);
-    POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
-    PUSHREG(buf, Offset2EnumReg(GetVarOffset(root, ctx)), ctx);
+    EmitPushXtendReg(ctx, WHAT_REG_R12);
+    EmitAddRegVal   (ctx, WHAT_REG_R12, GetVarOffset(root, ctx) * 8, WHAT_XTEND_VAL);
+    EmitMovRegReg   (ctx, Offset2EnumReg(GetVarOffset(root, ctx)), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2);
+    EmitPopXtendReg (ctx, WHAT_REG_R12);
+    EmitPushReg     (ctx, Offset2EnumReg(GetVarOffset(root, ctx)));
 }
 
-void EMIT_NUM_PARAM(char ** buf, Node * root, Name ** param_array, int param, BinCtx * ctx)
+void EmitNumParam(BinCtx * ctx, Node * root, Name ** param_array, int param)
 {
-    PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
-    PUSHREG(buf, WHAT_REG_EAX, ctx);
-    ADD_REG_VAL(buf, WHAT_REG_R12, param_array[param]->stack_offset * 8, WHAT_XTEND_VAL, ctx);
-    MOV_REG_VAL(buf, WHAT_REG_EAX, (int) NodeValue(root), WHAT_REG_VAL, ctx);
-    MOV_REG_REG(buf, WHAT_REG_R12, WHAT_REG_EAX, WHAT_XTEND_REG, WHAT_MEM1, ctx);
-    POPREG(buf, WHAT_REG_EAX, ctx);
-    POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
-    PUSHIMM32(buf, (int) NodeValue(root), ctx);
+    EmitPushXtendReg(ctx, WHAT_REG_R12);
+    EmitPushReg     (ctx, WHAT_REG_EAX);
+    EmitAddRegVal   (ctx, WHAT_REG_R12, param_array[param]->stack_offset * 8, WHAT_XTEND_VAL);
+    EmitMovRegVal   (ctx, WHAT_REG_EAX, (int) NodeValue(root), WHAT_REG_VAL);
+    EmitMovRegReg   (ctx, WHAT_REG_R12, WHAT_REG_EAX, WHAT_XTEND_REG, WHAT_MEM1);
+    EmitPopReg      (ctx, WHAT_REG_EAX);
+    EmitPopXtendReg (ctx, WHAT_REG_R12);
+    EmitPushImm32   (ctx, (int) NodeValue(root));
 }
 
-void EMIT_VAR_PARAM(char ** buf, Node * root, int param, BinCtx * ctx)
+void EmitVarParam(BinCtx * ctx, Node * root, int param)
 {
-    PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
-    ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(root, ctx) * 8, WHAT_XTEND_VAL, ctx);
-    MOV_REG_REG(buf, Offset2EnumReg(param), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2, ctx);
-    POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
-    PUSHREG(buf, Offset2EnumReg(param), ctx);
+    EmitPushXtendReg    (ctx, WHAT_REG_R12);
+    EmitAddRegVal       (ctx, WHAT_REG_R12, GetVarOffset(root, ctx) * 8, WHAT_XTEND_VAL);
+    EmitMovRegReg       (ctx, Offset2EnumReg(param), WHAT_REG_R12, WHAT_XTEND_REG, WHAT_MEM2);
+    EmitPopXtendReg     (ctx, WHAT_REG_R12);
+    EmitPushReg         (ctx, Offset2EnumReg(param));
 }
 
-void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
+void EmitComparsion(BinCtx * ctx, Htable ** tab, int nodeVal)
 {
-    if      (ctx->if_cond)      EMIT_COMPARSION_IF   (buf, tab, nodeVal, ctx);
-    else if (ctx->while_cond)   EMIT_COMPARSION_WHILE(buf, tab, nodeVal, ctx);
+    if      (ctx->if_cond)      EmitComparsionIf   (ctx, tab, nodeVal);
+    else if (ctx->while_cond)   EmitComparsionWhile(ctx, tab, nodeVal);
 }
 
-void EMIT_RET(char ** buf, BinCtx * ctx)
+void EMIT_RET(BinCtx * ctx)
 {
-    EMIT(buf, "\xc3", "ret", ctx);
+    EMIT(ctx, "\xc3", "ret");
 }
 
-void EMIT_FUNC_STACK_PUSH(char ** buf, Node * root, BinCtx * ctx)
+void EmitFuncStackPush(BinCtx * ctx, Node * root)
 {
     fprintf(ctx->file, "%s:\n", NodeName(root->left));
 
-    EMIT(buf, "\x41\x5e",           "pop r14",        ctx);
-    EMIT(buf, "\x4d\x89\x75\0",     "mov [r13], r14", ctx);
-    EMIT(buf, "\x49\x83\xc5\x08",   "add r13, 8",     ctx);
+    EMIT(ctx, "\x41\x5e",           "pop r14"       );
+    EMIT(ctx, "\x4d\x89\x75\0",     "mov [r13], r14");
+    EMIT(ctx, "\x49\x83\xc5\x08",   "add r13, 8"    );
 }
 
 
-void EMIT_FUNC_STACK_RET(char ** buf, Node * root, BinCtx * ctx)
+void EmitFuncStackRet(BinCtx * ctx, Node * root)
 {
-    EMIT(buf, "\x49\x83\xed\x08",   "sub r13, 8",     ctx);
-    EMIT(buf, "\x4d\x8b\x75\0",     "mov r14, [r13]", ctx);
-    EMIT(buf, "\x41\x56",           "push r14",       ctx);
-    EMIT(buf, "\xc3",               "ret",            ctx);
+    EMIT(ctx, "\x49\x83\xed\x08",   "sub r13, 8"    );
+    EMIT(ctx, "\x4d\x8b\x75\0",     "mov r14, [r13]");
+    EMIT(ctx, "\x41\x56",           "push r14"      );
+    EMIT(ctx, "\xc3",               "ret"           );
 }
 

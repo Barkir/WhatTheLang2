@@ -5,6 +5,7 @@
 #include <assert.h>
 
 #include "what_lang/constants.h"
+#include "what_lang/nasm2elf.h"
 #include "what_lang/tree.h"
 #include "what_lang/nametable.h"
 #include "what_lang/list.h"
@@ -199,24 +200,24 @@ int isArithOper(enum operations oper_enum)
     return oper_enum == '+' || oper_enum == '-' || oper_enum == '/' || oper_enum == '*' || oper_enum == '=' ;
 }
 
-void BinCmpOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+void BinCmpOper(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(buf, tab, root, ctx);
+    VERIFY_PTRS(tab, root, ctx);
 
     PrintNasmNode(root, ctx);
     PARSER_LOG("Calling BinCmpOper...");
     int nodeVal = (int) NodeValue(root);
-    _create_bin(buf, tab, root->left,  ctx);
-    _create_bin(buf, tab, root->right, ctx);
-    PARSER_LOG("Calling EMIT_COMPARSION, if_count = %d, while_count = %d", ctx->if_count, ctx->while_count);
-    EMIT_COMPARSION(buf, tab, nodeVal, ctx);
+    _create_bin(ctx, tab, root->left );
+    _create_bin(ctx, tab, root->right);
+    PARSER_LOG("Calling EmitComparsion, if_count = %d, while_count = %d", ctx->if_count, ctx->while_count);
+    EmitComparsion(ctx, tab, nodeVal);
     return;
 
 }
 
-void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+void BinArithOper(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(buf, tab, root, ctx);
+    VERIFY_PTRS(tab, root, ctx);
 
     int nodeVal = (int) NodeValue(root);
     PARSER_LOG("calling BinArithOper with NodeValue %c %d", nodeVal, nodeVal);
@@ -224,58 +225,57 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     if (nodeVal == '=')
     {
         PARSER_LOG("BinArithOper in '=' condition");
-        _create_bin(buf, tab, root->right, ctx);
+        _create_bin(ctx, tab, root->right);
 
         PrintNasmNode(root, ctx);
 
         if (!strcmp(GetVarFuncName(root->left, ctx), GLOBAL_FUNC_NAME))
         {
-            POPREG(buf, Offset2EnumReg(GetVarOffset(root->left, ctx)), ctx);
-            PUSH_XTEND_REG(buf, WHAT_REG_R12, ctx);
-            ADD_REG_VAL(buf, WHAT_REG_R12, GetVarOffset(root->left, ctx) * 8, WHAT_XTEND_VAL, ctx);
-            MOV_REG_REG(buf, WHAT_REG_R12, Offset2EnumReg(GetVarOffset(root->left, ctx)), WHAT_XTEND_REG, WHAT_MEM1, ctx);
-            POP_XTEND_REG(buf, WHAT_REG_R12, ctx);
+            EmitPopReg      (ctx, Offset2EnumReg(GetVarOffset(root->left, ctx)));
+            EmitPushXtendReg(ctx, WHAT_REG_R12);
+            EmitAddRegVal   (ctx, WHAT_REG_R12, GetVarOffset(root->left, ctx) * 8, WHAT_XTEND_VAL);
+            EmitMovRegReg   (ctx, WHAT_REG_R12, Offset2EnumReg(GetVarOffset(root->left, ctx)), WHAT_XTEND_REG, WHAT_MEM1);
+            EmitPopXtendReg (ctx, WHAT_REG_R12);
         }
         else
         {
-            POPREG(buf, Offset2EnumReg(GetVarParam(root->left, ctx)), ctx);
+            EmitPopReg(ctx, Offset2EnumReg(GetVarParam(root->left, ctx)));
         }
 
 
         return;
     }
 
-    _create_bin(buf, tab, root->left,  ctx);
-    _create_bin(buf, tab, root->right, ctx);
+    _create_bin(ctx, tab, root->left );
+    _create_bin(ctx, tab, root->right);
 
 
     PrintNasmNode(root, ctx);
     if (nodeVal == '+')
     {
-
-        POP_XTEND_REG (buf, WHAT_REG_R14, ctx);
-        POP_XTEND_REG (buf, WHAT_REG_R15, ctx);
-        ADD_REG_REG   (buf, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx);
-        PUSH_XTEND_REG(buf, WHAT_REG_R14, ctx);
+        EmitPopXtendReg (ctx, WHAT_REG_R14);
+        EmitPopXtendReg (ctx, WHAT_REG_R15);
+        EmitAddRegReg   (ctx, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+        EmitPushXtendReg(ctx, WHAT_REG_R14);
         return;
     }
 
     else if (nodeVal == '-')
     {
-        POP_XTEND_REG (buf, WHAT_REG_R14, ctx);
-        POP_XTEND_REG (buf, WHAT_REG_R15, ctx);
-        SUB_REG_REG   (buf, WHAT_REG_R15, WHAT_REG_R14, WHAT_XTEND_XTEND, ctx);
-        PUSH_XTEND_REG(buf, WHAT_REG_R15, ctx);
+        EmitPopXtendReg (ctx, WHAT_REG_R14);
+        EmitPopXtendReg (ctx, WHAT_REG_R15);
+        EmitSubRegReg   (ctx, WHAT_REG_R15, WHAT_REG_R14, WHAT_XTEND_XTEND);
+        EmitPushXtendReg(ctx, WHAT_REG_R15);
         return;
     }
 
     else if (nodeVal == '*')
     {
 
-        POP_XTEND_REG(buf, WHAT_REG_R14, ctx);
-        POPREG       (buf, WHAT_REG_EAX, ctx);
-        MUL_XTEND_REG(buf, WHAT_REG_R14, ctx);
-        PUSHREG      (buf, WHAT_REG_EAX, ctx);
+        EmitPopXtendReg(ctx, WHAT_REG_R14);
+        EmitPopReg     (ctx, WHAT_REG_EAX);
+        EmitMulXtendReg(ctx, WHAT_REG_R14);
+        EmitPushReg    (ctx, WHAT_REG_EAX);
         return;
     }
 
@@ -283,18 +283,18 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     else if (nodeVal == '/')
     {
 
-        POP_XTEND_REG(buf, WHAT_REG_R14, ctx);
-        POPREG       (buf, WHAT_REG_EAX, ctx);
-        DIV_XTEND_REG(buf, WHAT_REG_R14, ctx);
-        PUSHREG      (buf, WHAT_REG_EAX, ctx);
+        EmitPopXtendReg(ctx, WHAT_REG_R14);
+        EmitPopReg     (ctx, WHAT_REG_EAX);
+        EmitDivXtendReg(ctx, WHAT_REG_R14);
+        EmitPushReg    (ctx, WHAT_REG_EAX);
         return;
     }
 
 }
 
-int BinIf(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+int BinIf(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(buf, tab, root, ctx);
+    VERIFY_PTRS(tab, root, ctx);
 
     PrintNasmNode(root, ctx);
     PARSER_LOG("PROCESSING IF");
@@ -309,57 +309,57 @@ int BinIf(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     ctx->if_cond    = 1;
     ctx->while_cond = 0;
 
-    _create_bin(buf, tab, root->left, ctx);
+    _create_bin(ctx, tab, root->left);
     PARSER_LOG("PROCESSED IF BLOCK... if_count = %d", ctx->if_count);
 
     sprintf(locals_if.local_func_name, "IF%d", local_if);
     Name * label = HtableLabelFind(*tab, &locals_if);
-    if (label) *label->offset = (int8_t) (*buf - (label->offset + 1));
+    if (label) *label->offset = (int8_t) (ctx->buf - (label->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
     fprintf(ctx->file, "IF%d:\n", ctx->if_count);
 
-    PUSHIMM32(buf, 0, ctx);
+    EmitPushImm32(ctx, 0);
 
-    POP_XTEND_REG   (buf, WHAT_REG_R15, ctx);
-    POP_XTEND_REG   (buf, WHAT_REG_R14, ctx);
-    PUSH_XTEND_REG  (buf, WHAT_REG_R14, ctx);
-    PUSH_XTEND_REG  (buf, WHAT_REG_R15, ctx);
+    EmitPopXtendReg   (ctx, WHAT_REG_R15);
+    EmitPopXtendReg   (ctx, WHAT_REG_R14);
+    EmitPushXtendReg  (ctx, WHAT_REG_R14);
+    EmitPushXtendReg  (ctx, WHAT_REG_R15);
 
-    CMP_REG_REG     (buf, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx);
+    EmitCmpRegReg     (ctx, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
     fprintf(ctx->file, "jne COND%d\n", ctx->if_count);
-    EMIT_JMP(buf, JNE_BYTE, 0);
-    char * cond = *buf - 1;
+    EmitJmp(ctx, JNE_BYTE, 0);
+    char * cond = ctx->buf - 1;
 
     fprintf(ctx->file, "jmp IF_END%d\n", ctx->if_count);
-    EMIT_JMP(buf, JMP_BYTE, 0);
-    char * if_end = *buf - 1;
+    EmitJmp(ctx, JMP_BYTE, 0);
+    char * if_end = ctx->buf - 1;
 
     fprintf(ctx->file, "COND%d:\n", ctx->if_count);
-    *cond = *buf - (cond + 1);
+    *cond = ctx->buf - (cond + 1);
 
     ctx->if_count++;
     ctx->if_cond = 1;
     ctx->while_cond = 0;
 
-    _create_bin(buf, tab, root->right, ctx);
+    _create_bin(ctx, tab, root->right);
 
     fprintf(ctx->file, "IF_END%d:\n", local_if);
-    *if_end = *buf - (if_end + 1);
+    *if_end = ctx->buf - (if_end + 1);
 
     sprintf(locals_if.local_func_name, "IF_END%d", local_if);
     label = HtableLabelFind(*tab, &locals_if);
-    if (label) *label->offset = (int8_t)(*buf - (label->offset + 1));
+    if (label) *label->offset = (int8_t)(ctx->buf - (label->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
     return WHAT_SUCCESS;
 
 }
 
-int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+int BinWhile(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(buf, tab, root, ctx);
+    VERIFY_PTRS(tab, root, ctx);
 
     PrintNasmNode(root, ctx);
     PARSER_LOG("PROCESSING WHILE");
@@ -372,52 +372,52 @@ int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     if (!locals_while.local_func_name) return WHAT_MEMALLOC_ERROR;
 
     fprintf(ctx->file, "WHILE%d:\n", ctx->while_count);
-    const char * while_ptr = *buf;
+    const char * while_ptr = ctx->buf;
     PARSER_LOG("while_ptr = %p", while_ptr);
 
     ctx->if_cond = 0;
     ctx->while_cond = 1;
-    _create_bin(buf, tab, root->left, ctx);
+    _create_bin(ctx, tab, root->left);
     PARSER_LOG("PROCESSED WHILE BLOCK");
 
     sprintf(locals_while.local_func_name, "WHILE_FALSE%d", local_while);
     Name * label_while = HtableLabelFind(*tab, &locals_while);
-    if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
+    if (label_while) *label_while->offset = (int8_t) (ctx->buf - (label_while->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
     fprintf(ctx->file, "WHILE_FALSE%d:\n", ctx->while_count);
 
-    PUSHIMM32(buf, 0, ctx);
+    EmitPushImm32(ctx, 0);
 
-    POP_XTEND_REG   (buf, WHAT_REG_R15, ctx);
-    POP_XTEND_REG   (buf, WHAT_REG_R14, ctx);
-    PUSH_XTEND_REG  (buf, WHAT_REG_R14, ctx);
-    PUSH_XTEND_REG  (buf, WHAT_REG_R15, ctx);
+    EmitPopXtendReg   (ctx, WHAT_REG_R15);
+    EmitPopXtendReg   (ctx, WHAT_REG_R14);
+    EmitPushXtendReg  (ctx, WHAT_REG_R14);
+    EmitPushXtendReg  (ctx, WHAT_REG_R15);
 
-    CMP_REG_REG     (buf, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx);
+    EmitCmpRegReg     (ctx, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
 
     fprintf(ctx->file, "je WHILE_END%d\n", ctx->while_count);
-    EMIT_JMP(buf,JE_BYTE, 0);
-    char * while_end_ptr = *buf - 1;
+    EmitJmp(ctx, JE_BYTE, 0);
+    char * while_end_ptr = ctx->buf - 1;
 
     fprintf(ctx->file, "WHILE_TRUE%d:\n", ctx->while_count);
 
     sprintf(locals_while.local_func_name, "WHILE_TRUE%d", local_while);
     label_while = HtableLabelFind(*tab, &locals_while);
-    if (label_while) *label_while->offset = (int8_t) (*buf - (label_while->offset + 1));
+    if (label_while) *label_while->offset = (int8_t) (ctx->buf - (label_while->offset + 1));
     else return WHAT_NOLABEL_ERROR;
 
 
     ctx->if_cond = 0;
     ctx->while_cond = 1;
-    _create_bin(buf, tab, root->right, ctx);
+    _create_bin(ctx, tab, root->right);
 
     fprintf(ctx->file, "jmp WHILE%d\n", local_while);
-    EMIT_LONG_JMP(buf, (int)((while_ptr - 5) - *buf));
+    EmitLongJmp(ctx, (int)((while_ptr - 5) - ctx->buf));
 
     fprintf(ctx->file, "WHILE_END%d:\n", local_while);
 
-    *while_end_ptr = *buf - (while_end_ptr + 1);
+    *while_end_ptr = ctx->buf - (while_end_ptr + 1);
 
     fprintf(ctx->file, ";---------------------------\n\n");
     PARSER_LOG("%x %x %x %x %x %x [%x] %x %x %x %x", *(while_ptr - 6), *(while_ptr - 5), *(while_ptr - 4), *(while_ptr - 3), *(while_ptr - 2), *(while_ptr - 1) , *while_ptr, *(while_ptr + 1), *(while_ptr + 2), *(while_ptr + 3), *(while_ptr + 4));
@@ -426,9 +426,9 @@ int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     return WHAT_SUCCESS;
 }
 
-int BinFuncExt(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+int BinFuncExt(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(buf, tab, root, ctx);
+    VERIFY_PTRS(tab, root, ctx);
 
     PrintNasmNode(root, ctx);
     PARSER_LOG("CALLED BIN_FUNC");
@@ -437,21 +437,21 @@ int BinFuncExt(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
     if (nodeVal == PRINT)
     {
-        _create_bin(buf, tab, root->left, ctx);
-        EMIT_PRINT(buf, ctx);
+        _create_bin(ctx, tab, root->left);
+        EmitPrint(ctx);
     }
 
     else if (nodeVal == INPUT)
     {
-        EMIT_INPUT(buf, ctx);
+        EmitInput(ctx);
     }
 
     return WHAT_SUCCESS;
 }
 
-int AddFuncAdr(char ** buf, Node * root, BinCtx * ctx)
+int AddFuncAdr(BinCtx * ctx, Node * root)
 {
-    VERIFY_PTRS(buf, root, ctx);
+    VERIFY_PTRS(root, ctx);
 
     Name func = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     Name * found_func = HtableNameFind(ctx->names, &func);
@@ -460,7 +460,7 @@ int AddFuncAdr(char ** buf, Node * root, BinCtx * ctx)
         PARSER_LOG("found_func = %p, adr_array = %p", found_func, found_func->adr_array);
         if (!found_func->adr_array[i])
         {
-            found_func->adr_array[i] = *buf;
+            found_func->adr_array[i] = ctx->buf;
             PARSER_LOG("adr_array[%d] = %p", i, found_func->adr_array[i]);
             found_func->adr_array_cap++;
             PARSER_LOG("cap = %d", found_func->adr_array_cap);
@@ -569,6 +569,22 @@ Name ** GetFuncNameArray(Node * root, BinCtx * ctx)
 
     Name func = {.name = NodeName(root), .type=FUNC_INTER_DEF};
     return HtableNameFind(ctx->names, &func)->name_array;
+}
+
+
+int WriteIOLib(BinCtx * ctx)
+{
+    assert(ctx);
+
+    FILE * IOlibRaw = fopen("iolib/iolib.o", "rb");
+    if (!IOlibRaw) return WHAT_FILEOPEN_ERROR;
+
+    size_t sz = FileSize(IOlibRaw);
+    if (((BUF_DEF_SIZE - IOLIB_OFFSET) - sz) < 0) return WHAT_BUFOVERFLOW_ERROR;
+    if (fread(ctx->buf_ptr + IOLIB_OFFSET, sizeof(char), sz, IOlibRaw) != sz) return WHAT_FILEREAD_ERROR;
+    fclose(IOlibRaw);
+
+    return WHAT_SUCCESS;
 }
 
 

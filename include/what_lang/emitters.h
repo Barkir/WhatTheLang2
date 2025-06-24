@@ -33,56 +33,45 @@ enum CommandBytes
     MOV_REG_VAL_BYTE      = 0xb8
 };
 
-void PUSHIMM32      (char ** buf, field_t value, BinCtx * ctx);
-void PUSHREG        (char ** buf, uint8_t reg, BinCtx * ctx);
-void PUSH_XTEND_REG (char ** buf, uint8_t reg, BinCtx * ctx);
-void POPREG         (char ** buf, uint8_t reg, BinCtx * ctx);
-void POP_XTEND_REG  (char ** buf, uint8_t reg, BinCtx * ctx);
-void MULREG         (char ** buf, uint8_t reg, BinCtx * ctx);
-void MUL_XTEND_REG  (char ** buf, uint8_t reg, BinCtx * ctx);
-void DIVREG         (char ** buf, uint8_t reg, BinCtx * ctx);
-void DIV_XTEND_REG  (char ** buf, uint8_t reg, BinCtx * ctx);
+void EmitByte(BinCtx * ctx, char byte);
+void EmitInt32(BinCtx * ctx, int val);
+void EmitPushImm32      (BinCtx * ctx, field_t value);
+void EmitPushReg        (BinCtx * ctx, uint8_t reg);
+void EmitPushXtendReg   (BinCtx * ctx, uint8_t reg);
+void EmitPopReg         (BinCtx * ctx, uint8_t reg);
+void EmitPopXtendReg    (BinCtx * ctx, uint8_t reg);
+void EmitMulReg         (BinCtx * ctx, uint8_t reg);
+void EmitMulXtendReg    (BinCtx * ctx, uint8_t reg);
+void EmitDivReg         (BinCtx * ctx, uint8_t reg);
+void EmitDivXtendReg    (BinCtx * ctx, uint8_t reg);
+void EmitCmpRegReg      (BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode);
+void EmitAddRegVal      (BinCtx * ctx, uint8_t reg,  int val,      enum RegModes mode);
+void EmitSubRegVal      (BinCtx * ctx, uint8_t reg,  int val,      enum RegModes mode);
+void EmitAddRegReg      (BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode);
+void EmitSubRegReg      (BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode);
+void EmitMovRegVal      (BinCtx * ctx, uint8_t reg,  int val,      enum RegModes mode);
+void EmitMovRegReg      (BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode, enum RegModes mem_mode);
+void EmitMovAbsXtend    (BinCtx * ctx, uint8_t reg,  int64_t val);
+void EmitJmp            (BinCtx * ctx, char jmp,     char offset);
+void EmitComparsion     (BinCtx * ctx, Htable ** tab, int nodeVal);
+void EmitPrint          (BinCtx * ctx);
+void EmitInput          (BinCtx * ctx);
+void EmitLongJmp        (BinCtx * ctx, int offset);
+void EmitTop            (BinCtx * ctx);
+void EmitBtm            (BinCtx * ctx);
+void EmitVar            (BinCtx * ctx, Node * root);
+void EmitNumParam       (BinCtx * ctx, Node * root, Name ** param_array, int param);
+void EmitVarParam       (BinCtx * ctx, Node * root, int param);
+void DoEmit             (BinCtx * ctx, const char * binary, size_t buf_len, const char * command);
+void EmitFuncStackPush  (BinCtx * ctx, Node * root);
+void EmitFuncStackRet   (BinCtx * ctx, Node * root);
+void CallDirect         (BinCtx * ctx, Node * root);
 
-void CMP_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
-void ADD_REG_VAL(char ** buf, uint8_t reg,  int val,      enum RegModes mode, BinCtx * ctx);
-void SUB_REG_VAL(char ** buf, uint8_t reg, int val,       enum RegModes mode, BinCtx * ctx);
-
-void ADD_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
-void SUB_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, BinCtx * ctx);
-void MOV_REG_VAL(char ** buf, uint8_t reg,  int val,      enum RegModes mode, BinCtx * ctx);
-void MOV_REG_REG(char ** buf, uint8_t reg1, uint8_t reg2, enum RegModes mode, enum RegModes mem_mode, BinCtx * ctx);
-void MOVABS_XTEND(char ** buf, uint8_t reg, int64_t val, BinCtx * ctx);
-
-void EMIT_JMP(char ** buf, char jmp, char offset);
-void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx);
-void EMIT_PRINT(char ** buf, BinCtx * ctx);
-void EMIT_INPUT(char ** buf, BinCtx * ctx);
-
-void EMIT_LONG_JMP(char ** buf, int offset);
-
-
-void EMIT_NASM_TOP(char ** buf, BinCtx * ctx);
-void EMIT_NASM_BTM(char ** buf, BinCtx * ctx);
-
-void EMIT_VAR(char ** buf, Node * root, BinCtx * ctx);
-void EMIT_NUM_PARAM(char ** buf, Node * root, Name ** param_array, int param, BinCtx * ctx);
-void EMIT_VAR_PARAM(char ** buf, Node * root, int param, BinCtx * ctx);
-
-void DO_EMIT(char ** buf, const char * binary, size_t buf_len, const char * command, BinCtx * ctx);
-
-void EMIT_FUNC_STACK_PUSH(char ** buf, Node * root, BinCtx * ctx);
-void EMIT_FUNC_STACK_RET(char ** buf, Node * root, BinCtx * ctx);
-
-// ACHTUNG!!! WARNING!!! ACHTUNG!!!
-// В CALL_DIRECT кладем абсолютный адрес
-
-void CALL_DIRECT    (char ** buf, Node * root, BinCtx * ctx);
-
-#define USE_CMP                                                                 \
-    POP_XTEND_REG   (buf,  WHAT_REG_R15, ctx);                                  \
-    POP_XTEND_REG   (buf,  WHAT_REG_R14, ctx);                                  \
-    PUSH_XTEND_REG  (buf,  WHAT_REG_R14, ctx);                                  \
-    PUSH_XTEND_REG  (buf,  WHAT_REG_R15, ctx);                                  \
-    CMP_REG_REG     (buf,  WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND, ctx)   \
+#define USE_CMP                                                             \
+    EmitPopXtendReg   (ctx, WHAT_REG_R15);                                  \
+    EmitPopXtendReg   (ctx, WHAT_REG_R14);                                  \
+    EmitPushXtendReg  (ctx, WHAT_REG_R14);                                  \
+    EmitPushXtendReg  (ctx, WHAT_REG_R15);                                  \
+    EmitCmpRegReg     (ctx, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND)
 
 #endif

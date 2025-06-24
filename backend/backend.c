@@ -15,54 +15,72 @@
 #include "what_lang/backend.h"          // Backend Header
 #include "what_lang/emitters.h"         // Emitters Functions
 #include "what_lang/backend_utils.h"    // Backend Utils Header
-#include "what_lang/nasm2elf.h"         // what the hell is that?
+#include "what_lang/nasm2elf.h"
 
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode)
 {
-    PARSER_LOG("Creating BIN....");
+    VERIFY_PTRS(tree, filename_asm, filename_bin);
+
     FILE * fp = fopen(filename_asm, "wb");
-    if (ferror(fp))
+    if (!fp)
     {
         perror("Error opening file fp");
         return WHAT_FILEOPEN_ERROR;
     }
 
     FILE * bin = fopen(filename_bin, "wb");
-    if (ferror(bin))
+    if (!bin)
     {
+        fclose(fp);
         perror("Error opening file what.out");
         return WHAT_FILEOPEN_ERROR;
     }
 
     Htable * names = CreateNameTable(tree->root);
-    PARSER_LOG("Created NameTable");
+    if (!names)
+    {
+        fclose(fp);
+        fclose(bin);
+        return WHAT_MEMALLOC_ERROR;
+    }
 
-    char * buf = (char*) calloc(BUF_DEF_SIZE, 1);
-    if (!buf) return WHAT_MEMALLOC_ERROR;
+    char * buf = calloc(BUF_DEF_SIZE, 1);
+    if (!buf)
+    {
+        fclose(fp);
+        fclose(bin);
+        free(names);
+        return WHAT_MEMALLOC_ERROR;
+    }
+
     char * buf_ptr = buf;
-
     GenerateElfHeader(&buf);
 
     Htable * tab = NULL;
-    HtableInit(&tab, HTABLE_BINS);
+    if (HtableInit(&tab, HTABLE_BINS) != WHAT_SUCCESS)
+    {
+        free(buf_ptr);
+        free(names);
+        fclose(fp);
+        fclose(bin);
+    }
 
     BinCtx ctx =
     {
         .file = fp,
         .names = names,
         .func_name = GLOBAL_FUNC_NAME,
-        .buf_ptr=buf_ptr
+        .buf_ptr=buf_ptr,
+        .buf = buf
     };
 
-    EMIT_NASM_TOP(&buf, &ctx);
-    _create_bin(&buf, &tab, tree->root, &ctx);
-    EMIT_NASM_BTM(&buf, &ctx);
+    EmitTop(&ctx);
+    _create_bin(&ctx, &tab, tree->root);
+    EmitBtm(&ctx);
 
-    _def_bin(&buf, &tab, tree->root, &ctx);
+    _def_bin(&ctx, &tab, tree->root);
 
-    FILE * RAW_IOLIB = fopen("iolib/iolib.o", "rb");
-    size_t sz = FileSize(RAW_IOLIB);
-    fread(buf_ptr + IOLIB_OFFSET, sizeof(char), sz, RAW_IOLIB);
+    assert(WriteIOLib(&ctx) == WHAT_SUCCESS);
 
     if (fwrite(buf_ptr, sizeof(char), BUF_DEF_SIZE, bin) != BUF_DEF_SIZE)
         return WHAT_FILEWRITE_ERROR;
@@ -74,11 +92,11 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
         HtableDump(names, HTABLE_NAMES_FNAME);
     }
 
+    free(tab);
     free(buf_ptr);
     free(names);
     fclose(fp);
     fclose(bin);
-    fclose(RAW_IOLIB);
 
     return WHAT_SUCCESS;
 }
@@ -89,13 +107,13 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
 ##########################################################################################################
 */
 
-int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+int _create_bin(BinCtx * ctx, Htable ** tab, Node * root)
 {
     if (NodeType(root) == NUM)
     {
         PrintNasmNode(root, ctx);
         PARSER_LOG("PUSHING IMM32");
-        PUSHIMM32(buf, (int) NodeValue(root), ctx);
+        EmitPushImm32(ctx, (int) NodeValue(root));
     }
     else if (NodeType(root) == FUNC_INTER_CALL)
     {
@@ -108,25 +126,25 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         {
             if (NodeType(left) == NUM)
             {
-                EMIT_NUM_PARAM(buf, left, param_array, param, ctx);
+                EmitNumParam(ctx, left, param_array, param);
             }
             else if (NodeType(left) == VAR)
             {
-                if (!strcmp(NodeName(root), ctx->func_name)) PUSHREG(buf, Offset2EnumReg(param), ctx);
-                else                                         EMIT_VAR_PARAM(buf, left, param, ctx);
+                if (!strcmp(NodeName(root), ctx->func_name)) EmitPushReg(ctx, Offset2EnumReg(param));
+                else                                         EmitVarParam(ctx, left, param);
             }
 
             PARSER_LOG("param = %d %s", param, param_array[param]->name);
-            POPREG(buf, Offset2EnumReg(param_array[param]->param), ctx);
+            EmitPopReg(ctx, Offset2EnumReg(param_array[param]->param));
         }
-        CALL_DIRECT(buf, root, ctx);
+        CallDirect(ctx, root);
         ctx->func_name = NodeName(root);
     }
     else if (NodeType(root) == VAR)
     {
         PrintNasmNode(root, ctx);
-        if (!strcmp(GetVarFuncName(root, ctx), GLOBAL_FUNC_NAME)) EMIT_VAR(buf, root, ctx);
-        else PUSHREG(buf, Offset2EnumReg(GetVarParam(root, ctx)), ctx);
+        if (!strcmp(GetVarFuncName(root, ctx), GLOBAL_FUNC_NAME)) EmitVar(ctx, root);
+        else EmitPushReg(ctx, Offset2EnumReg(GetVarParam(root, ctx)));
     }
     else if (NodeType(root) == OPER)
     {
@@ -135,39 +153,39 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
         int nodeVal = (int) NodeValue(root);
 
-        if      (isCmpOper(nodeVal))    BinCmpOper  (buf, tab, root, ctx);
-        else if (isArithOper(nodeVal))  BinArithOper(buf, tab, root, ctx);
-        else if (nodeVal == IF)         BinIf       (buf, tab, root, ctx);
-        else if (nodeVal == WHILE)      BinWhile    (buf, tab, root, ctx);
+        if      (isCmpOper(nodeVal))    BinCmpOper  (ctx, tab, root);
+        else if (isArithOper(nodeVal))  BinArithOper(ctx, tab, root);
+        else if (nodeVal == IF)         BinIf       (ctx, tab, root);
+        else if (nodeVal == WHILE)      BinWhile    (ctx, tab, root);
     }
-    else if (NodeType(root) == FUNC_EXT) BinFuncExt(buf, tab, root, ctx);
+    else if (NodeType(root) == FUNC_EXT) BinFuncExt(ctx, tab, root);
     else if ((int) NodeValue(root) == ';')
     {
-        _create_bin(buf, tab, root->left,  ctx);
-        _create_bin(buf, tab, root->right, ctx);
+        _create_bin(ctx, tab, root->left );
+        _create_bin(ctx, tab, root->right);
     }
 
     return WHAT_SUCCESS;
 }
 
-int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
+int _def_bin(BinCtx * ctx, Htable ** tab, Node * root)
 {
     PARSER_LOG("DEF_ASM...");
     if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
     {
         PrintNasmNode(root, ctx);
-        const char * func_start = *buf;
+        const char * func_start = ctx->buf;
 
-        EMIT_FUNC_STACK_PUSH(buf, root, ctx);
+        EmitFuncStackPush(ctx, root);
 
-        _create_bin(buf, tab, root->right, ctx);
+        _create_bin(ctx, tab, root->right);
 
-        EMIT_FUNC_STACK_RET(buf, root, ctx);
+        EmitFuncStackRet(ctx, root);
 
 
         char ** func_adr = GetFuncAdrArr(root->left, ctx);
         PARSER_LOG("adr_array = %p", func_adr)
-        int cap          = GetFuncAdrArrCap(root->left, ctx);
+        int cap = GetFuncAdrArrCap(root->left, ctx);
         for (int i = 0; i < cap; i++)
         {
             int adr = func_start - func_adr[i] - 4;
@@ -175,8 +193,8 @@ int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
             memcpy(func_adr[i], &adr, sizeof(int));
         }
     }
-    if (root->left)  _def_bin(buf, tab, root->left,  ctx);
-    if (root->right) _def_bin(buf, tab, root->right, ctx);
+    if (root->left)  _def_bin(ctx, tab, root->left );
+    if (root->right) _def_bin(ctx, tab, root->right);
     return 1;
 }
 

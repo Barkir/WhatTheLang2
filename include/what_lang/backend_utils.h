@@ -10,6 +10,8 @@
 
 void PrintNasmNode(Node * root, BinCtx * ctx);
 
+int WriteIOLib(BinCtx * ctx);
+
 const enum Registers Offset2EnumReg(int adr);
 const char * Offset2StrReg(int adr, int xtnd);
 const char * EnumReg2Str(int reg, int xtnd);
@@ -35,14 +37,12 @@ const char *    CmpStr      (enum operations oper_enum);
 char            CmpByte     (enum operations oper_enum);
 
 //  Functions for generating binary code from if, while or opers (yep, i know there is bad parameters, fixing it soon...)
-void            BinCmpOper  (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
-void            BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
-int             BinWhile    (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
-int             BinIf       (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
-int             BinFuncExt     (char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
-
-
-int AddFuncAdr(char ** buf, Node * root, BinCtx * ctx);
+void            BinCmpOper  (BinCtx * ctx, Htable ** tab, Node * root);
+void            BinArithOper(BinCtx * ctx, Htable ** tab, Node * root);
+int             BinWhile    (BinCtx * ctx, Htable ** tab, Node * root);
+int             BinIf       (BinCtx * ctx, Htable ** tab, Node * root);
+int             BinFuncExt  (BinCtx * ctx, Htable ** tab, Node * root);
+int             AddFuncAdr(BinCtx * ctx, Node * root);
 
 typedef struct _cmp_oper
 {

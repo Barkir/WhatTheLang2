@@ -58,6 +58,7 @@ typedef struct _bin_ctx
     int while_count;
 
     char * buf_ptr;
+    char * buf;
 
     const char * func_name;
 
@@ -69,9 +70,8 @@ const static size_t IOLIB_OFFSET      = 0x1500;
 
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode);
 
-int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
-int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx);
-
+int _create_bin (BinCtx * ctx, Htable ** tab, Node * root);
+int _def_bin    (BinCtx * ctx, Htable ** tab, Node * root);
 
 
 int CreateAsm(Tree * tree, const char * filename);
