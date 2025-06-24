@@ -67,10 +67,6 @@ const static size_t LABEL_SIZE      = 32;
 const static size_t ELF_HEADER_SIZE = 64;
 const static size_t IOLIB_OFFSET      = 0x1500;
 
-const static char * TREEDUMP_FNAME =      "dumpshit/dump";
-const static char * HTABLE_NAMES_FNAME  = "dumpshit/htab_log_names.dmp" ;
-const static char * HTABLE_LOCALS_FNAME = "dumpshit/htab_log_locals.dmp";
-
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode);
 
 int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx);

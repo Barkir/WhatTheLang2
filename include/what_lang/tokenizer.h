@@ -5,7 +5,7 @@
 
 
 const char * _enum_to_name(int name);
-int _name_to_enum       (char * name);
+int _name_to_enum(const char * name);
 
 Field _name_table       (int name);
 int _is_oper            (const char * string, int * p);
@@ -51,39 +51,42 @@ typedef struct _token_map
 
 }  TokenMap;
 
-#define TOKEN_ARRAY_SIZE 29
+#define TOKEN_ARRAY_SIZE 256
+
+#define DEF_TOKEN_LINE(enum_name, str, graphviz)                                                            \
+    [enum_name] = {(enum_name), (str), (graphviz)}
 
 static TokenMap TokenArray[TOKEN_ARRAY_SIZE] =
 {
-    {.token_enum = SQRT   , .token_str = "SQRT" , .graphviz_str = "sqrt"    },
-    {.token_enum = SIN    , .token_str = "sin"  , .graphviz_str = "sin"     },
-    {.token_enum = COS    , .token_str = "cos"  , .graphviz_str = "cos"     },
-    {.token_enum = TG     , .token_str = "tg"   , .graphviz_str = "tg"      },
-    {.token_enum = CTG    , .token_str = "ctg"  , .graphviz_str = "ctg"     },
-    {.token_enum = SH     , .token_str = "sh"   , .graphviz_str = "sh"      },
-    {.token_enum = CH     , .token_str = "ch"   , .graphviz_str = "ch"      },
-    {.token_enum = LN     , .token_str = "LOG"  , .graphviz_str = "ln"      },
-    {.token_enum = IF     , .token_str = "if"   , .graphviz_str = "if"      },
-    {.token_enum = WHILE  , .token_str = "while", .graphviz_str = "while"   },
-    {.token_enum = PRINT  , .token_str = "print", .graphviz_str = "print"   },
-    {.token_enum = DEF    , .token_str = "def"  , .graphviz_str = "def"     },
-    {.token_enum = INPUT  , .token_str = "input", .graphviz_str = "input"   },
-    {.token_enum = MORE   , .token_str = ">"    , .graphviz_str = "more"    },
-    {.token_enum = MORE_E , .token_str = ">="   , .graphviz_str = "more_e"  },
-    {.token_enum = LESS   , .token_str = "<"    , .graphviz_str = "less"    },
-    {.token_enum = LESS_E , .token_str = "<="   , .graphviz_str = "less_e"  },
-    {.token_enum = EQUAL  , .token_str = "=="   , .graphviz_str = "equal"   },
-    {.token_enum = N_EQUAL, .token_str = "!="   , .graphviz_str = "n_equal" },
-    {.token_enum = '+'    , .token_str = "+"    , .graphviz_str = "+"       },
-    {.token_enum = '-'    , .token_str = "-"    , .graphviz_str = "-"       },
-    {.token_enum = '*'    , .token_str = "*"    , .graphviz_str = "*"       },
-    {.token_enum = '/'    , .token_str = "/"    , .graphviz_str = "//"      },
-    {.token_enum = '^'    , .token_str = "^"    , .graphviz_str = "^"       },
-    {.token_enum = '='    , .token_str = "="    , .graphviz_str = "="      },
-    {.token_enum = '('    , .token_str = "("    , .graphviz_str = "("       },
-    {.token_enum = ')'    , .token_str = ")"    , .graphviz_str = ")"       },
-    {.token_enum = '{'    , .token_str = "{"    , .graphviz_str = "{"       },
-    {.token_enum = '}'    , .token_str = "}"    , .graphviz_str = "}"       }
+    DEF_TOKEN_LINE(SQRT,    "SQRT",  "sqrt"    ),
+    DEF_TOKEN_LINE(SIN,     "sin",   "sin"     ),
+    DEF_TOKEN_LINE(COS,     "cos",   "cos"     ),
+    DEF_TOKEN_LINE(TG,      "tg",    "tg"      ),
+    DEF_TOKEN_LINE(CTG,     "ctg",   "ctg"     ),
+    DEF_TOKEN_LINE(SH,      "sh",    "sh"      ),
+    DEF_TOKEN_LINE(CH,      "ch",    "ch"      ),
+    DEF_TOKEN_LINE(LN,      "LOG",   "ln"      ),
+    DEF_TOKEN_LINE(IF,      "if",    "if"      ),
+    DEF_TOKEN_LINE(WHILE,   "while", "while"   ),
+    DEF_TOKEN_LINE(PRINT,   "print", "print"   ),
+    DEF_TOKEN_LINE(DEF,     "def",   "def"     ),
+    DEF_TOKEN_LINE(INPUT,   "input", "input"   ),
+    DEF_TOKEN_LINE(MORE,    ">",     "more"    ),
+    DEF_TOKEN_LINE(MORE_E,  ">=",    "more_e"  ),
+    DEF_TOKEN_LINE(LESS,    "<",     "less"    ),
+    DEF_TOKEN_LINE(LESS_E,  "<=",    "less_e"  ),
+    DEF_TOKEN_LINE(EQUAL,   "==",    "equal"   ),
+    DEF_TOKEN_LINE(N_EQUAL, "!=",    "n_equal" ),
+    DEF_TOKEN_LINE('+',     "+",     "+"       ),
+    DEF_TOKEN_LINE('-',     "-",     "-"       ),
+    DEF_TOKEN_LINE('*',     "*",     "*"       ),
+    DEF_TOKEN_LINE('/',     "/",     "//"      ),
+    DEF_TOKEN_LINE('^',     "^",     "^"       ),
+    DEF_TOKEN_LINE('=',     "=",     "="       ),
+    DEF_TOKEN_LINE('(',     "(",     "("       ),
+    DEF_TOKEN_LINE(')',     ")",     ")"       ),
+    DEF_TOKEN_LINE('{',     "{",     "{"       ),
+    DEF_TOKEN_LINE('}',     "}",     "}"       )
 };
 
 #endif

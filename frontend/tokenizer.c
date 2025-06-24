@@ -2,14 +2,33 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 
+#include "what_lang/constants.h"
 #include "what_lang/errors.h"
 #include "what_lang/tree.h"
 #include "what_lang/parser.h"
 #include "what_lang/tokenizer.h"
 
+
+int CheckTokenStruct(void)
+{
+    for (int i = 0; i < TOKEN_ARRAY_SIZE; i++)
+    {
+        if (!TokenArray[i].token_enum)
+            continue;
+
+        assert((TokenArray[i].token_enum == i));
+    }
+
+    return WHAT_SUCCESS;
+}
+
 Node ** StringTokenize(const char * string, int * p)
 {
+    VERIFY_PTRS(string, p);
+    CheckTokenStruct();
+
     SKIPSPACE;
     int size = 0;
     size_t arr_size = (size_t) DEF_SIZE;
@@ -26,6 +45,8 @@ Node ** StringTokenize(const char * string, int * p)
 
 Node * _get_token(const char * string, int * p)
 {
+    VERIFY_PTRS(string, p);
+
     SKIPSPACE;
     if (_is_oper(string, p))    {PARSER_LOG("operator %c! ", string[*p]);   return _oper_token(string, p);}
 
@@ -41,6 +62,8 @@ Node * _get_token(const char * string, int * p)
 
 Node * _sep_token(const char * string, int * p)
 {
+    VERIFY_PTRS(string, p);
+
     SKIPSPACE;
     Field * field = _create_field((field_t) ';', SEP_SYMB);
     if (!field) return NULL;
@@ -52,6 +75,8 @@ Node * _sep_token(const char * string, int * p)
 
 Node * _number_token(const char * string, int * p)
 {
+    VERIFY_PTRS(string, p);
+
     SKIPSPACE;
     char * end = NULL;
     field_t number = strtof(&(string[*p]), &end);
@@ -70,6 +95,8 @@ Node * _number_token(const char * string, int * p)
 
 Node * _name_token(const char * string, int * p)
 {
+    VERIFY_PTRS(string, p);
+
     SKIPSPACE;
     int start_p = *p;
     int is_func = 0;
@@ -91,6 +118,8 @@ Node * _name_token(const char * string, int * p)
 
 Node * _oper_token(const char * string, int * p)
 {
+    VERIFY_PTRS(string, p);
+
     SKIPSPACE;
 
     int start_p = *p;
@@ -123,6 +152,8 @@ Node * _oper_token(const char * string, int * p)
 
 Node * _find_name(char * result, int is_func)
 {
+    VERIFY_PTRS(result);
+
     PARSER_LOG("Need to find name %s... ", result);
     Field name = _name_table(_name_to_enum(result));
 
@@ -145,26 +176,33 @@ Node * _find_name(char * result, int is_func)
 
 int _is_oper(const char * string, int * p)
 {
-        return string[*p] == '(' ||
-        string[*p] == ')' ||
-        string[*p] == '{' ||
-        string[*p] == '}' ||
-        string[*p] == '+' ||
-        string[*p] == '-' ||
-        string[*p] == '/' ||
-        string[*p] == '*' ||
-        string[*p] == '^' ||
-        string[*p] == '>' ||
-        string[*p] == '<' ||
-        (string[*p] == '!' && string[(*p) + 1] == '=') ||
-        (string[*p] == '=' && string[(*p) + 1] != '=') ||
-        (string[*p] == '=' && string[(*p) + 1] == '=');
+    VERIFY_PTRS(string, p);
+
+    return string[*p] == '(' ||
+    string[*p] == ')' ||
+    string[*p] == '{' ||
+    string[*p] == '}' ||
+    string[*p] == '+' ||
+    string[*p] == '-' ||
+    string[*p] == '/' ||
+    string[*p] == '*' ||
+    string[*p] == '^' ||
+    string[*p] == '>' ||
+    string[*p] == '<' ||
+    (string[*p] == '!' && string[(*p) + 1] == '=') ||
+    (string[*p] == '=' && string[(*p) + 1] != '=') ||
+    (string[*p] == '=' && string[(*p) + 1] == '=');
 }
 
-int _name_to_enum(char * name)
+int _name_to_enum(const char * name)
 {
+    VERIFY_PTRS(name);
+
     for (int i = 0; i < TOKEN_ARRAY_SIZE; i++)
-        if (!strcmp(TokenArray[i].token_str, name)) return TokenArray[i].token_enum;
+    {
+        if (TokenArray[i].token_str && !strcmp(TokenArray[i].token_str, name))
+            return TokenArray[i].token_enum;
+    }
 
     PARSER_LOG("Can't find name %s", name);
     return -1;
@@ -172,14 +210,14 @@ int _name_to_enum(char * name)
 
 const char * _enum_to_name(int name)
 {
-    for (int i = 0; i < TOKEN_ARRAY_SIZE; i++)
-        if (TokenArray[i].token_enum == name) return TokenArray[i].graphviz_str;
+    return TokenArray[name].graphviz_str;
 }
 
 Field _name_table(int name)
 {
     Field ret = {.type = NUM, .value = -1};
     if (name < 0) return ret;
+
     for (int i = 0; i < DEF_SIZE; i++)
         if (NameTable[i].value == (field_t) name) return NameTable[i];
     return ret;
@@ -187,3 +225,8 @@ Field _name_table(int name)
 
 
 
+// TODO:  Debug TokenNameTable
+//        Assert writes to logfile
+// TODO:  Write asserts under every function
+//        Verify function if assert is too complicated
+//

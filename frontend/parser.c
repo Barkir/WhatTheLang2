@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <ctype.h>
 
+#include "what_lang/constants.h"
 #include "what_lang/buff.h"
 #include "what_lang/parser.h"
 #include "what_lang/nametable.h"

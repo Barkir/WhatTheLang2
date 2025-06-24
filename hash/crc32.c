@@ -2,10 +2,12 @@
 #include <stdint.h>
 #include <nmmintrin.h>
 
+
 #include "what_lang/nametable.h"
 #include "what_lang/crc32.h"
 
-static const unsigned int crc32_table[] =
+
+const unsigned int crc32_table[] =
 {
   0x00000000, 0x04c11db7, 0x09823b6e, 0x0d4326d9,
   0x130476dc, 0x17c56b6b, 0x1a864db2, 0x1e475005,

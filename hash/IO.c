@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <string.h>
 
+#include "what_lang/constants.h"
 #include "what_lang/IO.h"
 #include "what_lang/hashtable_errors.h"
 

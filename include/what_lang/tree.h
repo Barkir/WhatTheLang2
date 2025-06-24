@@ -60,6 +60,7 @@ int TreeParse               (Tree * tree, const char * filename);
 Tree * TreeDump             (Tree * tree, const char * FileName);
 void DestroyTree            (Tree * t);
 
+const char * NodeType2Str(Node * node);
 field_t NodeValue(Node * node);
 char * NodeName(Node * node);
 int NodeIP(Node * node);

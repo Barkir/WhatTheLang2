@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "what_lang/constants.h"
 #include "what_lang/buff.h"
 #include "what_lang/tree.h"
 #include "what_lang/errors.h"
@@ -244,6 +245,25 @@ enum types NodeType(Node * node)
     if (!node) return ERROR;
     // return ((Field*)(node->value))->type;
     return ((Field*)((char*)node + sizeof(Node)))->type;
+}
+
+const char * NodeType2Str(Node * node)
+{
+    if (!node) return  "UNKNOWN_TYPE";
+
+    switch (NodeType(node))
+    {
+        case OPER:              return "OPER"           ;
+        case VAR :              return "VAR"            ;
+        case NUM :              return "NUM"            ;
+        case FUNC_EXT:          return "FUNC_EXT"       ;
+        case SEP_SYMB:          return "SEP_SYMB"       ;
+        case FUNC_INTER_DEF:    return "FUNC_INTER_DEF" ;
+        case FUNC_INTER_CALL:   return "FUNC_INTER_CALL";
+        default:                return "UNKNOWN TYPE"   ;
+    }
+
+    return "UNKNOWN_TYPE";
 }
 
 unsigned int NodeColor(Node * node)

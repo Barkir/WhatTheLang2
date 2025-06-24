@@ -2,25 +2,64 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <assert.h>
 
-
+#include "what_lang/constants.h"
 #include "what_lang/tree.h"
 #include "what_lang/nametable.h"
-
 #include "what_lang/list.h"
 #include "what_lang/htable.h"
-
 #include "what_lang/parser.h"
-
 #include "what_lang/backend.h"
-#include "what_lang/emit_constants.h"
 #include "what_lang/backend_utils.h"
 #include "what_lang/emitters.h"
 #include "what_lang/errors.h"
 #include "what_lang/hashtable_errors.h"
+#include "what_lang/tokenizer.h"
+
+const CmpOper OperArray[OPER_ARRAY_SIZE] =
+{
+    {.oper_enum = MORE,     .oper_str = "ja",   .oper_byte = JA_BYTE},
+    {.oper_enum = LESS,     .oper_str = "jb",   .oper_byte = JB_BYTE},
+    {.oper_enum = MORE_E,   .oper_str = "jae",  .oper_byte = JAE_BYTE},
+    {.oper_enum = LESS_E,   .oper_str = "jbe",  .oper_byte = JBE_BYTE},
+    {.oper_enum = EQUAL,    .oper_str = "je",   .oper_byte = JE_BYTE},
+    {.oper_enum = N_EQUAL,  .oper_str = "jne",  .oper_byte = JNE_BYTE},
+};
+
+const WhatReg RegArray[] =
+{
+    {.reg = WHAT_REG_EAX,     .reg_xtnd = -1          ,  .reg_str = "rax"},
+    {.reg = WHAT_REG_EBX,     .reg_xtnd = -1          ,  .reg_str = "rbx"},
+    {.reg = WHAT_REG_EBP,     .reg_xtnd = -1          ,  .reg_str = "rbp"},
+    {.reg = WHAT_REG_ECX,     .reg_xtnd = -1          ,  .reg_str = "rcx"},
+    {.reg = WHAT_REG_EDX,     .reg_xtnd = -1          ,  .reg_str = "rdx"},
+    {.reg = WHAT_REG_EDI,     .reg_xtnd = -1          ,  .reg_str = "rdi"},
+    {.reg = WHAT_REG_ESI,     .reg_xtnd = -1          ,  .reg_str = "rsi"},
+    {.reg = WHAT_REG_ESP,     .reg_xtnd = -1          ,  .reg_str = "rsp"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R8 ,  .reg_str = "r8" },
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R9 ,  .reg_str = "r9" },
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R10,  .reg_str = "r10"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R11,  .reg_str = "r11"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R12,  .reg_str = "r12"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R13,  .reg_str = "r13"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R14,  .reg_str = "r14"},
+    {.reg = -1          ,     .reg_xtnd = WHAT_REG_R15,  .reg_str = "r15"}
+};
+
+void PrintNasmNode(Node * root, BinCtx * ctx)
+{
+    VERIFY_PTRS(root, ctx);
+    if (NodeType(root) != SEP_SYMB)
+    {
+        fprintf(ctx->file, "\n ;%s :: %s :: %s\n", NodeName(root), NodeType2Str(root), TokenArray[(int) NodeValue(root)].graphviz_str);
+    }
+}
 
 int NameArrayAddElem(Name * name, Name * elem)
 {
+    VERIFY_PTRS(name, elem);
+
     PARSER_LOG("Adding param to function with name %s", name->name);
     Name ** array = name->name_array;
     PARSER_LOG("name_array = %p", array);
@@ -39,6 +78,8 @@ int NameArrayAddElem(Name * name, Name * elem)
 
 int InitFuncParam(Node * root, Htable ** name_tab, Name * function, NameTableCtx ** ctx)
 {
+    VERIFY_PTRS(root, name_tab, function, ctx);
+
     Name param_name = {.name = NodeName(root), .type = VAR, .func_name = (*ctx)->func_name, .stack_offset = ((*ctx)->stack_offset++)};
     PARSER_LOG("Param name = %s, function_name = %s, offset = %d", param_name.name, param_name.func_name, param_name.stack_offset);
 
@@ -51,6 +92,8 @@ int InitFuncParam(Node * root, Htable ** name_tab, Name * function, NameTableCtx
 
 int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 {
+    VERIFY_PTRS(root, name_tab, ctx);
+
     if (NodeType(root) == VAR)
     {
         PARSER_LOG("Got VAR with name %s (stack_offset = %d)", NodeName(root), ctx->stack_offset);
@@ -101,6 +144,8 @@ int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 
 Htable * CreateNameTable(Node * root)
 {
+    VERIFY_PTRS(root);
+
     PARSER_LOG("Creating Name Table");
     Htable * name_tab = NULL;
     HtableInit(&name_tab, HTABLE_BINS);
@@ -156,6 +201,9 @@ int isArithOper(enum operations oper_enum)
 
 void BinCmpOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(buf, tab, root, ctx);
+
+    PrintNasmNode(root, ctx);
     PARSER_LOG("Calling BinCmpOper...");
     int nodeVal = (int) NodeValue(root);
     _create_bin(buf, tab, root->left,  ctx);
@@ -168,6 +216,8 @@ void BinCmpOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
 void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(buf, tab, root, ctx);
+
     int nodeVal = (int) NodeValue(root);
     PARSER_LOG("calling BinArithOper with NodeValue %c %d", nodeVal, nodeVal);
 
@@ -176,6 +226,7 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
         PARSER_LOG("BinArithOper in '=' condition");
         _create_bin(buf, tab, root->right, ctx);
 
+        PrintNasmNode(root, ctx);
 
         if (!strcmp(GetVarFuncName(root->left, ctx), GLOBAL_FUNC_NAME))
         {
@@ -190,12 +241,15 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
             POPREG(buf, Offset2EnumReg(GetVarParam(root->left, ctx)), ctx);
         }
 
+
         return;
     }
 
     _create_bin(buf, tab, root->left,  ctx);
     _create_bin(buf, tab, root->right, ctx);
 
+
+    PrintNasmNode(root, ctx);
     if (nodeVal == '+')
     {
 
@@ -240,6 +294,9 @@ void BinArithOper(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
 int BinIf(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(buf, tab, root, ctx);
+
+    PrintNasmNode(root, ctx);
     PARSER_LOG("PROCESSING IF");
     int local_if  = IF_COUNT;
     ctx->if_count = IF_COUNT;
@@ -302,6 +359,9 @@ int BinIf(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
 int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(buf, tab, root, ctx);
+
+    PrintNasmNode(root, ctx);
     PARSER_LOG("PROCESSING WHILE");
     int local_while = WHILE_COUNT;
     ctx->while_count = WHILE_COUNT;
@@ -368,6 +428,9 @@ int BinWhile(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
 int BinFuncExt(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(buf, tab, root, ctx);
+
+    PrintNasmNode(root, ctx);
     PARSER_LOG("CALLED BIN_FUNC");
     int nodeVal = (int) NodeValue(root);
 
@@ -388,6 +451,8 @@ int BinFuncExt(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 
 int AddFuncAdr(char ** buf, Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(buf, root, ctx);
+
     Name func = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     Name * found_func = HtableNameFind(ctx->names, &func);
     for (int i = 0; i < 32; i++)
@@ -447,30 +512,40 @@ const enum Registers Offset2EnumReg(int adr)
 
 const char * GetVarFuncName(Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(root, ctx);
+
     Name root_name = {.name = NodeName(root), .type  = NodeType(root)};
     return HtableNameFind(ctx->names, &root_name)->func_name;
 }
 
 char ** GetFuncAdrArr(Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(root, ctx);
+
     Name root_name = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     return HtableNameFind(ctx->names, &root_name)->adr_array;
 }
 
 int GetFuncAdrArrCap(Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(root, ctx);
+
     Name root_name = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     return HtableNameFind(ctx->names, &root_name)->adr_array_cap;
 }
 
 int GetVarOffset(Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(root, ctx);
+
     Name root_name = {.name = NodeName(root), .type = NodeType(root)};
     return HtableNameFind(ctx->names, &root_name)->stack_offset;
 }
 
 int GetVarParam(Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(root, ctx);
+
     Name root_name = {.name = NodeName(root), .type = NodeType(root)};
     return HtableNameFind(ctx->names, &root_name)->param;
 }
@@ -490,6 +565,8 @@ const char * EnumReg2Str(int reg, int xtnd)
 
 Name ** GetFuncNameArray(Node * root, BinCtx * ctx)
 {
+    VERIFY_PTRS(root, ctx);
+
     Name func = {.name = NodeName(root), .type=FUNC_INTER_DEF};
     return HtableNameFind(ctx->names, &func)->name_array;
 }

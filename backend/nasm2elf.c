@@ -4,10 +4,9 @@
 #include <ctype.h>
 #include <elf.h>
 
+#include "what_lang/constants.h"
 #include "what_lang/errors.h"
 #include "what_lang/nasm2elf.h"
-
-
 
 int NASM2ELF(const char * filename)
 {

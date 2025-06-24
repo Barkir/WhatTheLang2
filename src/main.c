@@ -3,11 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "what_lang/constants.h"
 #include "what_lang/tree.h"
 #include "what_lang/buff.h"
 #include "what_lang/parser.h"
 #include "what_lang/errors.h"
-
 #include "what_lang/nametable.h"
 #include "what_lang/list.h"
 #include "what_lang/htable.h"

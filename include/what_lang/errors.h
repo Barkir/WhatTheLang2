@@ -15,12 +15,18 @@
 }                                                   \
 
 #ifdef DEBUG
-#define PARSER_LOG(...)                                                             \
+#define PARSER_LOG(...)                                                          \
     {                                                                            \
     fprintf(stderr, ">>> %s:%d: ", __func__, __LINE__);                          \
     fprintf(stderr, __VA_ARGS__);                                                \
     fprintf(stderr, "\n");                                                       \
-    }
+    }                                                                            \
+
+#define VERIFY_PTRS(...)                                                        \
+        void* _ptrs[] = {__VA_ARGS__};                                          \
+        for (size_t _i = 0; _i < sizeof(_ptrs)/sizeof(_ptrs[0]); _i++)          \
+            assert(_ptrs[_i] != NULL);                                          \
+
 #else
 #define PARSER_LOG(...)
 #endif

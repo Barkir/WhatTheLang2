@@ -3,24 +3,25 @@
 #include <string.h>
 #include <stdint.h>
 
+#include "what_lang/constants.h"
 #include "what_lang/nametable.h"
-#include "what_lang/emit_constants.h"
-
 #include "what_lang/parser.h"
 #include "what_lang/list.h"
 #include "what_lang/htable.h"
-
 #include "what_lang/tree.h"
 #include "what_lang/backend.h"
 #include "what_lang/backend_utils.h"
-
 #include "what_lang/emitters.h"
 #include "what_lang/errors.h"
 
-void EMIT(char ** buf, const char * binary, const char * command, BinCtx * ctx)
+#define EMIT(buf, binary, command, ctx)                 \
+    DO_EMIT((buf), (binary), (sizeof(binary) - 1), (command), (ctx))
+
+
+void DO_EMIT(char ** buf, const char * binary, size_t buf_len, const char * command, BinCtx * ctx)
 {
     fprintf(ctx->file, "%s\n", command);
-    for (int i = 0; i < strlen(binary); i++)
+    for (int i = 0; i < buf_len; i++)
     {
         **buf = binary[i];
         (*buf)++;
@@ -661,31 +662,24 @@ void EMIT_COMPARSION(char ** buf, Htable ** tab, int nodeVal, BinCtx * ctx)
 
 void EMIT_RET(char ** buf, BinCtx * ctx)
 {
-    fprintf(ctx->file, "ret\n");
-    **buf = 0xc3;
-    (*buf)++;
+    EMIT(buf, "\xc3", "ret", ctx);
 }
 
 void EMIT_FUNC_STACK_PUSH(char ** buf, Node * root, BinCtx * ctx)
 {
     fprintf(ctx->file, "%s:\n", NodeName(root->left));
 
-    EMIT(buf, "\x41\x5e", "pop r14", ctx);
-    EMIT(buf, "\x4d\x89\x75\0", "mov [r13], r14", ctx);
-    (*buf)++;
-    EMIT(buf, "\x49\x83\xc5\x08", "add r13, 8", ctx);
-
+    EMIT(buf, "\x41\x5e",           "pop r14",        ctx);
+    EMIT(buf, "\x4d\x89\x75\0",     "mov [r13], r14", ctx);
+    EMIT(buf, "\x49\x83\xc5\x08",   "add r13, 8",     ctx);
 }
 
 
 void EMIT_FUNC_STACK_RET(char ** buf, Node * root, BinCtx * ctx)
 {
-
-    EMIT(buf, "\x49\x83\xed\x08", "sub r13, 8", ctx);
-    EMIT(buf, "\x4d\x8b\x75\0", "mov r14, [r13]", ctx);
-    (*buf)++;
-    EMIT(buf, "\x41\x56", "push r14", ctx);
-    EMIT(buf, "\xc3", "ret", ctx);
-
+    EMIT(buf, "\x49\x83\xed\x08",   "sub r13, 8",     ctx);
+    EMIT(buf, "\x4d\x8b\x75\0",     "mov r14, [r13]", ctx);
+    EMIT(buf, "\x41\x56",           "push r14",       ctx);
+    EMIT(buf, "\xc3",               "ret",            ctx);
 }
 

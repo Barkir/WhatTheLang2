@@ -5,13 +5,13 @@
 #include <elf.h>
 #include <assert.h>
 
+#include "what_lang/constants.h"
 #include "what_lang/nametable.h"
 #include "what_lang/list.h"             // List Structure
 #include "what_lang/htable.h"           // Hash Table (includes list)
 #include "what_lang/tree.h"             // Binary Tree Structure
 #include "what_lang/parser.h"           // Included for operations enum (bad)
 #include "what_lang/errors.h"           // Errors and loggers
-#include "what_lang/emit_constants.h"   //  ters Constants
 #include "what_lang/backend.h"          // Backend Header
 #include "what_lang/emitters.h"         // Emitters Functions
 #include "what_lang/backend_utils.h"    // Backend Utils Header
@@ -93,11 +93,13 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
 {
     if (NodeType(root) == NUM)
     {
+        PrintNasmNode(root, ctx);
         PARSER_LOG("PUSHING IMM32");
         PUSHIMM32(buf, (int) NodeValue(root), ctx);
     }
     else if (NodeType(root) == FUNC_INTER_CALL)
     {
+        PrintNasmNode(root, ctx);
         PARSER_LOG("FUNC INTER_CALL");
         Name ** param_array = GetFuncNameArray(root, ctx);
 
@@ -122,11 +124,13 @@ int _create_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     }
     else if (NodeType(root) == VAR)
     {
+        PrintNasmNode(root, ctx);
         if (!strcmp(GetVarFuncName(root, ctx), GLOBAL_FUNC_NAME)) EMIT_VAR(buf, root, ctx);
         else PUSHREG(buf, Offset2EnumReg(GetVarParam(root, ctx)), ctx);
     }
     else if (NodeType(root) == OPER)
     {
+        PrintNasmNode(root, ctx);
         PARSER_LOG("PROCESSING OPER");
 
         int nodeVal = (int) NodeValue(root);
@@ -151,6 +155,7 @@ int _def_bin(char ** buf, Htable ** tab, Node * root, BinCtx * ctx)
     PARSER_LOG("DEF_ASM...");
     if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
     {
+        PrintNasmNode(root, ctx);
         const char * func_start = *buf;
 
         EMIT_FUNC_STACK_PUSH(buf, root, ctx);

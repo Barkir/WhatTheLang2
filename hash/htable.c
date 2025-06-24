@@ -9,6 +9,7 @@
 #include <immintrin.h>
 #include <wmmintrin.h>
 
+#include "what_lang/constants.h"
 #include "what_lang/nametable.h"
 #include "what_lang/list.h"
 #include "what_lang/htable.h"
