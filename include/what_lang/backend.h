@@ -72,10 +72,6 @@ typedef struct _nametable_ctx
 
 } NameTableCtx;
 
-const static size_t LABEL_SIZE      = 32;
-const static size_t ELF_HEADER_SIZE = 64;
-const static size_t IOLIB_OFFSET    = 0x1500;
-
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode);
 int _create_bin (BinCtx * ctx, Htable ** tab, Node * root);
 int _def_bin    (BinCtx * ctx, Htable ** tab, Node * root);

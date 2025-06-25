@@ -30,6 +30,10 @@ extern const size_t         DATA_SEG_SIZE;
 extern const size_t         CODE_SEG_SIZE;
 extern const size_t         BUF_OFFSET;
 
+extern const size_t  LABEL_SIZE;
+extern const size_t  ELF_HEADER_SIZE;
+
+
 // -----------------------------------------------------------
 
 extern const char *         GLOBAL_FUNC_NAME;
@@ -44,8 +48,9 @@ extern const char *         IOLIB_PATH;
 
 // -----------------------------------------------------------
 
-extern const int            PRINT_OFFSET;
-extern const int            INPUT_OFFSET;
+extern const int                   IOLIB_OFFSET;
+extern const int            PRINT_CALL;
+extern const int            INPUT_CALL;
 
 // -----------------------------------------------------------
 

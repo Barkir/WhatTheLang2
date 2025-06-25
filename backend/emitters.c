@@ -474,7 +474,7 @@ void EmitPrint(BinCtx * ctx)
     EmitByte(ctx, CALL_DIRECT_BYTE);
     fprintf(ctx->file, "call _IOLIB_OUTPUT   \n");
 
-    int32_t adr = (ctx->buf_ptr + PRINT_OFFSET) - (ctx->buf + sizeof(int32_t)); // sizeof(int32_t) needed for correct long jmp offset
+    int32_t adr = (ctx->buf_ptr + IOLIB_OFFSET + PRINT_CALL * 2) - (ctx->buf + sizeof(int32_t)); // sizeof(int32_t) needed for correct long jmp offset
     EmitInt32(ctx, adr);
 }
 
@@ -484,7 +484,7 @@ void EmitInput(BinCtx * ctx)
 
     fprintf(ctx->file, "call _IOLIB_INPUT    \n");
     EmitByte(ctx, CALL_DIRECT_BYTE);
-    int32_t adr = (ctx->buf_ptr + INPUT_OFFSET) - (ctx->buf + sizeof(int32_t)); // sizeof(int32_t) needed for correct long jmp offset
+    int32_t adr = (ctx->buf_ptr + IOLIB_OFFSET + INPUT_CALL * 2) - (ctx->buf + sizeof(int32_t)); // sizeof(int32_t) needed for correct long jmp offset
     EmitInt32(ctx, adr);
     EmitPushReg(ctx, WHAT_REG_EAX);
 

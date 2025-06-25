@@ -16,8 +16,9 @@ const int DEFAULT_REG_NUMBER            = 5;
 // call [syscall_table+0]|
 // call [syscall_table+8]|
 
-const int PRINT_OFFSET = 0x1527;
-const int INPUT_OFFSET = 0x1500;
+const int IOLIB_OFFSET = 0x1500;
+const int PRINT_CALL = 1;
+const int INPUT_CALL = 0;
 
 
 const unsigned int CRC32INIT            = 5381;
@@ -29,6 +30,8 @@ const size_t NUM_WORDS                  = 2000;
 const size_t BUF_LEN                    = 32;
 const size_t ADR_ARRAY_SIZE             = 32;
 const size_t ALIGNED_SIZE               = 65536 * 128;
+const size_t LABEL_SIZE          = 32;
+const size_t ELF_HEADER_SIZE     = 64;
 
 const size_t BUF_OFFSET                 = 0x1000;
 const size_t ELF_ENTRY_POINT            = 0x401000;

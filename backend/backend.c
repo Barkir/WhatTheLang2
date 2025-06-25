@@ -161,7 +161,7 @@ void BinArithOper(BinCtx * ctx, Htable ** tab, Node * root)
         {
             EmitPopReg      (ctx, Offset2EnumReg(GetVarOffset(root->left, ctx)));
             EmitPushXtendReg(ctx, WHAT_REG_R12);
-            EmitAddRegVal   (ctx, WHAT_REG_R12, GetVarOffset(root->left, ctx) * 8, WHAT_XTEND_VAL);
+            EmitAddRegVal   (ctx, WHAT_REG_R12, GetVarOffset(root->left, ctx) * sizeof(int64_t), WHAT_XTEND_VAL);
             EmitMovRegReg   (ctx, WHAT_REG_R12, Offset2EnumReg(GetVarOffset(root->left, ctx)), WHAT_XTEND_REG, WHAT_MEM1);
             EmitPopXtendReg (ctx, WHAT_REG_R12);
         }

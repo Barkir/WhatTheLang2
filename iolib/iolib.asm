@@ -11,6 +11,10 @@
 %define success 0
 
 section .text
+
+jmp _IOLIB_INPUT
+jmp _IOLIB_OUTPUT
+
 bits 64
 
 
