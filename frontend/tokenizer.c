@@ -26,7 +26,8 @@ int CheckTokenStruct(void)
 
 Node ** StringTokenize(const char * string, int * p)
 {
-    VERIFY_PTRS(string, p);
+    assert(string);
+    assert(p);
     CheckTokenStruct();
 
     SKIPSPACE;
@@ -36,7 +37,7 @@ Node ** StringTokenize(const char * string, int * p)
     while (string[*p] != 0)
     {
         *(nodes + size) = _get_token(string, p);
-        PARSER_LOG("got node %d %p with value %lg!\n", size+1, *(nodes + size), NodeValue(*(nodes + size)));
+        // PARSER_LOG("got node %d %p with value %lg!\n", size+1, *(nodes + size), NodeValue(*(nodes + size)));
         size++;
     }
     return nodes;
@@ -45,7 +46,8 @@ Node ** StringTokenize(const char * string, int * p)
 
 Node * _get_token(const char * string, int * p)
 {
-    VERIFY_PTRS(string, p);
+    assert(string);
+    assert(p);
 
     SKIPSPACE;
     if (_is_oper(string, p))    {PARSER_LOG("operator %c! ", string[*p]);   return _oper_token(string, p);}
@@ -62,7 +64,8 @@ Node * _get_token(const char * string, int * p)
 
 Node * _sep_token(const char * string, int * p)
 {
-    VERIFY_PTRS(string, p);
+    assert(string);
+    assert(p);
 
     SKIPSPACE;
     Field * field = _create_field((field_t) ';', SEP_SYMB);
@@ -75,7 +78,8 @@ Node * _sep_token(const char * string, int * p)
 
 Node * _number_token(const char * string, int * p)
 {
-    VERIFY_PTRS(string, p);
+    assert(string);
+    assert(p);
 
     SKIPSPACE;
     char * end = NULL;
@@ -95,7 +99,8 @@ Node * _number_token(const char * string, int * p)
 
 Node * _name_token(const char * string, int * p)
 {
-    VERIFY_PTRS(string, p);
+    assert(string);
+    assert(p);
 
     SKIPSPACE;
     int start_p = *p;
@@ -118,7 +123,8 @@ Node * _name_token(const char * string, int * p)
 
 Node * _oper_token(const char * string, int * p)
 {
-    VERIFY_PTRS(string, p);
+    assert(string);
+    assert(p);
 
     SKIPSPACE;
 
@@ -152,7 +158,7 @@ Node * _oper_token(const char * string, int * p)
 
 Node * _find_name(char * result, int is_func)
 {
-    VERIFY_PTRS(result);
+    assert(result);
 
     PARSER_LOG("Need to find name %s... ", result);
     Field name = _name_table(_name_to_enum(result));
@@ -176,7 +182,7 @@ Node * _find_name(char * result, int is_func)
 
 int _is_oper(const char * string, int * p)
 {
-    VERIFY_PTRS(string, p);
+    assert(string);
 
     return string[*p] == '(' ||
     string[*p] == ')' ||
@@ -196,7 +202,7 @@ int _is_oper(const char * string, int * p)
 
 int _name_to_enum(const char * name)
 {
-    VERIFY_PTRS(name);
+    assert(name);
 
     for (int i = 0; i < TOKEN_ARRAY_SIZE; i++)
     {

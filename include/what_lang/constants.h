@@ -20,6 +20,15 @@ extern const size_t         BUF_LEN;
 extern const unsigned int   CRC32INIT;
 extern const size_t         ALIGNED_SIZE;
 extern const size_t         ELF_ENTRY_POINT;
+extern const size_t         ADR_ARRAY_SIZE;
+extern const size_t         DATA_SEG_OFFSET;
+extern const size_t         SEG_ALIGNMENT;
+extern const size_t         ELF_ENTRY_POINT;
+extern const size_t         BUF_R13_ADR;
+extern const size_t         BUF_R12_ADR;
+extern const size_t         DATA_SEG_SIZE;
+extern const size_t         CODE_SEG_SIZE;
+extern const size_t         BUF_OFFSET;
 
 // -----------------------------------------------------------
 

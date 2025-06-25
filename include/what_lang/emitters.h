@@ -65,13 +65,9 @@ void EmitVarParam       (BinCtx * ctx, Node * root, int param);
 void DoEmit             (BinCtx * ctx, const char * binary, size_t buf_len, const char * command);
 void EmitFuncStackPush  (BinCtx * ctx, Node * root);
 void EmitFuncStackRet   (BinCtx * ctx, Node * root);
-void CallDirect         (BinCtx * ctx, Node * root);
+void EmitCallDirect     (BinCtx * ctx, Node * root);
+void EmitCmpRegsBlock   (BinCtx * ctx);
 
-#define USE_CMP                                                             \
-    EmitPopXtendReg   (ctx, WHAT_REG_R15);                                  \
-    EmitPopXtendReg   (ctx, WHAT_REG_R14);                                  \
-    EmitPushXtendReg  (ctx, WHAT_REG_R14);                                  \
-    EmitPushXtendReg  (ctx, WHAT_REG_R15);                                  \
-    EmitCmpRegReg     (ctx, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND)
+char * EmitCondJmp(BinCtx * ctx, const char * cond_jmp, const char * cond_str, int cond_count, uint8_t command_byte, char offset);
 
 #endif

@@ -299,33 +299,52 @@ Name * InitLocalName(size_t sz)
     return local;
 }
 
+void InsertLabelToHtable(BinCtx * ctx, Htable ** tab, Name * locals, const char * label, int label_count)
+{
+    sprintf(locals->local_func_name, "%s%d", label, label_count);
+    locals->offset = ctx->buf - 1;
+    HtableLabelInsert(tab, locals);
+}
+
 void InsertOffsetToLabel(BinCtx * ctx, Name * local, Htable ** tab, const char * label_str, int local_count)
 {
+    assert(ctx);
+    assert(local);
+    assert(tab);
+    assert(label_str);
+
     sprintf(local->local_func_name, "%s%d", label_str, local_count);
     Name * label = HtableLabelFind(*tab, local);
     assert(label);
     *(label->offset) = (int8_t) (ctx->buf - (label->offset + 1));
 }
 
-char * EmitCondJmp(BinCtx * ctx, const char * cond_str, uint8_t command_byte, char offset)
-{
-    fprintf(ctx->file, "%s%d\n", cond_str, ctx->if_count);
-    EmitJmp(ctx, command_byte, offset);
-    char * cond = ctx->buf - 1;                                             // -1 is needed because jmp is counted from its' 1st byte
-    return cond;
-}
-
 void InsertOffsetToPtr(BinCtx * ctx, char * cond, const char * cond_str, int cond_count)
 {
+    assert(ctx);
+    assert(cond);
+    assert(cond_str);
+
     fprintf(ctx->file, "%s%d:\n", cond_str, cond_count);
     *cond = ctx->buf - (cond + 1);
 }
 
 int BinIfBlock(BinCtx * ctx, Htable ** tab, Node * root)
 {
+    assert(ctx);
+    assert(tab);
+    assert(root);
+
     ctx->if_cond = 1;
     ctx->while_cond = 0;
-    if (root->right) _create_bin(ctx, tab, root);
+    if (root) _create_bin(ctx, tab, root);
+}
+
+int BinWhileBlock(BinCtx * ctx, Htable ** tab, Node * root)
+{
+    ctx->if_cond = 0;
+    ctx->while_cond = 1;
+    if (root) _create_bin(ctx, tab, root);
 }
 
 int BinIf(BinCtx * ctx, Htable ** tab, Node * root)
@@ -341,12 +360,10 @@ int BinIf(BinCtx * ctx, Htable ** tab, Node * root)
     ctx->if_count = IF_COUNT;
     IF_COUNT++;
 
-    Name * locals_if = InitLocalName(LABEL_SIZE);                           // Structure where local label
-    assert(locals_if);                                                      // name will contain
+    Name * locals_if = InitLocalName(LABEL_SIZE);                               // Structure where local label
+    assert(locals_if);                                                          // name will contain
 
-    ctx->if_cond    = 1;                                                    // Processing if block
-    ctx->while_cond = 0;                                                    // turning if flag to 1
-    if (root->left) _create_bin(ctx, tab, root->left);
+    if (root->left) BinIfBlock(ctx, tab, root->left);
     PARSER_LOG("PROCESSED IF BLOCK... if_count = %d", ctx->if_count);
 
     InsertOffsetToLabel(ctx, locals_if, tab, "IF", local_if);
@@ -355,21 +372,17 @@ int BinIf(BinCtx * ctx, Htable ** tab, Node * root)
 
     EmitPushImm32(ctx, 0);
 
-    EmitPopXtendReg   (ctx, WHAT_REG_R15);                                  // Comparing two values from stack,
-    EmitPopXtendReg   (ctx, WHAT_REG_R14);                                  // popping them to r14 and r15,
-    EmitPushXtendReg  (ctx, WHAT_REG_R14);                                  //
-    EmitPushXtendReg  (ctx, WHAT_REG_R15);                                  // saving r14 and r15
-    EmitCmpRegReg     (ctx, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);  // comparing r14, r15
+    EmitCmpRegsBlock(ctx);                                                      // Comparing values, popping them to r14 and r15
 
-    char * cond   = EmitCondJmp(ctx, "jne COND", JNE_BYTE, 0);
-    char * if_end = EmitCondJmp(ctx, "jmp IF_END", JMP_BYTE, 0);
-
-    InsertOffsetToPtr(ctx, cond, "COND", ctx->if_count);
-
-    ctx->if_count++;
-    if (root->right) BinIfBlock(ctx, tab, root->right);
-
-    InsertOffsetToPtr  (ctx, if_end,"IF_END", local_if);
+    char * cond   = EmitCondJmp(ctx, NULL, "jne COND",   ctx->if_count, JNE_BYTE, 0); // >>>>>>>>>>>>>>>>>>>>>>> v
+    char * if_end = EmitCondJmp(ctx, NULL, "jmp IF_END", ctx->if_count, JMP_BYTE, 0); // >>>>>>>>>>>>>>>> v      v
+                                                                                //                        v      v
+    InsertOffsetToPtr(ctx, cond, "COND", ctx->if_count); // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< v      v
+                                                                                //                               v
+    ctx->if_count++;                                                            //                               v
+    if (root->right) BinIfBlock(ctx, tab, root->right);                         //                               v
+                                                                                //                               v
+    InsertOffsetToPtr  (ctx, if_end,"IF_END", local_if); // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< v
     InsertOffsetToLabel(ctx, locals_if, tab, "IF_END", local_if);
     return WHAT_SUCCESS;
 
@@ -377,87 +390,60 @@ int BinIf(BinCtx * ctx, Htable ** tab, Node * root)
 
 int BinWhile(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(tab, root, ctx);
+    assert(tab);
+    assert(root);
+    assert(ctx);
 
-    PrintNasmNode(root, ctx);
     PARSER_LOG("PROCESSING WHILE");
+    PrintNasmNode(root, ctx);
+
     int local_while = WHILE_COUNT;
     ctx->while_count = WHILE_COUNT;
     WHILE_COUNT++;
 
-    Name locals_while = {};
-    locals_while.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
-    if (!locals_while.local_func_name) return WHAT_MEMALLOC_ERROR;
+    Name * locals_while = InitLocalName(LABEL_SIZE);                           // Structure where local label
+    assert(locals_while);                                                      // will contain
 
     fprintf(ctx->file, "WHILE%d:\n", ctx->while_count);
-    const char * while_ptr = ctx->buf;
-    PARSER_LOG("while_ptr = %p", while_ptr);
+    const char * while_ptr = ctx->buf - 5;                                     // -5 is here to include previous instructions
 
-    ctx->if_cond = 0;
-    ctx->while_cond = 1;
-    _create_bin(ctx, tab, root->left);
+    if (root->left) BinWhileBlock(ctx, tab, root->left);
     PARSER_LOG("PROCESSED WHILE BLOCK");
 
-    sprintf(locals_while.local_func_name, "WHILE_FALSE%d", local_while);
-    Name * label_while = HtableLabelFind(*tab, &locals_while);
-    if (label_while) *label_while->offset = (int8_t) (ctx->buf - (label_while->offset + 1));
-    else return WHAT_NOLABEL_ERROR;
 
+    InsertOffsetToLabel(ctx, locals_while, tab, "WHILE_FALSE", local_while);
     fprintf(ctx->file, "WHILE_FALSE%d:\n", ctx->while_count);
 
     EmitPushImm32(ctx, 0);
 
-    EmitPopXtendReg   (ctx, WHAT_REG_R15);
-    EmitPopXtendReg   (ctx, WHAT_REG_R14);
-    EmitPushXtendReg  (ctx, WHAT_REG_R14);
-    EmitPushXtendReg  (ctx, WHAT_REG_R15);
+    EmitCmpRegsBlock(ctx);                                                      // Comparing values, popping them to r14 and r15
 
-    EmitCmpRegReg     (ctx, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
-
-    fprintf(ctx->file, "je WHILE_END%d\n", ctx->while_count);
-    EmitJmp(ctx, JE_BYTE, 0);
-    char * while_end_ptr = ctx->buf - 1;
-
-    fprintf(ctx->file, "WHILE_TRUE%d:\n", ctx->while_count);
-
-    sprintf(locals_while.local_func_name, "WHILE_TRUE%d", local_while);
-    label_while = HtableLabelFind(*tab, &locals_while);
-    if (label_while) *label_while->offset = (int8_t) (ctx->buf - (label_while->offset + 1));
-    else return WHAT_NOLABEL_ERROR;
-
-
-    ctx->if_cond = 0;
-    ctx->while_cond = 1;
-    _create_bin(ctx, tab, root->right);
-
-    fprintf(ctx->file, "jmp WHILE%d\n", local_while);
-    EmitLongJmp(ctx, (int)((while_ptr - 5) - ctx->buf));
-
-    fprintf(ctx->file, "WHILE_END%d:\n", local_while);
-
-    *while_end_ptr = ctx->buf - (while_end_ptr + 1);
-
-    fprintf(ctx->file, ";---------------------------\n\n");
-    PARSER_LOG("%x %x %x %x %x %x [%x] %x %x %x %x", *(while_ptr - 6), *(while_ptr - 5), *(while_ptr - 4), *(while_ptr - 3), *(while_ptr - 2), *(while_ptr - 1) , *while_ptr, *(while_ptr + 1), *(while_ptr + 2), *(while_ptr + 3), *(while_ptr + 4));
-    PARSER_LOG("while_ptr = %p", while_ptr);
-
+    char * while_end_ptr = EmitCondJmp(ctx, NULL, "je WHILE_END", local_while, JE_BYTE, 0); // >>>>> v
+                                                                                      //       v
+    fprintf(ctx->file, "WHILE_TRUE%d:\n", ctx->while_count);                          //       v
+    InsertOffsetToLabel(ctx, locals_while, tab, "WHILE_TRUE", local_while);           // >>>>> v >>> v
+                                                                                      //       v     v
+    if (root->right) BinWhileBlock(ctx, tab, root->right);                            //       v     v
+                                                                                      //       v     v
+    fprintf(ctx->file, "jmp WHILE%d\n", local_while); // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< v <<< v
+    EmitLongJmp(ctx, (int)((while_ptr) - ctx->buf));                                  //       v
+                                                                                      //       v
+    InsertOffsetToPtr(ctx, while_end_ptr, "WHILE_END", local_while); // <<<<<<<<<<<<<<<<<<<<<<<v
     return WHAT_SUCCESS;
 }
 
-// LOGGER FOR
-
 int BinFuncExt(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(tab, root, ctx);
+    assert(tab);
+    assert(root);
+    assert(ctx);
 
     PrintNasmNode(root, ctx);
-    PARSER_LOG("CALLED BIN_FUNC");
     int nodeVal = (int) NodeValue(root);
-
 
     if (nodeVal == PRINT)
     {
-        _create_bin(ctx, tab, root->left);
+        if (root->left) _create_bin(ctx, tab, root->left);
         EmitPrint(ctx);
     }
 
@@ -471,13 +457,13 @@ int BinFuncExt(BinCtx * ctx, Htable ** tab, Node * root)
 
 int AddFuncAdr(BinCtx * ctx, Node * root)
 {
-    VERIFY_PTRS(root, ctx);
+    assert(root);
+    assert(ctx);
 
     Name func = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     Name * found_func = HtableNameFind(ctx->names, &func);
-    for (int i = 0; i < 32; i++)
+    for (int i = 0; i < ADR_ARRAY_SIZE; i++)
     {
-        PARSER_LOG("found_func = %p, adr_array = %p", found_func, found_func->adr_array);
         if (!found_func->adr_array[i])
         {
             found_func->adr_array[i] = ctx->buf;
@@ -532,7 +518,8 @@ const enum Registers Offset2EnumReg(int adr)
 
 const char * GetVarFuncName(Node * root, BinCtx * ctx)
 {
-    VERIFY_PTRS(root, ctx);
+    assert(root);
+    assert(ctx);
 
     Name root_name = {.name = NodeName(root), .type  = NodeType(root)};
     return HtableNameFind(ctx->names, &root_name)->func_name;
@@ -540,7 +527,8 @@ const char * GetVarFuncName(Node * root, BinCtx * ctx)
 
 char ** GetFuncAdrArr(Node * root, BinCtx * ctx)
 {
-    VERIFY_PTRS(root, ctx);
+    assert(root);
+    assert(ctx);
 
     Name root_name = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     return HtableNameFind(ctx->names, &root_name)->adr_array;
@@ -548,7 +536,8 @@ char ** GetFuncAdrArr(Node * root, BinCtx * ctx)
 
 int GetFuncAdrArrCap(Node * root, BinCtx * ctx)
 {
-    VERIFY_PTRS(root, ctx);
+    assert(root);
+    assert(ctx);
 
     Name root_name = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     return HtableNameFind(ctx->names, &root_name)->adr_array_cap;
@@ -556,7 +545,8 @@ int GetFuncAdrArrCap(Node * root, BinCtx * ctx)
 
 int GetVarOffset(Node * root, BinCtx * ctx)
 {
-    VERIFY_PTRS(root, ctx);
+    assert(root);
+    assert(ctx);
 
     Name root_name = {.name = NodeName(root), .type = NodeType(root)};
     return HtableNameFind(ctx->names, &root_name)->stack_offset;
@@ -564,7 +554,8 @@ int GetVarOffset(Node * root, BinCtx * ctx)
 
 int GetVarParam(Node * root, BinCtx * ctx)
 {
-    VERIFY_PTRS(root, ctx);
+    assert(root);
+    assert(ctx);
 
     Name root_name = {.name = NodeName(root), .type = NodeType(root)};
     return HtableNameFind(ctx->names, &root_name)->param;
@@ -585,7 +576,8 @@ const char * EnumReg2Str(int reg, int xtnd)
 
 Name ** GetFuncNameArray(Node * root, BinCtx * ctx)
 {
-    VERIFY_PTRS(root, ctx);
+    assert(root);
+    assert(ctx);
 
     Name func = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     return HtableNameFind(ctx->names, &func)->name_array;

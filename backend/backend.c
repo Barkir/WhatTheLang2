@@ -19,7 +19,9 @@
 
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode)
 {
-    VERIFY_PTRS(tree, filename_asm, filename_bin);
+    assert(tree);
+    assert(filename_asm);
+    assert(filename_bin);
 
     FILE * fp = fopen(filename_asm, "wb");
     if (!fp)
@@ -109,6 +111,10 @@ int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin,
 
 int _create_bin(BinCtx * ctx, Htable ** tab, Node * root)
 {
+    assert(ctx);
+    assert(tab);
+    if (!root) return WHAT_SUCCESS;
+
     if (NodeType(root) == NUM)
     {
         PrintNasmNode(root, ctx);
@@ -130,6 +136,9 @@ int _create_bin(BinCtx * ctx, Htable ** tab, Node * root)
             }
             else if (NodeType(left) == VAR)
             {
+                assert(ctx->func_name);
+                assert(NodeName(root));
+
                 if (!strcmp(NodeName(root), ctx->func_name)) EmitPushReg(ctx, Offset2EnumReg(param));
                 else                                         EmitVarParam(ctx, left, param);
             }
@@ -137,19 +146,20 @@ int _create_bin(BinCtx * ctx, Htable ** tab, Node * root)
             PARSER_LOG("param = %d %s", param, param_array[param]->name);
             EmitPopReg(ctx, Offset2EnumReg(param_array[param]->param));
         }
-        CallDirect(ctx, root);
+        EmitCallDirect(ctx, root);
         ctx->func_name = NodeName(root);
     }
     else if (NodeType(root) == VAR)
     {
+        assert(GetVarFuncName(root, ctx));
         PrintNasmNode(root, ctx);
+
         if (!strcmp(GetVarFuncName(root, ctx), GLOBAL_FUNC_NAME)) EmitVar(ctx, root);
         else EmitPushReg(ctx, Offset2EnumReg(GetVarParam(root, ctx)));
     }
     else if (NodeType(root) == OPER)
     {
         PrintNasmNode(root, ctx);
-        PARSER_LOG("PROCESSING OPER");
 
         int nodeVal = (int) NodeValue(root);
 
@@ -170,7 +180,10 @@ int _create_bin(BinCtx * ctx, Htable ** tab, Node * root)
 
 int _def_bin(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    PARSER_LOG("DEF_ASM...");
+    assert(ctx);
+    assert(tab);
+    if (!root) return WHAT_SUCCESS;
+
     if (NodeType(root) == OPER && (int) NodeValue(root) == DEF)
     {
         PrintNasmNode(root, ctx);

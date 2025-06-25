@@ -1,13 +1,6 @@
 #ifndef BACKEND_UTILS_H
 #define BACKEND_UTILS_H
 
-
-#define _CREATE_BIN_WHILE                                               \
-    ctx->if_cond = 0;                                                   \
-    ctx->while_cond = 1;                                                \
-    _create_bin(buf, tab, root->left, ctx)
-
-
 void PrintNasmNode(Node * root, BinCtx * ctx);
 
 int WriteIOLib(BinCtx * ctx);
@@ -21,6 +14,15 @@ Name * CreateFuncTable(Node * root);
 
 
 Htable * CreateNameTable(Node * root);
+
+
+Name * InitLocalName(size_t sz);
+void InsertOffsetToLabel(BinCtx * ctx, Name * local, Htable ** tab, const char * label_str, int local_count);
+void InsertOffsetToPtr(BinCtx * ctx, char * cond, const char * cond_str, int cond_count);
+void InsertLabelToHtable(BinCtx * ctx, Htable ** tab, Name * locals, const char * label, int label_count);
+
+int BinIfBlock(BinCtx * ctx, Htable ** tab, Node * root);
+int BinWhileBlock(BinCtx * ctx, Htable ** tab, Node * root);
 
 const char * GetVarName(Node * root);
 int GetVarParam(Node * root, BinCtx * ctx);

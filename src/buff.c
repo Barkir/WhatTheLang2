@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "what_lang/buff.h"
 
 size_t GetFileSize(FILE * fp)
 {
+    assert(fp);
+
     fseek(fp, 0L, SEEK_END);
     long int sz = ftell(fp);
     rewind(fp);
@@ -15,6 +18,8 @@ size_t GetFileSize(FILE * fp)
 
 char * CreateBuf(FILE * toRead)
 {
+    assert(toRead);
+
     size_t fsize = GetFileSize(toRead);
     if (!fsize) return NULL;
 

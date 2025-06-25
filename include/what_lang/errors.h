@@ -22,15 +22,6 @@
     fprintf(stderr, "\n");                                                       \
     }                                                                            \
 
-#define VERIFY_PTRS(...)                                                        \
-{                                                                               \
-        void* _ptrs[] = {__VA_ARGS__};                                          \
-        for (size_t _i = 0; _i < sizeof(_ptrs)/sizeof(_ptrs[0]); _i++)          \
-            assert(_ptrs[_i] != NULL);                                          \
-}
-
-// Recursive Macro
-// VERIFY_PTRS(param, ...)
 
 #else
 #define PARSER_LOG(...)

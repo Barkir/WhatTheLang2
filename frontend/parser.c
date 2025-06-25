@@ -36,12 +36,17 @@ const char * _enum_to_name(int name);
 
 void SyntaxError(char exp, char real, const char * func, int line)
 {
+    assert(func);
+
     fprintf(stderr, ">>> SyntaxError %s %d: <expected %c> <got %c (%lg)>", func, line, exp, (int) real, (field_t) real);
     assert(0);
 }
 
 Node * GetMajor(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     PARSER_LOG("Got node %p", nodes[*p]);
     Node * result = NULL;
     Node * operation = NULL;
@@ -60,6 +65,9 @@ Node * GetMajor(Node ** nodes, int * p)
 
 Node * GetOperator(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     int old_p = (*p);
     if (!nodes[*p]) return NULL;
     PARSER_LOG("Getting O... Got node %p with val %lg, type %d name %s, p = %d", nodes[*p], NodeValue(nodes[*p]), NodeType(nodes[*p]), NodeName(nodes[*p]), *p);
@@ -171,6 +179,9 @@ Node * GetOperator(Node ** nodes, int * p)
 
 Node * GetCall(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if ((int) NodeValue(nodes[*p]) != DEF) return NULL;
     Field * field = _copy_field(((Field*)((char*)(nodes[*p]) + sizeof(Node))));
     PARSER_LOG("Getting CALL... p = %d", *p);
@@ -184,6 +195,9 @@ Node * GetCall(Node ** nodes, int * p)
 
 Node * GetGroup(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if ((int) NodeValue(nodes[*p]) != '{') return NULL;
     (*p)++;
     PARSER_LOG("Getting Group!");
@@ -203,6 +217,9 @@ Node * GetGroup(Node ** nodes, int * p)
 
 Node * GetIf(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if ((int) NodeValue(nodes[*p]) != IF) return NULL;
     PARSER_LOG("Getting IF, p = %d", *p);
     int old_p = (*p);
@@ -226,6 +243,9 @@ Node * GetIf(Node ** nodes, int * p)
 
 Node * GetWhile(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if ((int) NodeValue(nodes[*p]) != WHILE) return NULL;
     PARSER_LOG("Getting WHILE");
     int old_p = (*p);
@@ -251,6 +271,9 @@ Node * GetWhile(Node ** nodes, int * p)
 
 Node * GetAssignment(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if (NodeType(nodes[*p]) != VAR || NodeType(nodes[(*p) + 1]) != OPER || (int) NodeValue(nodes[(*p) + 1]) != '=') return NULL;
     int old_p = (*p);
     PARSER_LOG("Getting A... Got node %p %d, p = %d", nodes[*p], NodeType(nodes[*p]), *p);
@@ -280,6 +303,9 @@ Node * GetAssignment(Node ** nodes, int * p)
 
 Node * GetExpression(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if (!nodes[*p]) return NULL;
     PARSER_LOG("Getting E... Got node %p, p = %d", nodes[*p], *p);
     Node * val1 = GetTerm(nodes, p);
@@ -307,6 +333,9 @@ Node * GetExpression(Node ** nodes, int * p)
 
 Node * GetTerm(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if (!nodes[*p]) return NULL;
     PARSER_LOG("Getting T... Got node %p", nodes[*p]);
     PARSER_LOG("Getting pow in T val1..."); Node * val1 = GetPow(nodes, p);
@@ -337,6 +366,9 @@ Node * GetTerm(Node ** nodes, int * p)
 
 Node * GetPow(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if (!nodes[*p]) return NULL;
     PARSER_LOG("Getting pow... Got node %p", nodes[*p]);
     Node * val1 = GetCompare(nodes, p);
@@ -362,6 +394,9 @@ Node * GetPow(Node ** nodes, int * p)
 
 Node * GetCompare(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if (!nodes[*p]) return NULL;
     PARSER_LOG("Getting pow... Got node %p", nodes[*p]);
     Node * val1 = GetBracket(nodes, p);
@@ -390,6 +425,9 @@ Node * GetCompare(Node ** nodes, int * p)
 
 Node * GetBracket(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     int old_p = (*p);
     if (!nodes[*p]) return NULL;
     Node * val = NULL;
@@ -420,6 +458,9 @@ Node * GetBracket(Node ** nodes, int * p)
 
 Node * GetFuncInter(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if (NodeType(nodes[*p]) != FUNC_INTER_CALL && NodeType(nodes[*p]) != VAR) return NULL;
     PARSER_LOG("Getting FUNC_NAME");
     Node * result = _copy_node(nodes[*p]);
@@ -436,6 +477,9 @@ Node * GetFuncInter(Node ** nodes, int * p)
 
 Node * GetFuncExt(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if ((int) NodeType(nodes[*p]) != FUNC_EXT) return NULL;
     PARSER_LOG("Getting FUNC");
     if (!nodes[*p]) return NULL;
@@ -453,6 +497,9 @@ Node * GetFuncExt(Node ** nodes, int * p)
 
 Node * GetNumber(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if (!nodes[*p]) return NULL;
     PARSER_LOG("Got node %p", nodes[*p]);
     Node * result = _copy_node(nodes[*p]);
@@ -463,6 +510,9 @@ Node * GetNumber(Node ** nodes, int * p)
 
 Node * GetParam(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     PARSER_LOG("GETTING PARAM");
     Node * result = nodes[(*p) - 1];
     Node *  dummy = nodes[(*p) - 1];
@@ -484,6 +534,9 @@ Node * GetParam(Node ** nodes, int * p)
 
 Node * GetID(Node ** nodes, int * p)
 {
+    assert(nodes);
+    assert(p);
+
     if (NodeType(nodes[*p]) != VAR && NodeType(nodes[*p]) != FUNC_INTER_CALL) return NULL;
     PARSER_LOG("Got node %p with name %s, p = %d", nodes[*p], NodeName(nodes[*p]), *p);
     Node * result = _copy_node(nodes[*p]);

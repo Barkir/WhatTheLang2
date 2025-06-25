@@ -19,13 +19,21 @@ const int DEFAULT_REG_NUMBER            = 5;
 const int PRINT_OFFSET = 0x1527;
 const int INPUT_OFFSET = 0x1500;
 
-const unsigned int CRC32INIT            = 5381;
 
+const unsigned int CRC32INIT            = 5381;
+const size_t DATA_SEG_SIZE              = 1024 * 4;
+const size_t CODE_SEG_SIZE              = 1024 * 8;
+const size_t SEG_ALIGNMENT              = 0x1000;
+const size_t DATA_SEG_OFFSET            = 0x2000;
 const size_t NUM_WORDS                  = 2000;
 const size_t BUF_LEN                    = 32;
+const size_t ADR_ARRAY_SIZE             = 32;
 const size_t ALIGNED_SIZE               = 65536 * 128;
 
-const size_t ELF_ENTRY_POINT =          0x401000;
+const size_t BUF_OFFSET                 = 0x1000;
+const size_t ELF_ENTRY_POINT            = 0x401000;
+const size_t BUF_R13_ADR                = 0x402000;
+const size_t BUF_R12_ADR                = 0x402100;
 
 
 

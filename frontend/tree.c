@@ -20,6 +20,10 @@ Tree * CreateTree(TreeInit init, TreeCmp cmp, TreeFree free)
 
 static int tree_create_node(Tree * t, Node ** node, const void * pair)
 {
+    assert(t);
+    assert(node);
+    assert(pair);
+
     if (!*node)
     {
         if (((*node) = (Node *) malloc(sizeof(Node))) == NULL) return 0;
@@ -39,11 +43,18 @@ static int tree_create_node(Tree * t, Node ** node, const void * pair)
 
 int CreateNode(Tree * t, const void * pair)
 {
+    assert(t);
+    assert(pair);
+
     return tree_create_node(t, &t->root, pair);
 }
 
 Node * _insert_tree(Tree * t, Node ** root, const void * pair)
 {
+    assert(t);
+    assert(root);
+    assert(pair);
+
     if (!*root)
     {
         if ((*root = (Node*) malloc(sizeof(Node))) == NULL) return NULL;
@@ -61,23 +72,18 @@ Node * _insert_tree(Tree * t, Node ** root, const void * pair)
 
 int InsertTree(Tree * t, const void * pair)
 {
+    assert(t);
+    assert(pair);
+
     return (_insert_tree(t, &t->root, pair) != NULL);
 }
 
 Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
 {
-
-    if (!tree)
-    {
-        PARSER_LOG("tree is null");
-        return NULL;
-    }
-
-    if (!*node)
-    {
-        PARSER_LOG("*node = null")
-        return NULL;
-    }
+    assert(tree);
+    assert(node);
+    assert(Out);
+    if (!*node) return NULL;
 
     unsigned int color = NodeColor(*node);
     field_t field = NodeValue(*node);
@@ -140,6 +146,9 @@ Tree * _tree_dump_func(Tree * tree, Node ** node, FILE * Out)
 
 Tree * TreeDump(Tree * tree, const char * FileName)
 {
+    assert(tree);
+    assert(FileName);
+
     PARSER_LOG("Dumping Tree...");
     FILE * Out = fopen(FileName, "wb");
 
@@ -160,6 +169,9 @@ Tree * TreeDump(Tree * tree, const char * FileName)
 
 int TreeParse(Tree * tree, const char * filename)
 {
+    assert(tree);
+    assert(filename);
+
     FILE * file = fopen(filename, "rb");
     if (!file) return FOPEN_ERROR;
     if (ferror(file)) return FOPEN_ERROR;
@@ -198,6 +210,7 @@ int TreeParse(Tree * tree, const char * filename)
 
 void _destroy_tree(Tree * t, Node * n)
 {
+    assert(t);
     if (!n) return;
 
     PARSER_LOG("SUBTREE %p value = %lg (%c) %p. Destroying.", n, NodeValue(n), (int) NodeValue(n), ((Field*) n->value));
@@ -220,6 +233,8 @@ void _destroy_tree(Tree * t, Node * n)
 
 field_t NodeValue(Node * node)
 {
+    assert(node);
+
     if (!node) return -1;
     // PARSER_LOG("Getting node value %p %lg(%c)", node, ((Field*)(node->value))->value, (int)((Field*)(node->value))->value);
     // return ((Field*)(node->value))->value;
@@ -228,6 +243,8 @@ field_t NodeValue(Node * node)
 
 char * NodeName(Node * node)
 {
+    assert(node);
+
     if (!node) return NULL;
     // PARSER_LOG("Getting node name %p %s", node, ((Field*)(node->value))->name);
     // return ((Field*)(node->value))->name;
@@ -236,12 +253,16 @@ char * NodeName(Node * node)
 
 int NodeIP(Node * node)
 {
+    assert(node);
+
     if (!node) return -1;
     return ((Field*)((char*)node + sizeof(Node)))->ip;
 }
 
 enum types NodeType(Node * node)
 {
+    assert(node);
+
     if (!node) return ERROR;
     // return ((Field*)(node->value))->type;
     return ((Field*)((char*)node + sizeof(Node)))->type;
@@ -249,6 +270,8 @@ enum types NodeType(Node * node)
 
 const char * NodeType2Str(Node * node)
 {
+    assert(node);
+
     if (!node) return  "UNKNOWN_TYPE";
 
     switch (NodeType(node))
@@ -268,6 +291,8 @@ const char * NodeType2Str(Node * node)
 
 unsigned int NodeColor(Node * node)
 {
+    assert(node);
+
     unsigned int color = 0;
     switch (NodeType(node))
         {
@@ -320,6 +345,8 @@ Field * _create_field(field_t val, enum types type)
 
 Node * _create_node(Field * val, Node * left, Node * right)
 {
+    assert(val);
+
     PARSER_LOG("Creating node with field %lg, left %p right %p", val->value, left, right);
     Node * node = (Node*) calloc(1, sizeof(Node) + sizeof(Field));
     if (!node) return NULL;
@@ -335,6 +362,8 @@ Node * _create_node(Field * val, Node * left, Node * right)
 
 Field * _copy_field(Field * field)
 {
+    assert(field);
+
     if (!field) return NULL;
     Field * copy_field = (Field*) calloc(1, sizeof(Field));
     if (!copy_field) return NULL;
@@ -347,6 +376,8 @@ Field * _copy_field(Field * field)
 
 Node * _copy_node(Node * node)
 {
+    assert(node);
+
     if (!node) return NULL;
     PARSER_LOG("Copying node %p(left = %p, right = %p) with value %lg(%c) and name %s...", node, NodeValue(node), node->left, node->right, (int)(NodeValue(node)), NodeName(node));
     // Field * copy_field = _copy_field((Field*)node->value);

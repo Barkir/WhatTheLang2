@@ -1,11 +1,7 @@
 #ifndef NASM2ELF_H
 #define NASM2ELF_H
 
-const static size_t BUF_OFFSET = 0x1000;
-
-int NASM2ELF(const char * filename);
 void GenerateElfHeader(char ** buf);
-enum Instruction GetInstr(char * instr);
 size_t FileSize(FILE * fp);
 
 enum Instruction
