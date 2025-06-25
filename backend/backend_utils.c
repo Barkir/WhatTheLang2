@@ -156,7 +156,7 @@ int BinWhileBlock(BinCtx * ctx, Htable ** tab, Node * root)
     if (root) _create_bin(ctx, tab, root);
 }
 
-const CmpOper OperArray[OPER_ARRAY_SIZE] =                              // Used in:
+const CmpOper OperArray[OPER_ARRAY_SIZE] =                              // used in:
 {                                                                       // CmpByte
     {.oper_enum = MORE,     .oper_str = "ja",   .oper_byte = JA_BYTE},  // CmpStr
     {.oper_enum = LESS,     .oper_str = "jb",   .oper_byte = JB_BYTE},

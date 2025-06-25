@@ -233,7 +233,7 @@ int BinIf(BinCtx * ctx, Htable ** tab, Node * root)
     IF_COUNT++;
 
     Name * locals_if = InitLocalName(LABEL_SIZE);                               // Structure where local label
-    assert(locals_if);                                                          // name will contain
+    assert(locals_if);                                                          // name will be contained
 
     if (root->left) BinIfBlock(ctx, tab, root->left);
     PARSER_LOG("PROCESSED IF BLOCK... if_count = %d", ctx->if_count);
@@ -274,7 +274,7 @@ int BinWhile(BinCtx * ctx, Htable ** tab, Node * root)
     WHILE_COUNT++;
 
     Name * locals_while = InitLocalName(LABEL_SIZE);                           // Structure where local label
-    assert(locals_while);                                                      // will contain
+    assert(locals_while);                                                      // name will be contained
 
     fprintf(ctx->file, "WHILE%d:\n", ctx->while_count);
     const char * while_ptr = ctx->buf - 5;                                     // -5 is here to include previous instructions
@@ -425,7 +425,7 @@ int _def_bin(BinCtx * ctx, Htable ** tab, Node * root)
         int cap = GetFuncAdrArrCap(root->left, ctx);
         for (int i = 0; i < cap; i++)
         {
-            int adr = func_start - func_adr[i] - 4;
+            int adr = func_start - func_adr[i] - sizeof(int); // -sizeof(int) to make correct jmp offset calculation
             PARSER_LOG("adr = %d, i = %d, func_adr[%d] = %p, cap = %d", adr, i, i, func_adr[i], cap);
             memcpy(func_adr[i], &adr, sizeof(int));
         }

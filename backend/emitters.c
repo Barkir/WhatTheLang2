@@ -18,6 +18,16 @@
 #define EMIT(ctx, binary, command)                                  \
     DoEmit((ctx), (binary), (sizeof(binary) - 1), (command))
 
+uint8_t CalcModrmRegReg(uint8_t reg1, uint8_t reg2)
+{
+    uint8_t mod = 0b11;
+    return (mod << 6) | (reg2 << 3) | reg1;
+}
+
+uint8_t CalcModrmRegVal(uint8_t reg, int term)
+{
+    return (0xc0) | (term << 3) | (reg & 7);
+}
 
 void DoEmit(BinCtx * ctx, const char * binary, size_t buf_len, const char * command)
 {
@@ -107,7 +117,7 @@ void EmitMulReg(BinCtx * ctx, uint8_t reg)
     assert(ctx);
 
     fprintf(ctx->file, "mul %s\n", EnumReg2Str(reg, 0));
-    EmitByte(ctx, 0xf7);
+    EmitByte(ctx, MULDIV_START_BYTE);
     EmitByte(ctx, MULREG_BYTE + reg);
 }
 
@@ -117,10 +127,9 @@ void EmitMulXtendReg(BinCtx * ctx, uint8_t reg)
 
     fprintf(ctx->file, "mul %s\n", EnumReg2Str(reg, 1));
     EmitByte(ctx, XTEND_OPER_BYTE);
-    EmitByte(ctx, 0xf7);
+    EmitByte(ctx, MULDIV_START_BYTE);
     EmitByte(ctx, MULREG_BYTE + reg);
 }
-
 
 void EmitDivReg(BinCtx * ctx, uint8_t reg)
 {
@@ -129,8 +138,8 @@ void EmitDivReg(BinCtx * ctx, uint8_t reg)
     EmitPushReg(ctx, WHAT_REG_EDX);                                     // Cleaning rdx to prevent
     EmitSubRegReg(ctx, WHAT_REG_EDX, WHAT_REG_EDX, WHAT_REG_REG);       // floating point error
 
-    fprintf(ctx->file, "div %s      \n", EnumReg2Str(reg, 0));
-    EmitByte(ctx, 0xf7);
+    fprintf(ctx->file, "div %s\n", EnumReg2Str(reg, 0));
+    EmitByte(ctx, MULDIV_START_BYTE);
     EmitByte(ctx, DIVREG_BYTE + reg);
 
     EmitPopReg(ctx, WHAT_REG_EDX);                                      // restoring rdx
@@ -143,9 +152,9 @@ void EmitDivXtendReg(BinCtx * ctx, uint8_t reg)
     EmitPushReg(ctx, WHAT_REG_EDX);                                     // Cleaning rdx to prevent
     EmitSubRegReg(ctx, WHAT_REG_EDX, WHAT_REG_EDX, WHAT_REG_REG);       // floating point error
 
-    fprintf(ctx->file, "div %s      \n", EnumReg2Str(reg, 1));
+    fprintf(ctx->file, "div %s\n", EnumReg2Str(reg, 1));
     EmitByte(ctx, XTEND_OPER_BYTE);
-    EmitByte(ctx, 0xf7);
+    EmitByte(ctx, MULDIV_START_BYTE);
     EmitByte(ctx, DIVREG_BYTE + reg);
 
     EmitPopReg(ctx, WHAT_REG_EDX);                                      // restoring rdx
@@ -179,10 +188,7 @@ void EmitCmpRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode)
     }
 
     EmitByte(ctx, CMP_REG_BYTE);
-
-    uint8_t mod = 0b11;
-    uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
-
+    uint8_t modrm = CalcModrmRegReg(reg1, reg2);
     EmitByte(ctx, modrm);
 }
 
@@ -221,9 +227,9 @@ void EmitMovRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode,
     switch(mode)
     {
         case WHAT_REG_REG:
-                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
+                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s,   %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
                                 else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
-                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
+                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s,  [%s]\n",EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 0));
 
                                 PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 0));
                                 EmitByte(ctx, REG_REG_BYTE);
@@ -231,18 +237,18 @@ void EmitMovRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode,
 
         case WHAT_REG_XTEND:
 
-                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s, %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
-                                else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
-                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
+                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s,  %s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
+                                else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s],%s\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
+                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n",EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
                                 PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 0), reg2, EnumReg2Str(reg2, 1));
                                 EmitByte(ctx, REG_XTEND_BYTE);
                                 break;
 
         case WHAT_XTEND_REG:
 
-                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
+                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s,   %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
                                 else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 0));
-                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
+                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s,  [%s]\n",EnumReg2Str(reg1, 0), EnumReg2Str(reg2, 1));
 
                                 PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 0));
                                 EmitByte(ctx, XTEND_REG_BYTE);
@@ -250,9 +256,9 @@ void EmitMovRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode,
 
         case WHAT_XTEND_XTEND:
 
-                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s, %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
+                                if      (mem_mode == WHAT_NOMEM) fprintf(ctx->file, "mov %s,   %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
                                 else if (mem_mode == WHAT_MEM1)  fprintf(ctx->file, "mov [%s], %s\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
-                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s, [%s]\n", EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
+                                else if (mem_mode == WHAT_MEM2)  fprintf(ctx->file, "mov %s,  [%s]\n",EnumReg2Str(reg1, 1), EnumReg2Str(reg2, 1));
 
                                 PARSER_LOG("MOVING REG %d %s to REG %d %s", reg1, EnumReg2Str(reg1, 1), reg2, EnumReg2Str(reg2, 1));
                                 EmitByte(ctx, XTEND_XTEND_BYTE);
@@ -330,7 +336,8 @@ void EmitAddRegVal(BinCtx * ctx, uint8_t reg, int val, enum RegModes mode)
     else
     {
         EmitByte(ctx, ADD_REG_VAL_BYTE);
-        uint8_t modrm = (0xc0) | (0 << 3) | (reg & 7);
+
+        uint8_t modrm = CalcModrmRegVal(reg, 0);
         EmitByte(ctx, modrm);
     }
 
@@ -357,7 +364,8 @@ void EmitSubRegVal(BinCtx * ctx, uint8_t reg, int val, enum RegModes mode)
     else
     {
         EmitByte(ctx, ADD_REG_VAL_BYTE);
-        uint8_t modrm = (0xc0) | (5 << 3) | (reg & 7);
+
+        uint8_t modrm = CalcModrmRegVal(reg, 5);
         EmitByte(ctx, modrm);
     }
 
@@ -393,8 +401,7 @@ void EmitAddRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode)
 
     EmitByte(ctx, ADD_REG_REG_BYTE);
 
-    uint8_t mod = 0b11;
-    uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
+    uint8_t modrm = CalcModrmRegReg(reg1, reg2);
 
     EmitByte(ctx, modrm);
 }
@@ -424,12 +431,10 @@ void EmitSubRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode)
 
     EmitByte(ctx, SUB_REG_REG_BYTE);
 
-    uint8_t mod = 0b11;
-    uint8_t modrm = (mod << 6) | (reg2 << 3) | reg1;
+    uint8_t modrm = CalcModrmRegReg(reg1, reg2);
 
     EmitByte(ctx, modrm);
 }
-
 
 void EmitJmp(BinCtx * ctx, char jmp, char offset)
 {
@@ -465,7 +470,6 @@ void EmitTop(BinCtx * ctx)
     EmitMovAbsXtend(ctx, WHAT_REG_R12, BUF_R12_ADR);
 }
 
-
 void EmitPrint(BinCtx * ctx)
 {
     assert(ctx);
@@ -487,8 +491,6 @@ void EmitInput(BinCtx * ctx)
     int32_t adr = (ctx->buf_ptr + IOLIB_OFFSET + INPUT_CALL * 2) - (ctx->buf + sizeof(int32_t)); // sizeof(int32_t) needed for correct long jmp offset
     EmitInt32(ctx, adr);
     EmitPushReg(ctx, WHAT_REG_EAX);
-
-
 }
 
 void EmitCallDirect(BinCtx * ctx, Node * root)
@@ -640,7 +642,6 @@ void EmitFuncStackPush(BinCtx * ctx, Node * root)
     EMIT(ctx, "\x49\x83\xc5\x08",   "add r13, 8"    );
 }
 
-
 void EmitFuncStackRet(BinCtx * ctx, Node * root)
 {
     assert(ctx);
@@ -661,7 +662,7 @@ char * EmitCondJmp(BinCtx * ctx, const char * cond_jmp, const char * cond_str, i
     if (!cond_jmp) fprintf(ctx->file, "%s%d\n", cond_str, cond_count);
     else           fprintf(ctx->file, "%s %s%d\n", cond_jmp, cond_str, cond_count);
     EmitJmp(ctx, command_byte, offset);
-    char * cond = ctx->buf - 1;                                             // -1 is needed because jmp is counted from its' 1st byte
+    char * cond = ctx->buf - 1; // -1 is needed because jmp is calculated from its' 1st byte
     return cond;
 }
 

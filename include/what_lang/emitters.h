@@ -20,6 +20,7 @@ enum CommandBytes
     CALL_DIRECT_BYTE      = 0xe8,
     ADDITIONAL_REG_BYTE   = 0x41,
     MULREG_BYTE           = 0xe0,
+    MULDIV_START_BYTE     = 0xf7,
     DIVREG_BYTE           = 0xf0,
     OPER_BYTE             = 0x48,
     XTEND_OPER_BYTE       = 0x49,
@@ -32,6 +33,10 @@ enum CommandBytes
     MOV_MEM_BYTE          = 0x8b,
     MOV_REG_VAL_BYTE      = 0xb8
 };
+
+
+uint8_t CalcModrmRegVal(uint8_t reg, int term);
+uint8_t CalcModrmRegReg(uint8_t reg1, uint8_t reg2);
 
 void EmitByte(BinCtx * ctx, char byte);
 void EmitInt32(BinCtx * ctx, int val);
