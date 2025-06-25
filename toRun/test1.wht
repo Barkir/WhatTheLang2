@@ -1,0 +1,19 @@
+a = 5;
+b = 6;
+
+if (a > b)
+{
+    print(a);
+}
+
+if (a < b)
+{
+    print(749);
+}
+
+print(b);
+while (a < 749)
+{
+    print(a);
+    a = a + 1;
+}

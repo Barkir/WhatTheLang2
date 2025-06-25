@@ -50,27 +50,25 @@ const WhatReg RegArray[] =
 
 void PrintNasmNode(Node * root, BinCtx * ctx)
 {
-    VERIFY_PTRS(root, ctx);
+    assert(root);
+    assert(ctx);
+
     if (NodeType(root) != SEP_SYMB)
-    {
         fprintf(ctx->file, "\n ;%s :: %s :: %s\n", NodeName(root), NodeType2Str(root), TokenArray[(int) NodeValue(root)].graphviz_str);
-    }
 }
 
 int NameArrayAddElem(Name * name, Name * elem)
 {
-    VERIFY_PTRS(name, elem);
+    assert(name);
+    assert(elem);
 
-    PARSER_LOG("Adding param to function with name %s", name->name);
     Name ** array = name->name_array;
-    PARSER_LOG("name_array = %p", array);
     for (int i = 0; i < DEFAULT_NAME_ARRAY_SIZE; i++)
     {
         if (!array[i])
         {
             array[i] = elem;
             array[i]->param = i;
-            PARSER_LOG("Added name %s to place %p", array[i]->name, array);
             return WHAT_SUCCESS;
         }
     }
@@ -79,10 +77,12 @@ int NameArrayAddElem(Name * name, Name * elem)
 
 int InitFuncParam(Node * root, Htable ** name_tab, Name * function, NameTableCtx ** ctx)
 {
-    VERIFY_PTRS(root, name_tab, function, ctx);
+    assert(root);
+    assert(name_tab);
+    assert(function);
+    assert(ctx);
 
     Name param_name = {.name = NodeName(root), .type = VAR, .func_name = (*ctx)->func_name, .stack_offset = ((*ctx)->stack_offset++)};
-    PARSER_LOG("Param name = %s, function_name = %s, offset = %d", param_name.name, param_name.func_name, param_name.stack_offset);
 
     HtableNameInsert(name_tab, &param_name);
     NameArrayAddElem(function, HtableNameFind(*name_tab, &param_name));
@@ -93,7 +93,9 @@ int InitFuncParam(Node * root, Htable ** name_tab, Name * function, NameTableCtx
 
 int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 {
-    VERIFY_PTRS(root, name_tab, ctx);
+    assert(root);
+    assert(name_tab);
+    assert(ctx);
 
     if (NodeType(root) == VAR)
     {
@@ -104,7 +106,6 @@ int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 
     else if (NodeType(root) == FUNC_EXT)
     {
-
         PARSER_LOG("Got FUNC_EXT with name %s (stack_offset = %d)", NodeName(root), ctx->stack_offset);
         Name name = {.name = NodeName(root), .type = FUNC_EXT, .func_name = NodeName(root)};
         HtableNameInsert(name_tab, &name);
@@ -115,7 +116,6 @@ int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
         PARSER_LOG("Got FUNC_INTER_CALL with name %s (stack_offset = %d)", NodeName(root), ctx->stack_offset);
         Name name = {.name = NodeName(root), .type = FUNC_INTER_CALL, .func_name = ctx->func_name, .stack_offset=ctx->stack_offset};
         HtableNameInsert(name_tab, &name);
-        PARSER_LOG("Inserted name in hash_table");
     }
     else if (NodeType(root) == FUNC_INTER_DEF)
     {
@@ -125,13 +125,9 @@ int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 
         name.name_array = calloc(DEFAULT_NAME_ARRAY_SIZE, sizeof(Name*));
         if (!name.name_array) return WHAT_MEMALLOC_ERROR;
-        PARSER_LOG("created name_array %p", name.name_array);
-
-        PARSER_LOG("Intializing parameters of function %s", NodeName(root));
         InitFuncParam(root->left, name_tab, &name, &ctx);
 
         HtableNameInsert(name_tab, &name);
-        PARSER_LOG("Inserted definition of function %s in hash table", NodeName(root));
 
         if (root->right) _create_name_table(root->right, name_tab, ctx);
         return WHAT_SUCCESS;
@@ -145,12 +141,10 @@ int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx)
 
 Htable * CreateNameTable(Node * root)
 {
-    VERIFY_PTRS(root);
+    assert(root);
 
-    PARSER_LOG("Creating Name Table");
     Htable * name_tab = NULL;
     HtableInit(&name_tab, HTABLE_BINS);
-    PARSER_LOG("Created Hash Table");
 
     NameTableCtx nmt_ctx = {.tab = &name_tab, .func_name = GLOBAL_FUNC_NAME, .stack_offset = 0};
 
@@ -161,7 +155,6 @@ Htable * CreateNameTable(Node * root)
 
 char CmpByte(enum operations oper_enum)
 {
-    PARSER_LOG("%d in CmpByte", oper_enum);
     for (int i = 0; i < OPER_ARRAY_SIZE; i++)
     {
         if ((char) OperArray[i].oper_enum == oper_enum)
@@ -196,38 +189,42 @@ int isCmpOper(enum operations oper_enum)
 
 int isArithOper(enum operations oper_enum)
 {
-    PARSER_LOG("calling isArithOper...");
     return oper_enum == '+' || oper_enum == '-' || oper_enum == '/' || oper_enum == '*' || oper_enum == '=' ;
 }
 
 void BinCmpOper(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(tab, root, ctx);
+    assert(tab);
+    assert(root);
+    assert(ctx);
 
     PrintNasmNode(root, ctx);
-    PARSER_LOG("Calling BinCmpOper...");
-    int nodeVal = (int) NodeValue(root);
-    _create_bin(ctx, tab, root->left );
-    _create_bin(ctx, tab, root->right);
-    PARSER_LOG("Calling EmitComparsion, if_count = %d, while_count = %d", ctx->if_count, ctx->while_count);
-    EmitComparsion(ctx, tab, nodeVal);
-    return;
 
+    int nodeVal = (int) NodeValue(root);
+
+    if (root->left) _create_bin(ctx, tab, root->left );
+    if (root->right)_create_bin(ctx, tab, root->right);
+
+    EmitComparsion(ctx, tab, nodeVal);
 }
 
 void BinArithOper(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(tab, root, ctx);
+    assert(tab);
+    assert(root);
+    assert(ctx);
 
     int nodeVal = (int) NodeValue(root);
-    PARSER_LOG("calling BinArithOper with NodeValue %c %d", nodeVal, nodeVal);
 
     if (nodeVal == '=')
     {
         PARSER_LOG("BinArithOper in '=' condition");
-        _create_bin(ctx, tab, root->right);
+        if (root->right) _create_bin(ctx, tab, root->right);
 
         PrintNasmNode(root, ctx);
+
+        assert(root->left);
+        assert(GetVarFuncName(root->left, ctx));
 
         if (!strcmp(GetVarFuncName(root->left, ctx), GLOBAL_FUNC_NAME))
         {
@@ -242,12 +239,11 @@ void BinArithOper(BinCtx * ctx, Htable ** tab, Node * root)
             EmitPopReg(ctx, Offset2EnumReg(GetVarParam(root->left, ctx)));
         }
 
-
         return;
     }
 
-    _create_bin(ctx, tab, root->left );
-    _create_bin(ctx, tab, root->right);
+    if (root->left) _create_bin(ctx, tab, root->left );
+    if (root->right)_create_bin(ctx, tab, root->right);
 
 
     PrintNasmNode(root, ctx);
@@ -292,67 +288,89 @@ void BinArithOper(BinCtx * ctx, Htable ** tab, Node * root)
 
 }
 
+Name * InitLocalName(size_t sz)
+{
+    Name * local = calloc(1, sizeof(Name));
+    if (!local) return NULL;
+
+    local->local_func_name = calloc(sz, sizeof(char));
+    if (!local->local_func_name) return NULL;
+
+    return local;
+}
+
+void InsertOffsetToLabel(BinCtx * ctx, Name * local, Htable ** tab, const char * label_str, int local_count)
+{
+    sprintf(local->local_func_name, "%s%d", label_str, local_count);
+    Name * label = HtableLabelFind(*tab, local);
+    assert(label);
+    *(label->offset) = (int8_t) (ctx->buf - (label->offset + 1));
+}
+
+char * EmitCondJmp(BinCtx * ctx, const char * cond_str, uint8_t command_byte, char offset)
+{
+    fprintf(ctx->file, "%s%d\n", cond_str, ctx->if_count);
+    EmitJmp(ctx, command_byte, offset);
+    char * cond = ctx->buf - 1;                                             // -1 is needed because jmp is counted from its' 1st byte
+    return cond;
+}
+
+void InsertOffsetToPtr(BinCtx * ctx, char * cond, const char * cond_str, int cond_count)
+{
+    fprintf(ctx->file, "%s%d:\n", cond_str, cond_count);
+    *cond = ctx->buf - (cond + 1);
+}
+
+int BinIfBlock(BinCtx * ctx, Htable ** tab, Node * root)
+{
+    ctx->if_cond = 1;
+    ctx->while_cond = 0;
+    if (root->right) _create_bin(ctx, tab, root);
+}
+
 int BinIf(BinCtx * ctx, Htable ** tab, Node * root)
 {
-    VERIFY_PTRS(tab, root, ctx);
+    assert(tab);
+    assert(root);
+    assert(ctx);
 
-    PrintNasmNode(root, ctx);
     PARSER_LOG("PROCESSING IF");
+    PrintNasmNode(root, ctx);
+
     int local_if  = IF_COUNT;
     ctx->if_count = IF_COUNT;
     IF_COUNT++;
 
-    Name locals_if = {};
-    locals_if.local_func_name = (char*) calloc(LABEL_SIZE, sizeof(char));
-    if (!locals_if.local_func_name) return WHAT_MEMALLOC_ERROR;
+    Name * locals_if = InitLocalName(LABEL_SIZE);                           // Structure where local label
+    assert(locals_if);                                                      // name will contain
 
-    ctx->if_cond    = 1;
-    ctx->while_cond = 0;
-
-    _create_bin(ctx, tab, root->left);
+    ctx->if_cond    = 1;                                                    // Processing if block
+    ctx->while_cond = 0;                                                    // turning if flag to 1
+    if (root->left) _create_bin(ctx, tab, root->left);
     PARSER_LOG("PROCESSED IF BLOCK... if_count = %d", ctx->if_count);
 
-    sprintf(locals_if.local_func_name, "IF%d", local_if);
-    Name * label = HtableLabelFind(*tab, &locals_if);
-    if (label) *label->offset = (int8_t) (ctx->buf - (label->offset + 1));
-    else return WHAT_NOLABEL_ERROR;
+    InsertOffsetToLabel(ctx, locals_if, tab, "IF", local_if);
 
     fprintf(ctx->file, "IF%d:\n", ctx->if_count);
 
     EmitPushImm32(ctx, 0);
 
-    EmitPopXtendReg   (ctx, WHAT_REG_R15);
-    EmitPopXtendReg   (ctx, WHAT_REG_R14);
-    EmitPushXtendReg  (ctx, WHAT_REG_R14);
-    EmitPushXtendReg  (ctx, WHAT_REG_R15);
+    EmitPopXtendReg   (ctx, WHAT_REG_R15);                                  // Comparing two values from stack,
+    EmitPopXtendReg   (ctx, WHAT_REG_R14);                                  // popping them to r14 and r15,
+    EmitPushXtendReg  (ctx, WHAT_REG_R14);                                  //
+    EmitPushXtendReg  (ctx, WHAT_REG_R15);                                  // saving r14 and r15
+    EmitCmpRegReg     (ctx, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);  // comparing r14, r15
 
-    EmitCmpRegReg     (ctx, WHAT_REG_R14, WHAT_REG_R15, WHAT_XTEND_XTEND);
+    char * cond   = EmitCondJmp(ctx, "jne COND", JNE_BYTE, 0);
+    char * if_end = EmitCondJmp(ctx, "jmp IF_END", JMP_BYTE, 0);
 
-    fprintf(ctx->file, "jne COND%d\n", ctx->if_count);
-    EmitJmp(ctx, JNE_BYTE, 0);
-    char * cond = ctx->buf - 1;
-
-    fprintf(ctx->file, "jmp IF_END%d\n", ctx->if_count);
-    EmitJmp(ctx, JMP_BYTE, 0);
-    char * if_end = ctx->buf - 1;
-
-    fprintf(ctx->file, "COND%d:\n", ctx->if_count);
-    *cond = ctx->buf - (cond + 1);
+    InsertOffsetToPtr(ctx, cond, "COND", ctx->if_count);
 
     ctx->if_count++;
-    ctx->if_cond = 1;
-    ctx->while_cond = 0;
+    if (root->right) BinIfBlock(ctx, tab, root->right);
 
-    _create_bin(ctx, tab, root->right);
-
-    fprintf(ctx->file, "IF_END%d:\n", local_if);
-    *if_end = ctx->buf - (if_end + 1);
-
-    sprintf(locals_if.local_func_name, "IF_END%d", local_if);
-    label = HtableLabelFind(*tab, &locals_if);
-    if (label) *label->offset = (int8_t)(ctx->buf - (label->offset + 1));
-    else return WHAT_NOLABEL_ERROR;
-
+    InsertOffsetToPtr  (ctx, if_end,"IF_END", local_if);
+    InsertOffsetToLabel(ctx, locals_if, tab, "IF_END", local_if);
     return WHAT_SUCCESS;
 
 }
@@ -418,8 +436,6 @@ int BinWhile(BinCtx * ctx, Htable ** tab, Node * root)
     fprintf(ctx->file, "WHILE_END%d:\n", local_while);
 
     *while_end_ptr = ctx->buf - (while_end_ptr + 1);
-
-    EMIT(ctx, "\x90", "nop");
 
     fprintf(ctx->file, ";---------------------------\n\n");
     PARSER_LOG("%x %x %x %x %x %x [%x] %x %x %x %x", *(while_ptr - 6), *(while_ptr - 5), *(while_ptr - 4), *(while_ptr - 3), *(while_ptr - 2), *(while_ptr - 1) , *while_ptr, *(while_ptr + 1), *(while_ptr + 2), *(while_ptr + 3), *(while_ptr + 4));

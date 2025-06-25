@@ -13,3 +13,6 @@ uuu.txt
 *.dmp
 what
 .vscode
+!iolib.o
+param
+param.o

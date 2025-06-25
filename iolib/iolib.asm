@@ -61,6 +61,14 @@ _IOLIB_OUTPUT:
         mov rax, sys_write
         syscall
 
+        mov rdi, num_buf
+        mov rcx, 128
+        xor rax, rax
+        rep stosb
+
+        mov rdi, buf
+        mov rcx, 128
+        rep stosb
 
         pop rdi
         pop rbx
@@ -68,6 +76,19 @@ _IOLIB_OUTPUT:
         pop rsi
         pop rcx
         ret
+
+;-----------------------------------|
+; Function for cleaning buffer      |
+; Inserting 0 bytes                 |
+;-----------------------------------|
+; Entry         Buf address in rsi  |
+; Return        Void                |
+; Destr                             |
+;-----------------------------------|
+
+CleanBuf:
+
+
 
 ;-----------------------------------|
 ; Function for counting line length |
