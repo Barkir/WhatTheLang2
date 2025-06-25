@@ -37,6 +37,7 @@ enum CommandBytes
 
 uint8_t CalcModrmRegVal(uint8_t reg, int term);
 uint8_t CalcModrmRegReg(uint8_t reg1, uint8_t reg2);
+uint8_t CalcMovModrm(uint8_t reg1, uint8_t reg2, int mem_mode);
 
 void EmitByte(BinCtx * ctx, char byte);
 void EmitInt32(BinCtx * ctx, int val);

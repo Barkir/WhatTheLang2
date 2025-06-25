@@ -18,17 +18,6 @@
 #define EMIT(ctx, binary, command)                                  \
     DoEmit((ctx), (binary), (sizeof(binary) - 1), (command))
 
-uint8_t CalcModrmRegReg(uint8_t reg1, uint8_t reg2)
-{
-    uint8_t mod = 0b11;
-    return (mod << 6) | (reg2 << 3) | reg1;
-}
-
-uint8_t CalcModrmRegVal(uint8_t reg, int term)
-{
-    return (0xc0) | (term << 3) | (reg & 7);
-}
-
 void DoEmit(BinCtx * ctx, const char * binary, size_t buf_len, const char * command)
 {
     assert(ctx);
@@ -268,30 +257,20 @@ void EmitMovRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode,
     if (mem_mode == WHAT_NOMEM)
     {
         EmitByte(ctx, MOV_REG_BYTE);
-
-        uint8_t mod = 0b11000000;
-        uint8_t modrm = mod | ((reg2 & 7) << 3) | (reg1 & 7);
-
+        uint8_t modrm = CalcMovModrm(reg1, reg2, WHAT_NOMEM);
         EmitByte(ctx, modrm);
     }
     else if (mem_mode == WHAT_MEM1)
     {
         EmitByte(ctx, MOV_REG_BYTE);
 
-        uint8_t mod = 0b00000000;
-        if ((reg1 & 7) == 4 || (reg1 & 7) == 5 || reg1 >= 8)
+        uint8_t modrm = CalcMovModrm(reg1, reg2, WHAT_MEM1);
+        EmitByte(ctx, modrm);
+
+        if ((reg1 & 7) == 4 || (reg1 & 7) == 5)
         {
-
-            uint8_t modrm = mod | ((reg2 & 7) << 3) | 0b100;
-            EmitByte(ctx, modrm);
-
             uint8_t sib = (0 << 6) | (4 << 3) | (reg1 & 7);
             EmitByte(ctx, sib);
-        }
-        else
-        {
-            uint8_t modrm = mod | ((reg2 & 7) << 3) | (reg1 & 7);
-            EmitByte(ctx, modrm);
         }
     }
     else if (mem_mode == WHAT_MEM2)
@@ -299,18 +278,14 @@ void EmitMovRegReg(BinCtx * ctx, uint8_t reg1, uint8_t reg2, enum RegModes mode,
         EmitByte(ctx, MOV_MEM_BYTE);
 
         uint8_t mod = 0b00000000;
+
+        uint8_t modrm = CalcMovModrm(reg1, reg2, WHAT_MEM2);
+        EmitByte(ctx, modrm);
+
         if ((reg2 & 7) == 4)
         {
-            uint8_t modrm = mod | ((reg1 & 7) << 3) | 0b100;
-            EmitByte(ctx, modrm);
-
             uint8_t sib = (reg2 & 7) | ((reg2 & 7) << 3);
             EmitByte(ctx, sib);
-        }
-        else
-        {
-            uint8_t modrm = mod | ((reg1 & 7) << 3) | (reg2 & 7);
-            EmitByte(ctx, modrm);
         }
     }
 
@@ -664,5 +639,36 @@ char * EmitCondJmp(BinCtx * ctx, const char * cond_jmp, const char * cond_str, i
     EmitJmp(ctx, command_byte, offset);
     char * cond = ctx->buf - 1; // -1 is needed because jmp is calculated from its' 1st byte
     return cond;
+}
+
+uint8_t CalcModrmRegReg(uint8_t reg1, uint8_t reg2)
+{
+    uint8_t mod = 0b11;
+    return (mod << 6) | (reg2 << 3) | reg1;
+}
+
+uint8_t CalcModrmRegVal(uint8_t reg, int term)
+{
+    return (0xc0) | (term << 3) | (reg & 7);
+}
+
+uint8_t CalcMovModrm(uint8_t reg1, uint8_t reg2, int mem_mode)
+{
+        uint8_t mod = 0;
+        switch(mem_mode)
+        {
+            case WHAT_NOMEM:    mod = 0b11000000;
+                                return mod | ((reg2 & 7) << 3) | (reg1 & 7);
+
+            case WHAT_MEM1:     if ((reg1 & 7) == 4 || (reg1 & 7) == 5)
+                                    return mod | ((reg2 & 7) << 3) | 0b100;
+                                else
+                                    return mod | ((reg2 & 7) << 3) | (reg1 & 7);
+
+            case WHAT_MEM2:     if ((reg2 & 7) == 4)
+                                    return mod | ((reg1 & 7) << 3) | 0b100;
+                                else
+                                    return mod | ((reg1 & 7) << 3) | (reg2 & 7);
+        }
 }
 
