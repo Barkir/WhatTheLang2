@@ -65,7 +65,7 @@ void GenerateElfHeader(char ** buf)
     phdr_code.p_paddr               = 0x400000;
     phdr_code.p_filesz              = 1024 * 8;
     phdr_code.p_memsz               = 1024 * 8;
-    phdr_code.p_flags               = PF_R | PF_X;              // read + execute mode
+    phdr_code.p_flags               = PF_X;                         // execute mode
     phdr_code.p_align               = 0x1000;
 
     Elf64_Phdr phdr_data = {};
@@ -76,7 +76,7 @@ void GenerateElfHeader(char ** buf)
     phdr_data.p_paddr               = 0x402000;
     phdr_data.p_filesz              = 1024 * 4;
     phdr_data.p_memsz               = 1024 * 4;
-    phdr_data.p_flags               = PF_R | PF_W;             // read + write
+    phdr_data.p_flags               = PF_R | PF_W;                  // read + write
     phdr_data.p_align               = 0x1000;
 
 

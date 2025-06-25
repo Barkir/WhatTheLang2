@@ -19,6 +19,7 @@ extern const size_t         NUM_WORDS;
 extern const size_t         BUF_LEN;
 extern const unsigned int   CRC32INIT;
 extern const size_t         ALIGNED_SIZE;
+extern const size_t         ELF_ENTRY_POINT;
 
 // -----------------------------------------------------------
 
@@ -30,6 +31,7 @@ extern const char *         RET_POP_STR;
 extern const char *         TREEDUMP_FNAME;
 extern const char *         HTABLE_NAMES_FNAME;
 extern const char *         HTABLE_LOCALS_FNAME;
+extern const char *         IOLIB_PATH;
 
 // -----------------------------------------------------------
 
@@ -37,4 +39,5 @@ extern const int            PRINT_OFFSET;
 extern const int            INPUT_OFFSET;
 
 // -----------------------------------------------------------
+
 

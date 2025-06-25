@@ -419,12 +419,16 @@ int BinWhile(BinCtx * ctx, Htable ** tab, Node * root)
 
     *while_end_ptr = ctx->buf - (while_end_ptr + 1);
 
+    EMIT(ctx, "\x90", "nop");
+
     fprintf(ctx->file, ";---------------------------\n\n");
     PARSER_LOG("%x %x %x %x %x %x [%x] %x %x %x %x", *(while_ptr - 6), *(while_ptr - 5), *(while_ptr - 4), *(while_ptr - 3), *(while_ptr - 2), *(while_ptr - 1) , *while_ptr, *(while_ptr + 1), *(while_ptr + 2), *(while_ptr + 3), *(while_ptr + 4));
     PARSER_LOG("while_ptr = %p", while_ptr);
 
     return WHAT_SUCCESS;
 }
+
+// LOGGER FOR
 
 int BinFuncExt(BinCtx * ctx, Htable ** tab, Node * root)
 {
@@ -567,7 +571,7 @@ Name ** GetFuncNameArray(Node * root, BinCtx * ctx)
 {
     VERIFY_PTRS(root, ctx);
 
-    Name func = {.name = NodeName(root), .type=FUNC_INTER_DEF};
+    Name func = {.name = NodeName(root), .type = FUNC_INTER_DEF};
     return HtableNameFind(ctx->names, &func)->name_array;
 }
 
@@ -576,7 +580,7 @@ int WriteIOLib(BinCtx * ctx)
 {
     assert(ctx);
 
-    FILE * IOlibRaw = fopen("iolib/iolib.o", "rb");
+    FILE * IOlibRaw = fopen(IOLIB_PATH, "rb");
     if (!IOlibRaw) return WHAT_FILEOPEN_ERROR;
 
     size_t sz = FileSize(IOlibRaw);

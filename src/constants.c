@@ -7,6 +7,15 @@ int WHILE_COUNT                         = 0;
 int ADR_COUNT                           = 0;
 const int DEFAULT_REG_NUMBER            = 5;
 
+// TODO: jmp-table for print and input functions
+
+// trampoline table |
+// jmp input        |
+// jmp print        |
+
+// call [syscall_table+0]|
+// call [syscall_table+8]|
+
 const int PRINT_OFFSET = 0x1527;
 const int INPUT_OFFSET = 0x1500;
 
@@ -16,9 +25,11 @@ const size_t NUM_WORDS                  = 2000;
 const size_t BUF_LEN                    = 32;
 const size_t ALIGNED_SIZE               = 65536 * 128;
 
+const size_t ELF_ENTRY_POINT =          0x401000;
 
 
 
+const char * IOLIB_PATH                 = "iolib/iolib.o";
 const char * GLOBAL_FUNC_NAME           = "GLOBAL_FUNC";
 
 

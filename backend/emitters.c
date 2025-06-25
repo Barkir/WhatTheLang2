@@ -21,8 +21,8 @@
 void DoEmit(BinCtx * ctx, const char * binary, size_t buf_len, const char * command)
 {
     fprintf(ctx->file, "%s\n", command);
-    for (int i = 0; i < buf_len; i++)
-        EmitByte(ctx, binary[i]);
+    memcpy(ctx->buf, binary, buf_len);
+    ctx->buf += buf_len;
 }
 
 void EmitInt64(BinCtx * ctx, int64_t val)
@@ -159,7 +159,6 @@ void EmitMovAbsXtend(BinCtx * ctx, uint8_t reg, int64_t val)
     // fprintf(ctx->file, "movabs %s, %ld\n", EnumReg2Str(reg, 1));
     EmitByte(ctx, XTEND_REG_BYTE);
     EmitByte(ctx, MOV_REG_VAL_BYTE + reg);
-
     EmitInt64(ctx, val);
 }
 
