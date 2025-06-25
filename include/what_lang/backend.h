@@ -64,14 +64,32 @@ typedef struct _bin_ctx
 
 } BinCtx;
 
+typedef struct _nametable_ctx
+{
+    Htable ** tab;
+    const char * func_name;
+    int stack_offset;
+
+} NameTableCtx;
+
 const static size_t LABEL_SIZE      = 32;
 const static size_t ELF_HEADER_SIZE = 64;
-const static size_t IOLIB_OFFSET      = 0x1500;
+const static size_t IOLIB_OFFSET    = 0x1500;
 
 int CreateBin(Tree * tree, const char * filename_asm, const char * filename_bin, enum RunModes mode);
-
 int _create_bin (BinCtx * ctx, Htable ** tab, Node * root);
 int _def_bin    (BinCtx * ctx, Htable ** tab, Node * root);
+
+Htable * CreateNameTable(Node * root);
+int _create_name_table(Node * root, Htable ** name_tab, NameTableCtx * ctx);
+
+
+//  Functions for generating binary code from if, while or opers
+void            BinCmpOper  (BinCtx * ctx, Htable ** tab, Node * root);
+void            BinArithOper(BinCtx * ctx, Htable ** tab, Node * root);
+int             BinWhile    (BinCtx * ctx, Htable ** tab, Node * root);
+int             BinIf       (BinCtx * ctx, Htable ** tab, Node * root);
+int             BinFuncExt  (BinCtx * ctx, Htable ** tab, Node * root);
 
 
 int CreateAsm(Tree * tree, const char * filename);
